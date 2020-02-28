@@ -1,6 +1,8 @@
 # OpenMania
 This is a WIP open-source framework for making Sonic fangames, heavily based on Sonic Mania. OpenMania features physics accurate to the title, as well as a few objects needed to construct a basic Sonic level. It's also compatible with Mania mods, and can be used to turn mods into independent fangames.
 
+![OpenMania](https://repository-images.githubusercontent.com/243855758/f2275d80-5a49-11ea-865e-1551795325a1)
+
 ## Disclaimer
 This is a non-profit fan project. It is in no way affliated with SEGA or the developers of Sonic Mania. Please buy Sonic Mania with money.
 
