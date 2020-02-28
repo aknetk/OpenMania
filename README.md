@@ -7,8 +7,13 @@ This is a non-profit fan project. It is in no way affliated with SEGA or the dev
 ## Documentation
 lol
 
+## Bugs
+Many at the moment. Missing backgrounds on Android, animation issues, you name it.
+
 ## Basic Usage
 This project uses my [Hatch Game Engine](https://github.com/aknetk/HatchGameEngine) to power it. You can either build it from source, or use one of the precompiled binaries on your platform of choice.
 (Currently compatible with Windows, MacOS, Nintendo Switch homebrew, Android)
+
+To edit and test the game, place the binary in the same folder as the `Scripts` folder.
 
 Feel free to use this code in other engines or frameworks, this project is for learning purposes, and I would love for it to be used as such.
