@@ -1,0 +1,116 @@
+var DrawGroup_FGLow_Low = 2;
+var DrawGroup_FGLow_High = 4;
+var DrawGroup_FGHigh_Low = 6;
+var DrawGroup_FGHigh_High = 8;
+var DrawGroup_AboveTiles = 12;
+var DrawGroup_HUD = 14;
+
+class Zone {
+    event Create() {
+        var sceneWidth = Scene.GetWidth() * 16.0;
+        var sceneHeight = Scene.GetHeight() * 16.0;
+        var maxPlayerCount = 8;
+
+        this.StaticWorldInertia = 0.0;
+        this.MinPlayerX = Array.Create(maxPlayerCount);
+        this.MaxPlayerX = Array.Create(maxPlayerCount);
+        this.MinPlayerY = Array.Create(maxPlayerCount);
+        this.MaxPlayerY = Array.Create(maxPlayerCount);
+        this.BoundPlayerTop = Array.Create(maxPlayerCount);
+        this.BoundPlayerLeft = Array.Create(maxPlayerCount);
+        this.BoundPlayerRight = Array.Create(maxPlayerCount);
+        this.BoundPlayerBottom = Array.Create(maxPlayerCount);
+
+        for (var i = 0; i < maxPlayerCount; i++) {
+            this.MinPlayerX[i] = 0.0;
+            this.MaxPlayerX[i] = sceneWidth;
+            this.MinPlayerY[i] = 0.0;
+            this.MaxPlayerY[i] = sceneHeight;
+            this.BoundPlayerTop[i] = true;
+            this.BoundPlayerLeft[i] = true;
+            this.BoundPlayerRight[i] = true;
+            this.BoundPlayerBottom[i] = true;
+        }
+
+
+        // this.SuperForm = 2;
+
+        var sceneName = Scene.GetName();
+        // "Stages/GHZ/Scene2.bin"
+        // "Stages/GHZ/TileConfig.bin"
+
+        var ind = String.LastIndexOf(sceneName, "/");
+        if (ind > -1) {
+            sceneName = String.Substring(sceneName, 0, ind) + "/TileConfig.bin";
+            Scene.LoadTileCollisions(sceneName);
+        }
+
+        if (String.Contains(sceneName, "MSZ")) {
+            Scene.SetLayerVisible(4, false);
+        }
+
+        var scratchInd = -1;
+        if ((scratchInd = Scene.GetLayerIndex("Scratch")) != -1) {
+            Scene.SetLayerVisible(scratchInd, false);
+        }
+        scratchInd = -1;
+        if ((scratchInd = Scene.GetLayerIndex("Move")) != -1) {
+            Scene.SetLayerVisible(scratchInd, false);
+        }
+    }
+    event UpdateLate() {
+        var player, zone = this;
+        with ("Player") {
+            player = this;
+
+            var index = 0;
+            var staticWorldInertia = zone.StaticWorldInertia;
+
+            // Bound left
+            var zoneMinPlayerX = zone.MinPlayerX[index];
+            var playerHitboxLeft = player.HitboxW * -0.5 + player.HitboxOffX;
+            if (player.X + playerHitboxLeft <= zoneMinPlayerX) {
+                player.X = -playerHitboxLeft + zoneMinPlayerX;
+                if (player.Ground) {
+                    if (player.GroundSpeed < staticWorldInertia) {
+                        player.XSpeed =
+                        player.GroundSpeed = staticWorldInertia;
+                        player.PushingTimer = 0;
+                    }
+                }
+                else if (player.XSpeed < staticWorldInertia) {
+                    player.XSpeed = staticWorldInertia;
+                    player.GroundSpeed = 0.0;
+                }
+            }
+
+            // Bound right
+            var zoneMaxPlayerX = zone.MaxPlayerX[index];
+            var playerHitboxRight = player.HitboxW * 0.5 + player.HitboxOffX;
+            if (player.X + playerHitboxRight >= zoneMaxPlayerX) {
+                player.X = -playerHitboxRight + zoneMaxPlayerX;
+                if (player.Ground) {
+                    if (player.GroundSpeed > staticWorldInertia) {
+                        player.XSpeed =
+                        player.GroundSpeed = staticWorldInertia;
+                        player.PushingTimer = 0;
+                    }
+                }
+                else if (player.XSpeed > staticWorldInertia) {
+                    player.XSpeed = staticWorldInertia;
+                    player.GroundSpeed = 0.0;
+                }
+            }
+
+            // Bound top
+            var zoneMinPlayerY = zone.MinPlayerY[index];
+            var playerHitboxTop = -20.0; // player.HitboxH * -0.5 + player.HitboxOffY;
+            if (player.Y + playerHitboxTop <  zoneMinPlayerY) {
+                player.Y = -playerHitboxTop + zoneMinPlayerY;
+                if (player.YSpeed < 0.0) {
+                    player.YSpeed = 0.0;
+                }
+            }
+        }
+    }
+}

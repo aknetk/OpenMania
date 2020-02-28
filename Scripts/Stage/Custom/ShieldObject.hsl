@@ -1,0 +1,65 @@
+class ShieldObject {
+    event Create() {
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Shields.bin", SCOPE_SCENE);
+        this.SetAnimation(0, 0);
+        this.BlendMode = BlendMode_NORMAL;
+        this.Flip = false;
+        this.Hidden = false;
+        this.Behind = false;
+        this.Alpha = 1.0;
+        this.AutoAnimate = false;
+        this.Player = null;
+    }
+    event Update() {
+        if (this.Player.Shield == ShieldType_NONE)
+            return;
+        
+        this.Animate();
+        // Basic
+        if (this.CurrentAnimation == 0) {
+            this.Flip = this.CurrentFrame >= 4;
+            this.Hidden = false;
+            this.Behind = false;
+            this.BlendMode = BlendMode_ADD;
+            this.Alpha = 0.5;
+        }
+        // Fire
+        else if (this.CurrentAnimation == 1 ||
+            this.CurrentAnimation == 2) {
+            // this.Flip = false;
+            this.Hidden = false;
+            this.Behind = this.CurrentFrame % 2 == 1;
+            this.BlendMode = BlendMode_NORMAL;
+            this.Alpha = 1.0;
+        }
+        // Lightning
+        else if (this.CurrentAnimation == 3) {
+            this.Flip = this.CurrentFrame % 2 == 0;
+            this.Hidden = false;
+            this.Behind = this.Flip;
+            this.BlendMode = BlendMode_NORMAL;
+            this.Alpha = 1.0;
+        }
+        // Bubble
+        else if (this.CurrentAnimation == 5) {
+            this.Flip = false;
+            this.Hidden = false;
+            this.Behind = false;
+            this.BlendMode = BlendMode_ADD;
+            this.Alpha = 1.0;
+        }
+        // Instashield
+        else if (this.CurrentAnimation == 10) {
+            this.Flip = false;
+            this.Hidden = false;
+            this.Behind = true;
+            this.BlendMode = BlendMode_ADD;
+            this.Alpha = 0.5;
+        }
+    }
+    event OnAnimationFinish() {
+        if (this.CurrentAnimation == 9) {
+            this.SetAnimation(5, 0);
+        }
+    }
+}

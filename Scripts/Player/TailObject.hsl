@@ -1,0 +1,16 @@
+class TailObject {
+    event Create() {
+        this.Sprite = Resources.LoadSprite("Sprites/Players/TailSprite.bin", SCOPE_SCENE);
+        this.SetAnimation(0, 0);
+        this.Rotation = 0.0;
+        this.AutoAnimate = false;
+    }
+    event OnAnimationFinish() {
+        // this.Active = false;
+    }
+    event Render() {
+        // Player will be handling this object's Rendering
+        // Draw.SetBlendColor(1.0, 1.0, 1.0, 1.0);
+        // Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+    }
+}

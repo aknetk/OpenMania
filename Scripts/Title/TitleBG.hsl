@@ -1,0 +1,25 @@
+class TitleBG {
+    event Create() {
+        this.Priority = 3 * 4;
+        this.Sprite = Resources.LoadSprite("Sprites/Title/Background.bin", SCOPE_SCENE);
+        this.SetAnimation(0, 0);
+
+        this.Type = this.PropertyGet("type");
+        if (this.Type == 4)
+            this.Active = false;
+
+        this.SetAnimation(this.Type, 0);
+    }
+
+    event Update() {
+        this.X += 2.0;
+        if (this.X > 640.0)
+            this.X -= 816.0;
+    }
+
+    event Render() {
+        if (this.Sprite > -1) {
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, this.X, this.Y, false, false);
+        }
+    }
+}

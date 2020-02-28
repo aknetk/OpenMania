@@ -1,0 +1,61 @@
+class UIPicture {
+    event Create() {
+        this.LogoSprite = Resources.LoadSprite("Sprites/Logos/Logos.bin", SCOPE_SCENE);
+        this.LogoSound = Resources.LoadSound("SoundFX/Stage/Sega.wav", SCOPE_SCENE);
+        this.ListID = 0;
+        this.RectY = 0.0;
+
+        this.SEGATimer = 120;
+        this.Fade = 0;
+        this.FadeLength = 30;
+
+        if (this.PropertyExists("listID"))
+            this.ListID = this.PropertyGet("listID");
+
+        if (this.ListID == 0)
+            this.RectY = 0.0;
+        else
+            this.RectY = 240.0;
+
+        this.X -= (512.0 - 424.0) / 2.0;
+        // this.Y -= 240.0;
+
+        if (this.ListID == 0) {
+            Sound.Play(this.LogoSound);
+        }
+    }
+    event Update() {
+        if (this.SEGATimer > 0) {
+            this.SEGATimer--;
+            return;
+        }
+
+        if (this.Fade < this.FadeLength) {
+            this.Fade++;
+            if (this.Fade == this.FadeLength) {
+
+            }
+        }
+    }
+    event Render() {
+        var vw = 424.0, vh = 240.0;
+        var eased = this.Fade * 1.0 / this.FadeLength;
+        // if (this.FadeIn) {
+        //     eased = 1.0 - eased;
+        // }
+        eased = Ease.InOutQuad(eased);
+
+        Draw.SetBlendColor(0.9375, 0.9375, 0.9375, 1.0);
+        Draw.Rectangle(0.0, this.RectY, vw, vh);
+
+        Draw.Sprite(this.LogoSprite, this.ListID, 0, this.X, this.Y, false, false);
+
+        Draw.SetBlendMode(BlendMode_SUBTRACT);
+        Draw.SetBlendColor(
+            Math.Clamp(eased * 3.0, 0.0, 1.0),
+            Math.Clamp(eased * 3.0 - 1.0, 0.0, 1.0),
+            Math.Clamp(eased * 3.0 - 2.0, 0.0, 1.0), 1.0);
+        Draw.Rectangle(0.0, this.RectY, vw, vh);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+}

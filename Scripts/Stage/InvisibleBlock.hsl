@@ -1,0 +1,90 @@
+class InvisibleBlock {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Priority = DrawGroup_FGHigh_High;
+
+        this.Width = 0;
+        this.Height = 0;
+        this.PlaneFilter = 0;
+        this.NoCrush = false;
+        this.ActiveNormal = false;
+        this.TimeAttackOnly = false;
+        this.NoChibi = false;
+        if (this.PropertyExists("width"))
+            this.Width = this.PropertyGet("width");
+        if (this.PropertyExists("height"))
+            this.Height = this.PropertyGet("height");
+        if (this.PropertyExists("planeFilter"))
+            this.PlaneFilter = this.PropertyGet("planeFilter");
+        if (this.PropertyExists("noCrush"))
+            this.NoCrush = this.PropertyGet("noCrush");
+        if (this.PropertyExists("activeNormal"))
+            this.ActiveNormal = this.PropertyGet("activeNormal");
+        if (this.PropertyExists("timeAttackOnly"))
+            this.TimeAttackOnly = this.PropertyGet("timeAttackOnly");
+        if (this.PropertyExists("noChibi"))
+            this.NoChibi = this.PropertyGet("noChibi");
+
+        if (this.TimeAttackOnly && global.GameMode < 2) {
+            this.Active = false;
+            return;
+        }
+
+        this.HitboxW = 16.0 * this.Width + 16.0;
+        this.HitboxH = 16.0 * this.Height + 16.0;
+        this.HitboxHalfW = this.HitboxW / 2.0;
+        this.HitboxHalfH = this.HitboxH / 2.0;
+        this.FlipFlag = false;
+
+        this.Visible = false;
+
+        this.OnScreenHitboxW = this.HitboxW;
+        this.OnScreenHitboxH = this.HitboxH;
+    }
+    event Update() {
+        // Player detection
+        var player, block = this;
+        with ("Player") {
+            player = this;
+            var planeFilter = block.PlaneFilter;
+            if (planeFilter <= 0 || player.PlaneIndex == ((planeFilter - 1) & 1)) {
+                if (!block.NoChibi || !player.UseChibiSprite) {
+                    switch (Static.Entity_SolidCollideWithPlayer(block, player)) {
+                        case 1:
+                            if (!block.NoCrush)
+                                player.VerticalCollisionFlag |= 1;
+                            break;
+                        case 2:
+                            if (!block.NoCrush)
+                                player.HorizontalCollisionFlag |= 1;
+                            break;
+                        case 3:
+                            if (!block.NoCrush)
+                                player.HorizontalCollisionFlag |= 2;
+                            break;
+                        case 4:
+                            if (!block.NoCrush)
+                                player.VerticalCollisionFlag |= 2;
+                            break;
+                    }
+                }
+            }
+        }
+    }
+    event Render() {
+        if (!this.Visible)
+            return;
+        if (!this.OnScreen)
+            return;
+
+        Draw.Save();
+        Draw.Translate(Math.Floor(this.X), Math.Floor(this.Y), 0.0);
+            Draw.SetBlendColor(1.0, 1.0, 1.0, 0.7);
+            Draw.Rectangle(-this.HitboxHalfW, -this.HitboxHalfH, this.HitboxW, this.HitboxH);
+        Draw.Restore();
+    }
+}

@@ -1,0 +1,509 @@
+class Static {
+    // This event is unique only to the Static object
+    event GameStart() {
+        global.SelectedCharacter = 2;
+        global.Level = 0;
+        global.LevelScenes = [
+            "Stages/GHZ/Scene1.bin",
+            "Stages/GHZ/Scene2.bin",
+            "Stages/CPZ/Scene1.bin",
+            "Stages/CPZ/Scene2.bin",
+            "Stages/SPZ1/Scene1.bin",
+            "Stages/SPZ2/Scene1.bin",
+            "Stages/FBZ/Scene1.bin",
+            "Stages/FBZ/Scene2.bin",
+            "Stages/PSZ1/Scene1.bin",
+            "Stages/PSZ2/Scene2.bin",
+            "Stages/SSZ1/Scene1.bin",
+            "Stages/SSZ2/Scene1.bin",
+            "Stages/HCZ/Scene1.bin",
+            "Stages/HCZ/Scene2.bin",
+            "Stages/MSZ/Scene1K.bin",
+            "Stages/MSZ/Scene2.bin",
+            "Stages/OOZ1/Scene1.bin",
+            "Stages/OOZ2/Scene2.bin",
+            "Stages/LRZ1/Scene1.bin",
+            "Stages/LRZ2/Scene1.bin",
+            "Stages/MMZ/Scene1.bin",
+            "Stages/MMZ/Scene2.bin",
+            "Stages/TMZ1/Scene1.bin",
+            "Stages/TMZ2/Scene1.bin",
+        ];
+
+        global.GameMode = 0;
+        global.PlayerID = 0;
+        global.SpecialCleared = 0;
+        global.SpecialRingID = 0;
+        global.BlueSphereID = 0;
+        global.BlueSphereInit = 0;
+        global.SaveLoaded = 0;
+        global.SaveRAM = 0;
+        global.SaveSlotID = 0;
+        global.NoSaveSlot = 0;
+        global.MenuParam = 0;
+        global.ItemMode = 0;
+        global.SuppressTitlecard = 0;
+        global.SuppressAutoMusic = 0;
+        global.CompetitionSession = 0;
+        global.MedalMods = 0;
+        global.ParallaxOffset = 0;
+        global.EnableIntro = 0;
+        global.OptionsLoaded = 0;
+        global.OptionsRAM = 0;
+        global.PresenceID = 0;
+        global.MedallionDebug = 0;
+        global.NoSave = 0;
+        global.NotifiedAutosave = 0;
+        global.RecallEntities = 0;
+        global.RestartRings = 0;
+        global.Restart1UP = 0;
+        global.RestartShield = 0;
+        global.RestartPos = 0;
+        global.RestartSlot = 0;
+        global.RestartDir = 0;
+        global.RestartMinutes = 0;
+        global.RestartSeconds = 0;
+        global.RestartMilliseconds = 0;
+        global.TempMinutes = 0;
+        global.TempSeconds = 0;
+        global.TempMilliseconds = 0;
+        global.RestartScore = 0;
+        global.RestartScore1UP = 0;
+        global.RestartLives = 0;
+        global.RestartMusicID = 0;
+        global.RestartFlags = 0;
+        global.TempFlags = 0;
+    }
+
+    event Entity_CollideWithObject(source, other) {
+        return source.CollideWithObject(other);
+
+        /*
+        var sourceX = Math.Floor(source.X);
+        var sourceY = Math.Floor(source.Y);
+        var otherX = Math.Floor(other.X);
+        var otherY = Math.Floor(other.Y);
+
+        var otherHitboxW = (other.HitboxW) * 0.5;
+        var otherHitboxH = (other.HitboxH) * 0.5;
+        var sourceHitboxW = (source.HitboxW) * 0.5;
+        var sourceHitboxH = (source.HitboxH) * 0.5;
+
+        if (otherY + otherHitboxH < sourceY - sourceHitboxH ||
+            otherY - otherHitboxH > sourceY + sourceHitboxH ||
+            sourceX - sourceHitboxW > otherX + otherHitboxW ||
+            sourceX + sourceHitboxW < otherX - otherHitboxW)
+            return false;
+
+        return true;
+        //*/
+    }
+    event Entity_SolidCollideWithPlayer(source, player) {
+        if (player.IsGhost)
+            return 0;
+
+        var v6, v7;
+        // v6 = player.StaticHitbox;
+        // if (!v6)
+        //     v6 = GetPlayerHitbox
+
+        // playerHitbox = &unk_66B804;
+        // if (v6)
+        //     playerHitbox = v6;
+
+        player.GetHitboxFromSprite(player.Sprite, player.CurrentAnimation, player.CurrentFrame, 0);
+
+        var value = Static.Entity_SolidCollideWithObject(source, player, 1);
+        switch (value) {
+            // Top Side
+            case 1: {
+                player.InputLock = 0;
+                player.AngleMode = 0;
+
+                var leftSide, rightSide, halfW = source.HitboxW / 2.0;
+                if (source.FlipFlag & 1) {
+                    leftSide  = source.X - halfW;
+                    rightSide = source.X + halfW;
+                }
+                else {
+                    leftSide  = source.X - halfW;
+                    rightSide = source.X + halfW;
+                }
+
+                var playerX = player.X;
+                var rightX = playerX + player.SensorRightX;
+                var rightShX = playerX + player.SensorRightShortX;
+                var middleX = playerX + player.SensorMiddleX;
+                var leftShX = playerX + player.SensorLeftShortX;
+                var leftX = playerX + player.SensorLeftX;
+                if (rightX >= leftSide && rightX <= rightSide)
+                    player.GroundSensorMask |= 1;
+                if (rightShX >= leftSide && rightShX <= rightSide)
+                    player.GroundSensorMask |= 2;
+                if (middleX >= leftSide && middleX <= rightSide)
+                    player.GroundSensorMask |= 4;
+                if (leftShX >= leftSide && leftShX <= rightSide)
+                    player.GroundSensorMask |= 8;
+                if (leftX >= leftSide && leftX <= rightSide)
+                    player.GroundSensorMask |= 16;
+
+                if (source.YSpeed <= 0.0)
+                    player.VerticalCollisionFlag |= 1;
+                break;
+            }
+            // Left Side
+            case 2: {
+                player.InputLock = 0;
+                if (player.InputLeft && player.Ground) {
+                    player.GroundSpeed = -0.5;
+                    player.X = Math.Floor(player.X);
+                }
+                break;
+            }
+            // Right Side
+            case 3: {
+                player.InputLock = 0;
+                if (player.InputRight && player.Ground) {
+                    player.GroundSpeed = 0.5;
+                    player.X = Math.Floor(player.X);
+                }
+                break;
+            }
+            // Bottom Side
+            case 4: {
+                break;
+            }
+            // No collision
+            default:
+                value = 0;
+        }
+        return value;
+    }
+    event Entity_SolidCollideWithObject(source, other, flag) {
+        return source.SolidCollideWithObject(other, flag);
+
+        /*
+        // NOTE: "flag" might be "UseGroundSpeed"
+        var initialOtherX = (other.X);
+        var initialOtherY = (other.Y);
+        var sourceX = Math.Floor(source.X);
+        var sourceY = Math.Floor(source.Y);
+        var otherX = Math.Floor(initialOtherX);
+        var otherY = Math.Floor(initialOtherY);
+        var otherNewX = initialOtherX;
+        var collideSideHori = 0;
+        var collideSideVert = 0;
+
+        var otherHitboxW = (other.HitboxW) * 0.5;
+        var otherHitboxH = (other.HitboxH) * 0.5;
+        var otherHitboxWSq = (other.HitboxW - 2.0) * 0.5;
+        var otherHitboxHSq = (other.HitboxH - 2.0) * 0.5;
+        var sourceHitboxW = (source.HitboxW) * 0.5;
+        var sourceHitboxH = (source.HitboxH) * 0.5;
+
+        // NOTE: Keep this.
+        // if ( other_X <= (sourceHitbox->Right + sourceHitbox->Left + 2 * source_X) >> 1 )
+        // if ( other_X <= (sourceHitbox->Right + sourceHitbox->Left) / 2 + source_X )
+        // if ( other_X <= source_X + (sourceHitbox->Right + sourceHitbox->Left) / 2 )
+        // if other.X <= source.X + source.HitboxCenterX
+
+        // Check squeezed vertically
+        if (sourceY - sourceHitboxH < initialOtherY + otherHitboxHSq &&
+            sourceY + sourceHitboxH > initialOtherY - otherHitboxHSq) {
+            // if other.X <= source.X + source.HitboxCenterX
+            if (otherX <= sourceX) {
+                if (otherX + otherHitboxW >= sourceX - sourceHitboxW) {
+                    collideSideHori = 2;
+                    otherNewX = source.X + (-sourceHitboxW - otherHitboxW);
+                }
+            }
+            else {
+                if (otherX - otherHitboxW < sourceX + sourceHitboxW) {
+                    collideSideHori = 3;
+                    otherNewX = source.X + (sourceHitboxW - (-otherHitboxW));
+                }
+            }
+        }
+
+        // Check squeezed horizontally
+        if (sourceX - sourceHitboxW < initialOtherX + otherHitboxWSq &&
+            sourceX + sourceHitboxW > initialOtherX - otherHitboxWSq) {
+            // if other.Y <= source.Y + source.HitboxCenterY
+            if (otherY <= sourceY) {
+                if (otherY + otherHitboxH >= sourceY - sourceHitboxH) {
+                    collideSideVert = 1;
+                    otherY = source.Y + (-sourceHitboxH - otherHitboxH);
+                }
+            }
+            else {
+                if (otherY - otherHitboxH < sourceY + sourceHitboxH) {
+                    collideSideVert = 4;
+                    otherY = source.Y + (sourceHitboxH - (-otherHitboxH));
+                }
+            }
+        }
+
+        var deltaSquaredX1 = otherNewX - other.X;
+        var deltaSquaredX2 = initialOtherX - other.X;
+        var deltaSquaredY1 = otherY - other.Y;
+        var deltaSquaredY2 = initialOtherY - other.Y;
+
+        if (collideSideHori && collideSideVert) {
+            // print
+            //     " deltaSquaredX1: " + deltaSquaredX1 +
+            //     " deltaSquaredX2: " + deltaSquaredX2 +
+            //     " deltaSquaredY1: " + deltaSquaredY1 +
+            //     " deltaSquaredY2: " + deltaSquaredY2;
+            // print
+            //     " collideSideHori: " + collideSideHori +
+            //     " collideSideVert: " + collideSideVert;
+        }
+
+        deltaSquaredX1 *= deltaSquaredX1;
+        deltaSquaredX2 *= deltaSquaredX2;
+        deltaSquaredY1 *= deltaSquaredY1;
+        deltaSquaredY2 *= deltaSquaredY2;
+
+        var v47 = collideSideVert, v48;
+        var v46 = collideSideHori;
+
+        if (collideSideHori != 0 || collideSideVert != 0) {
+            if (deltaSquaredX1 + deltaSquaredY2 >= deltaSquaredX2 + deltaSquaredY1) {
+                if (collideSideVert || !collideSideHori) {
+                    other.X = initialOtherX;
+                    other.Y = otherY;
+                    if (flag == 1) {
+                        if (collideSideVert != 1) {
+                            if (collideSideVert == 4 && other.YSpeed < 0.0) {
+                                other.YSpeed = 0.0;
+                                return v47;
+                            }
+                            return v47;
+                        }
+
+                        if (other.YSpeed > 0.0)
+                            other.YSpeed = 0.0;
+                        if (!other.Ground && other.YSpeed >= 0.0) {
+                            other.GroundSpeed = other.XSpeed;
+                            other.Angle = 0;
+                            other.Ground = true;
+                        }
+                    }
+                    return v47;
+                }
+            }
+            else {
+                if (collideSideVert && !collideSideHori) {
+                    other.X = initialOtherX;
+                    other.Y = otherY;
+                    if (flag == 1) {
+                        if (collideSideVert != 1) {
+                            if (collideSideVert == 4 && other.YSpeed < 0.0) {
+                                other.YSpeed = 0.0;
+                                return v47;
+                            }
+                            return v47;
+                        }
+
+                        if (other.YSpeed > 0.0)
+                            other.YSpeed = 0.0;
+                        if (!other.Ground && other.YSpeed >= 0.0) {
+                            other.GroundSpeed = other.XSpeed;
+                            other.Angle = 0;
+                            other.Ground = true;
+                        }
+                    }
+                    return v47;
+                }
+            }
+
+            other.X = otherNewX;
+            other.Y = initialOtherY;
+            if (flag == 1) {
+                var v50;
+                if (other.Ground) {
+                    v50 = other.GroundSpeed;
+                    if (other.AngleMode == 2)
+                        v50 = -v50;
+                }
+                else {
+                    v50 = other.XSpeed;
+                }
+
+                if (v46 == 2) {
+                    if (v50 <= 0.0)
+                        return v46;
+                }
+                else if (v46 != 3 || v50 >= 0.0) {
+                    return v46;
+                }
+
+                other.GroundSpeed = 0.0;
+                other.XSpeed = 0.0;
+            }
+            return v46;
+        }
+        return 0;
+
+        //*/
+    }
+    event Entity_TopSolidCollideWithPlayer(source, player) {
+        if (player.IsGhost)
+            return 0;
+
+        var v6, v7;
+        // v6 = player.StaticHitbox;
+        // if (!v6)
+        //     v6 = GetPlayerHitbox
+
+        // playerHitbox = &unk_66B804;
+        // if (v6)
+        //     playerHitbox = v6;
+
+        player.GetHitboxFromSprite(player.Sprite, player.CurrentAnimation, player.CurrentFrame, 0);
+
+        // var value = this.Entity_TopSolidCollideWithObject(source, player, playerHitbox, 1);
+        if (!Static.Entity_TopSolidCollideWithObject(source, player, 1))
+            return 0;
+
+        player.InputLock = 0;
+        player.AngleMode = 0;
+
+        var leftSide, rightSide, halfW = source.HitboxW / 2.0;
+        if (source.FlipFlag & 1) {
+            leftSide  = source.X - halfW;
+            rightSide = source.X + halfW;
+        }
+        else {
+            leftSide  = source.X - halfW;
+            rightSide = source.X + halfW;
+        }
+
+        var playerX = player.X;
+        var rightX = playerX + player.SensorRightX;
+        var rightShX = playerX + player.SensorRightShortX;
+        var middleX = playerX + player.SensorMiddleX;
+        var leftShX = playerX + player.SensorLeftShortX;
+        var leftX = playerX + player.SensorLeftX;
+        if (rightX >= leftSide && rightX <= rightSide)
+            player.GroundSensorMask |= 1;
+        if (rightShX >= leftSide && rightShX <= rightSide)
+            player.GroundSensorMask |= 2;
+        if (middleX >= leftSide && middleX <= rightSide)
+            player.GroundSensorMask |= 4;
+        if (leftShX >= leftSide && leftShX <= rightSide)
+            player.GroundSensorMask |= 8;
+        if (leftX >= leftSide && leftX <= rightSide)
+            player.GroundSensorMask |= 16;
+
+        if (source.YSpeed <= 0.0)
+            player.VerticalCollisionFlag |= 1;
+
+        return 1;
+    }
+    event Entity_TopSolidCollideWithObject(source, other, flag) {
+        return source.TopSolidCollideWithObject(other, flag);
+
+        /*
+
+        // NOTE: "flag" might be "UseGroundSpeed"
+        var initialOtherX = (other.X);
+        var initialOtherY = (other.Y);
+        var sourceX = Math.Floor(source.X);
+        var sourceY = Math.Floor(source.Y);
+        var otherX = Math.Floor(initialOtherX);
+        var otherY = Math.Floor(initialOtherY);
+        var otherYMinusYSpeed = Math.Floor(initialOtherY - other.YSpeed);
+
+        var otherHitboxW = (other.HitboxW) * 0.5;
+        var otherHitboxH = (other.HitboxH) * 0.5;
+        var sourceHitboxW = (source.HitboxW) * 0.5;
+        var sourceHitboxH = (source.HitboxH) * 0.5;
+
+        if (otherY + otherHitboxH < sourceY - sourceHitboxH ||
+            otherYMinusYSpeed + otherHitboxH > sourceY + sourceHitboxH ||
+            sourceX - sourceHitboxW >= otherX + otherHitboxW ||
+            sourceX + sourceHitboxW <= otherX - otherHitboxW ||
+            other.YSpeed < 0.0)
+            return false;
+
+        other.Y = source.Y + ((-sourceHitboxH) - otherHitboxH);
+        if (flag) {
+            other.YSpeed = 0.0;
+            if (!other.Ground) {
+                other.GroundSpeed = other.XSpeed;
+                other.Angle = 0;
+                other.Ground = true;
+            }
+        }
+        return true;
+        // */
+    }
+
+    event Entity_CheckTileCollision_Move(entity, unused_layerCollisionMask, angleMode, planeIndex, offsetX, offsetY, moveEntity) {
+        var startX = entity.X + offsetX;
+        var startY = entity.Y + offsetY;
+        switch (angleMode) {
+            case 0:
+                return false;
+            // Checking to right
+            case 1:
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_LEFT, 1.0, 0.0, -8.0, 14.0, planeIndex)) {
+                    if (moveEntity)
+                        entity.X = entity.STC_X - offsetX;
+                    return true;
+                }
+                return false;
+            case 2:
+                return false;
+            // Checking to left
+            case 3:
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_RIGHT, -1.0, 0.0, -8.0, 14.0, planeIndex)) {
+                    if (moveEntity)
+                        entity.X = entity.STC_X - offsetX;
+                    return true;
+                }
+                return false;
+        }
+        return false;
+    }
+    event SenseTileCollision(entity, x, y, side, dirX, dirY, startLen, endLen, planeIndex) {
+        x += dirX * startLen;
+        y += dirY * startLen;
+
+        var angle;
+        for (var i = startLen; i < endLen; i += 1.0) {
+            angle = TileCollision.PointExtended(x, y, planeIndex, side);
+            if (angle >= 0) {
+                entity.STC_X = Math.Floor(x);
+                entity.STC_Y = Math.Floor(y);
+                entity.STC_Angle = angle;
+                entity.STC_Length = i;
+                return true;
+            }
+
+            x += dirX;
+            y += dirY;
+        }
+        return false;
+    }
+
+    event HexSin(n) {
+        return Math.Sin((n & 0xFF) * Math_PI / 128.0);
+    }
+    event HexCos(n) {
+        return Math.Cos((n & 0xFF) * Math_PI / 128.0);
+    }
+    event HexSinMedPrec(n) {
+        return Math.Sin((n & 0x1FF) * Math_PI / 256.0);
+    }
+    event HexCosMedPrec(n) {
+        return Math.Cos((n & 0x1FF) * Math_PI / 256.0);
+    }
+    event HexSinHighPrec(n) {
+        return Math.Sin((n & 0x3FF) * Math_PI / 512.0);
+    }
+    event HexCosHighPrec(n) {
+        return Math.Cos((n & 0x3FF) * Math_PI / 512.0);
+    }
+}

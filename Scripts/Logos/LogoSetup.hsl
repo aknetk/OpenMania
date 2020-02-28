@@ -1,0 +1,9 @@
+class LogoSetup {
+    event Create() {
+        // View.SetSize(0, 424.0, 240.0);
+        // Window.SetSize(848, 480);
+    }
+    event Render() {
+        // Draw.Sprite(this.LogoSprite, this.ListID, 0, this.X, this.Y, false, false);
+    }
+}

@@ -1,0 +1,36 @@
+class ShieldSpark {
+    event Create() {
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Shields.bin", SCOPE_SCENE);
+        this.SetAnimation(4, 0);
+
+        this.Life = 22;
+        this.Gravity = 0.09375;
+        this.Flash = 0;
+        this.Frame = 0;
+        this.RotSpeed = 0.0;
+        this.Rotation = 0.0;
+    }
+    event Update() {
+        if (this.Life > 0) {
+            this.Life--;
+            if (this.Life == 0)
+                this.Active = false;
+        }
+
+        if (this.Flash > 0) {
+            this.Frame = (this.Frame + 1) % (this.Flash + 1);
+        }
+
+        this.Rotation += this.RotSpeed;
+    }
+    event Render() {
+        if (this.Flash > 0 && this.Frame / this.Flash == 0)
+            return;
+
+        Draw.Save();
+        Draw.Translate(Math.Floor(this.X), Math.Floor(this.Y));
+        Draw.Rotate(this.Rotation);
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, 0.0, 0.0, false, false);
+        Draw.Restore();
+    }
+}

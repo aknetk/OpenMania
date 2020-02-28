@@ -1,0 +1,17 @@
+class WaterSplash {
+    event Create() {
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Water.bin", SCOPE_SCENE);
+        this.SetAnimation(1, 0);
+    }
+    event OnAnimationFinish() {
+        this.Active = false;
+    }
+    event Render() {
+        Draw.SetBlendMode(BlendMode_ADD);
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendColor(1.0, 1.0, 1.0, 0.5);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+        Draw.SetTextureBlend(false);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+}

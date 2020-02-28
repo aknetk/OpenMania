@@ -1,0 +1,78 @@
+class BoundsMarker {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Type = 0;
+        this.Width = 0.0;
+        this.VSDisable = 0;
+        this.Offset = 0.0;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("width"))
+            this.Width = this.PropertyGet("width") * 0.5;
+        if (this.PropertyExists("vsDisable"))
+            this.VSDisable = this.PropertyGet("vsDisable");
+        if (this.PropertyExists("offset"))
+            this.Offset = this.PropertyGet("offset") * 1.0;
+
+        if (this.Width == 0.0)
+            this.Width = 24.0;
+        this.OnScreenHitboxW = this.Width * 2.0;
+
+        this.JumpToPlayer = true;
+    }
+    event Update() {
+        var player, boundsMarker, camera;
+        var jumpToPlayer = this.JumpToPlayer;
+        this.JumpToPlayer = false;
+
+        with ("Player") {
+            player = this;
+            boundsMarker = other;
+            if (!player.Active)
+                continue;
+
+            camera = player.CameraPtr;
+            if (!camera)
+                continue;
+
+            if (player.Status == player.Player_StatusDead ||
+                player.Status == player.Player_StatusFlyingIn ||
+                player.Status == player.Player_StatusJumpingIn ||
+                player.Status == player.Player_StatusTransforming)
+                continue;
+
+            var distance = Math.Abs(player.X - boundsMarker.X);
+            if (distance >= boundsMarker.Width)
+                continue;
+
+            var type = boundsMarker.Type;
+            switch (type) {
+                case 0:
+                    camera.ToMaxY = boundsMarker.Y;
+                    break;
+                case 1:
+                    if (player.Y < boundsMarker.Y - boundsMarker.Offset) {
+                        camera.ToMaxY = boundsMarker.Y;
+                    }
+                    break;
+                case 2:
+                    if (player.Y > boundsMarker.Y + boundsMarker.Offset) {
+                        camera.ToMinY = boundsMarker.Y;
+                    }
+                    break;
+                case 3:
+                    camera.ToMinY = boundsMarker.Y;
+                    break;
+            }
+
+            if (jumpToPlayer) {
+                camera.MaxY = camera.ToMaxY;
+                camera.MinY = camera.ToMinY;
+            }
+        }
+    }
+}

@@ -1,0 +1,5 @@
+class MSZSetup {
+    event Create() {
+        Scene.SetLayerVisible(4, false);
+    }
+}

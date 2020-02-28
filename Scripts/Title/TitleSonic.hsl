@@ -1,0 +1,165 @@
+class TitleSonic {
+    event Create() {
+        this.Sprite = -1;
+        this.Priority = 99;
+
+        this.ElectricSprite = Resources.LoadSprite("Sprites/Title/Electricity.bin", SCOPE_SCENE);
+        this.SonicSprite = Resources.LoadSprite("Sprites/Title/Sonic.bin", SCOPE_SCENE);
+        this.LogoSprite = Resources.LoadSprite("Sprites/Title/Logo.bin", SCOPE_SCENE);
+        /*
+        Anim:
+        0: Logo Wings
+        1: Ribbon Unfurl
+        2: Ribbon Wave
+        3: Ribbon Center
+        4: Game Title
+        5: Power LED
+        6: Copyright
+        7: Ring Bottom
+        8: Press Button
+        */
+
+        /*
+
+        Timeline:
+        1. 120 of fade in, Power Button sprite drawn
+        2. Play music, start animation
+        3. At Frame 29 of animation, remove Power Button
+        4. At Frame 31 of animation, draw Ring under elec, start Logo Unfurl animation (separate object under elec)
+        5. After unfurl, start fade in from white (48 frames)
+        6. After fade in, wait 16 frames, then start Sonic animation
+
+        */
+
+        // for (var x = 0; x < 16; x++) {
+        //     for (var y = 0; y < 16; y++) {
+        //         Scene.SetTile(2, x, y, 0x400, false, false);
+        //     }
+        // }
+
+        this.FadeIn = true;
+        this.FadeToWhite = false;
+        this.Fade = 0;
+        this.FadeLength = 60;
+        this.State = 0;
+
+        this.ShowPowerButton = true;
+        this.ShowLogoWings = false;
+
+        this.Y += 16.0;
+        this.InitialY = this.Y;
+    }
+
+    event Update() {
+        if (this.CurrentAnimation == 0 && this.CurrentFrame == 29) {
+            this.ShowPowerButton = false;
+        }
+        if (this.CurrentAnimation == 0 && this.CurrentFrame == 31) {
+            this.ShowLogoWings = true;
+        }
+        if (this.Sprite == this.SonicSprite &&
+            this.CurrentAnimation == 0 &&
+            this.CurrentFrame == 47) {
+            this.SetAnimation(1, 0);
+            this.State = 4;
+        }
+
+        if (this.Fade < this.FadeLength) {
+            this.Fade++;
+            if (this.Fade == this.FadeLength) {
+                if (this.State == 0) {
+                    this.Sprite = this.ElectricSprite;
+                    this.SetAnimation(0, 0);
+                    this.State = 1;
+
+                    var music = Instance.GetNth("MusicObject", 0);
+                    if (music) music.PlayMus();
+                }
+            }
+        }
+    }
+    event OnAnimationFinish() {
+        // this.Sprite = -1;
+
+        // Switch to wing sprite
+        if (this.Sprite == this.ElectricSprite) {
+            this.Sprite = this.LogoSprite;
+            this.SetAnimation(1, 0);
+            // this.Y = 132.0;
+            this.Y = this.InitialY + 28.0;
+        }
+        // Switch to
+        else if (this.Sprite == this.LogoSprite && this.State == 1) {
+            this.FadeIn = true;
+            this.FadeToWhite = true;
+            this.Fade = 0;
+            this.FadeLength = 48;
+            this.State = 2;
+
+            // this.SonicWaitTimer = 16;
+            this.Sprite = this.SonicSprite;
+            this.SetAnimation(0, 0);
+            this.Y = this.InitialY - 4.0;
+            // this.Y = 100.0;
+            this.State = 3;
+        }
+    }
+
+    event Render() {
+        var vw = 424.0, vh = 240.0;
+        var eased = this.Fade * 1.0 / this.FadeLength;
+        if (this.FadeIn) {
+            eased = 1.0 - eased;
+        }
+        eased = Ease.InOutQuad(eased);
+
+        if (this.State >= 3) {
+            Draw.Sprite(this.LogoSprite, 0, 0, this.X, this.InitialY, false, false);
+            Draw.Sprite(this.LogoSprite, 0, 0, this.X, this.InitialY, true, false);
+
+            Draw.SetClip(0.0, 0.0, 424.0, this.InitialY + 16.0);
+            if (this.Sprite > -1) {
+                if (this.State == 4)
+                    Draw.Sprite(this.Sprite, 0, 48, this.X, this.Y, false, false);
+
+                Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, this.X, this.Y, false, false);
+            }
+            Draw.ClearClip();
+
+            // Ribbon
+            Draw.Sprite(this.LogoSprite, 3, 0, this.X, this.InitialY + 28.0, false, false);
+            Draw.Sprite(this.LogoSprite, 2, (Scene_Frame >> 1) & 7, this.X, this.InitialY + 28.0, false, false);
+            Draw.Sprite(this.LogoSprite, 2, (Scene_Frame >> 1) & 7, this.X, this.InitialY + 28.0, true, false);
+            Draw.Sprite(this.LogoSprite, 4, 0, this.X, this.InitialY + 66.0, false, false);
+        }
+        else {
+            // Draw.SetBlendColor(0.9375, 0.9375, 0.9375, 1.0);
+            // Draw.SetBlendColor(0.0, 0.0, 0.0, 1.0);
+            // Draw.Rectangle(0.0, this.RectY, vw, vh);
+
+            if (this.ShowPowerButton) {
+                Draw.Sprite(this.LogoSprite, 5, 0, this.X, this.InitialY + 44.0, false, false);
+            }
+            if (this.ShowLogoWings) {
+                Draw.Sprite(this.LogoSprite, 0, 0, this.X, this.InitialY, false, false);
+                Draw.Sprite(this.LogoSprite, 0, 0, this.X, this.InitialY, true, false);
+            }
+
+            if (this.Sprite > -1) {
+                Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, this.X, this.Y, false, false);
+                Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, this.X, this.Y, true, false);
+            }
+        }
+
+        if (this.FadeToWhite)
+            Draw.SetBlendMode(BlendMode_ADD);
+        else
+            Draw.SetBlendMode(BlendMode_SUBTRACT);
+        Draw.SetBlendColor(
+            Math.Clamp(eased * 3.0, 0.0, 0.9375),
+            Math.Clamp(eased * 3.0 - 1.0, 0.0, 0.9375),
+            Math.Clamp(eased * 3.0 - 2.0, 0.0, 0.9375), 1.0);
+        Draw.Rectangle(0.0, 0.0, 512.0, vh);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+}
