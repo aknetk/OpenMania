@@ -30,7 +30,9 @@ class Player {
 
         // Setup
         if (this.PropertyExists("characterID")) {
-            if (!(this.PropertyGet("characterID") & (1 << global.SelectedCharacter))) {
+            var charID = this.PropertyGet("characterID");
+            print "charID: " + charID + " (" + this.X + "," + this.Y + ")";
+            if (!(charID & (1 << global.SelectedCharacter)) && charID != 7) {
                 this.Active = false;
                 return;
             }
@@ -140,11 +142,11 @@ class Player {
         this.WaitTimer = 0;
         this.OuttaHereTimer = 0;
         this.SpindashRev = 0.0;
-        this.Unk_0xEC = 0.0;
+        this.SpindashPitch = 0.0;
         this.RayGlideTurnValue = 0.25;
         this.UnderwaterAirTimer = 1800;
         this.Invincibility = false;
-        this.SpeedShoesTimer = 1800;
+        this.SpeedShoesTimer = 0;
         this.InvincibilityTimer = 0;
         this.CameraLockTimer = 0;
         this.SkidTimer = 0;
@@ -210,8 +212,8 @@ class Player {
         this.Unk_0x208 = 0;
         this.Unk_0x20C = 0;
         this.Unk_0x210 = 0;
-        this.RespawnDestinationX = 0.0;
-        this.RespawnDestinationY = 0.0;
+        this.RespawnDestinationEntity = null;
+        this.Unk_0x218 = 0;
         this.Unk_0x21C = 0;
         this.Unk_0x220 = 0;
         this.Unk_0x224 = 0;
@@ -264,8 +266,8 @@ class Player {
             Instance.Create("Zone", 0.0, 0.0);
         }
 
-        // this.X = 3309.0;
-        // this.Y = 1439.0;
+        // this.X = 13948.0;
+        // this.Y = 852.0;
         // this.CombineRing = true;
     }
     event LoadSounds() {
@@ -326,7 +328,10 @@ class Player {
         this.SFX_HyperRing = Resources.LoadSound("SoundFX/Global/HyperRing.wav", SCOPE_GAME);
 
 
+        this.BGM_1Up = Resources.LoadMusic("Music/1Up.ogg", SCOPE_SCENE);
         this.BGM_Drowning = Resources.LoadMusic("Music/Drowning.ogg", SCOPE_SCENE);
+        this.BGM_Sneakers = Resources.LoadMusic("Music/Sneakers.ogg", SCOPE_SCENE);
+        this.BGM_Invincible = Resources.LoadMusic("Music/Invincible.ogg", SCOPE_SCENE);
     }
     event StopAllSounds() {
         for (var i = this.SFX_Hurt; i <= this.SFX_RingSpill; i++) {
@@ -437,7 +442,7 @@ class Player {
 
     event CreateSkidDust() {
         if (Scene_Frame % 5 == 0) {
-            var dust = Instance.Create("DustPuff", this.X, this.Y + this.HitboxHalfH - 8.0);
+            var dust = Instance.Create("Dust", this.X, this.Y + this.HitboxHalfH - 8.0);
             dust.Priority = this.Priority;
             dust.SetAnimation(0, 0);
         }
@@ -1495,7 +1500,19 @@ class Player {
             this.Player_DoJump();
     }
     event Player_StatusRoll_WithInputLock() {
+        var left = this.InputLeft;
+        var right = this.InputRight;
+        var jumpPressed = this.InputJumpPressed;
 
+        this.InputLeft = false;
+        this.InputRight = false;
+        this.InputJumpPressed = false;
+
+        this.Player_StatusRoll();
+
+        this.InputLeft = left;
+        this.InputRight = right;
+        this.InputJumpPressed = jumpPressed;
     }
     event Player_StatusHurt() {
         if (this.Ground) {
@@ -1560,6 +1577,9 @@ class Player {
         // if (this.YSpeed > 10.0)
         if (this.YSpeed > 0.0)
             Scene.Restart();
+    }
+    event Player_StatusDrown() {
+
     }
     event Player_StatusGimmick() { }
     event Player_StatusGimmick2() { }
@@ -1647,7 +1667,7 @@ class Player {
             this.CameraLockTimer = 8;
 
             // Spawn dust
-            var dust = Instance.Create("DustPuff", this.X, this.Y + this.HitboxHalfH + 1.0);
+            var dust = Instance.Create("Dust", this.X, this.Y + this.HitboxHalfH + 1.0);
             dust.SetAnimation(2, 0);
             dust.Priority = this.Priority;
             dust.Flip = this.Flip;
@@ -2449,11 +2469,15 @@ class Player {
                         Sound.Play(this.SFX_ShieldAction_Bubble);
                     }
                     else if (shield == ShieldType_FIRE) {
+                        this.ShieldObject.SetAnimation(2, 0);
+                        this.ShieldObject.Flip = this.Flip;
+
                         this.MidAirFlag = 0;
                         this.YSpeed = 0.0;
                         this.XSpeed = this.Flip ? -8.0 : 8.0;
 
                         this.CameraLockTimer = 15;
+                        this.CameraPtr.Status = this.CameraPtr.Camera_StatusNonFollow;
 
                         Sound.Play(this.SFX_ShieldAction_Fire);
                     }
@@ -2471,6 +2495,8 @@ class Player {
             this.MidAirFlag++;
             if (this.MidAirFlag > 21) {
                 this.Status = this.Player_StatusSonic_DropDash;
+                this.LateUpdateGroundStatus = null;
+                this.LateUpdateAirStatus = null;
                 this.AnimationSpeedMult = 1.0;
                 this.SetAnimation(16, 0);
                 Sound.Play(this.SFX_DropDash);
@@ -2725,10 +2751,13 @@ class Player {
             }
         }
         else {
+            if (this.Status == this.Player_StatusRoll_WithInputLock) {
+                if (Math.Abs(this.GroundSpeed) < 1.0)
+                    this.GroundSpeed = this.Flip ? -4.0 : 4.0;
+            }
+
             this.Player_HandleFallOff();
         }
-
-
     }
     event Player_HandleAirAcceleration() {
         if (this.YSpeed < 0.0 && this.YSpeed > -4.0) {
@@ -2994,6 +3023,13 @@ class Player {
         this.JumpHeight       = this.JumpHeights[this.Character];
         this.JumpReleaseSpeed = -4.0;
         this.RollDeceleration = 0.125;
+
+        if (speedShoesTimer > 0) {
+            this.TopSpeed *= 2.0;
+            this.Acceleration *= 2.0;
+            this.AirAcceleration *= 2.0;
+            this.RollFriction *= 2.0;
+        }
 
         if (isUnderwater) {
             this.TopSpeed *= 0.5;
@@ -3941,7 +3977,7 @@ class Player {
         if (speedshoestimer > 0) {
             this.SpeedShoesTimer = speedshoestimer - 1;
             if (speedshoestimer == 1) {
-
+                this.Player_ResetSpeeds();
             }
         }
 
@@ -4109,21 +4145,85 @@ class Player {
 
     // Render functions
     event Render() {
+        // CUSTOM: All of this rendering code is custom
         var drawPlayer = (this.InvulnTimer % 6) < 3;
+        var rot = this.Rotation;
+
+        switch (this.CurrentAnimation) {
+            // Half Engine Rotation (0 or 180 degree)
+            case 0:
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 15:
+            case 17:
+                rot = this.RadiansToHex(rot);
+                rot = (rot + 0x40) & 0x80;
+                rot = this.HexToRadians(rot);
+                break;
+            // Full Engine Rotation (full range of rotation)
+            case 5:
+            case 6:
+            case 7:
+            case 8:
+            case 9:
+            case 37:
+            case 43:
+                break;
+            // Eighth Engine Rotation
+            case 36:
+                rot = this.RadiansToHex(rot);
+                rot = (rot + 0x10) & 0xE0;
+                rot = this.HexToRadians(rot);
+                break;
+            // No Rotation
+            case 10:
+            case 11:
+            case 12:
+            case 13:
+            case 14:
+            case 16:
+            case 18:
+            case 19:
+            case 20:
+            case 21:
+            case 22:
+            case 23:
+            case 24:
+            case 25:
+            case 26:
+            case 27:
+            case 28:
+            case 29:
+            case 30:
+            case 31:
+            case 32:
+            case 33:
+            case 34:
+            case 35:
+            case 38:
+            case 39:
+            case 40:
+            case 41:
+            case 42:
+            case 44:
+            case 45:
+            case 46:
+            case 47:
+            case 48:
+            case 49:
+            case 50:
+            case 51:
+            case 52:
+            case 53:
+                rot = 0.0;
+                break;
+        }
+
         if (this.Visible) {
             Draw.Save();
             Draw.Translate(Math.Floor(this.X), Math.Floor(this.Y), 0.0);
-                var shield = this.ShieldObject;
-                // Draw shield behind if behind
-                if (this.Shield != ShieldType_NONE && shield && shield.Behind && !shield.Hidden) {
-                    Draw.SetBlendMode(shield.BlendMode);
-                    Draw.SetTextureBlend(true);
-                    Draw.SetBlendColor(1.0, 1.0, 1.0, shield.Alpha);
-                    Draw.Sprite(shield.Sprite, shield.CurrentAnimation, shield.CurrentFrame, 0.0, 0.0, shield.Flip, false);
-                    Draw.SetTextureBlend(false);
-                    Draw.SetBlendMode(BlendMode_NORMAL);
-                }
-
                 if (drawPlayer) {
                     // Draw tail sprites
                     if (this.Character == Character_TAILS && this.ShowingTailSprite && !this.KillFlag) {
@@ -4137,7 +4237,7 @@ class Player {
 
                     // Draw player sprite
                     Draw.Save();
-                    Draw.Rotate(0.0, 0.0, this.Rotation);
+                    Draw.Rotate(0.0, 0.0, rot);
                         Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, 0.0, 0.0, this.Flip, false);
                     Draw.Restore();
                 }
@@ -4145,16 +4245,6 @@ class Player {
                 // Draw spindash dust
                 if (this.Status == this.Player_StatusSpinDash && !this.KillFlag)
                     Draw.Sprite(this.DashDustSprite, 1, this.DashDustTimer, 0.0, this.HitboxHalfH, this.Flip, false);
-
-                // Draw shield in front if not behind
-                if (this.Shield != ShieldType_NONE && shield && !shield.Behind && !shield.Hidden) {
-                    Draw.SetBlendMode(shield.BlendMode);
-                    Draw.SetTextureBlend(true);
-                    Draw.SetBlendColor(1.0, 1.0, 1.0, shield.Alpha);
-                    Draw.Sprite(shield.Sprite, shield.CurrentAnimation, shield.CurrentFrame, 0.0, 0.0, shield.Flip, false);
-                    Draw.SetTextureBlend(false);
-                    Draw.SetBlendMode(BlendMode_NORMAL);
-                }
             Draw.Restore();
         }
     }

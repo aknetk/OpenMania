@@ -1,0 +1,20 @@
+class TimeAttackGate {
+    event Create() {
+        /*
+        Property: finishLine    Type: bool
+        Property: extendTop    Type: int32
+        Property: extendBottom    Type: int32
+        Property: boundsSize    Type: vector2
+        Property: boundsOffset    Type: vector2
+        Property: topBoundary    Type: bool
+        */
+
+        this.OnScreenHitboxW = this.OnScreenHitboxH = 32.0;
+    }
+    event Update() {
+
+    }
+    event Render() {
+
+    }
+}

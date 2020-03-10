@@ -1,0 +1,259 @@
+class Ring {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        /*
+        Property: planeFilter    Type: int32
+        Property: moveType    Type: int32
+        Property: amplitude    Type: vector2
+        Property: speed    Type: int32
+        Property: angle    Type: int32
+        */
+
+        this.Priority = DrawGroup_FGHigh_High;
+
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Ring.bin", SCOPE_GAME);
+        this.SetAnimation(0, 0);
+
+        this.PlaneFilter = 0;
+        if (this.PropertyExists("planeFilter"))
+            this.PlaneFilter = this.PropertyGet("planeFilter");
+
+        this.HitboxW = 16.0;
+        this.HitboxH = 16.0;
+        this.HitboxHalfW = this.HitboxW * 0.5;
+        this.HitboxHalfH = this.HitboxH * 0.5;
+
+        this.Magnetized = false;
+        this.MagnetizedTo = null;
+        this.Collected = false;
+        this.RegatherTimer = 0;
+        this.DeathTimer = -1;
+
+        this.AutoPhysics = false;
+        this.Bounceable = false;
+        this.HSpeed = 0.0;
+        this.VSpeed = 0.0;
+        this.GravityRate = 0.09375;
+        this.RingCount = 1;
+        this.PlaneIndex = 0;
+        this.ScaleX = 1.0;
+        this.ScaleY = 1.0;
+
+        var planeFilter = this.PlaneFilter;
+        if (planeFilter > 0 && (planeFilter - 1) & 2)
+            this.Priority = DrawGroup_FGHigh_High;
+        else
+            this.Priority = DrawGroup_FGLow_Low;
+
+        this.Status = this.Ring_StatusStatic;
+
+        this.OnScreenHitboxW = this.OnScreenHitboxH = 80.0;
+    }
+
+    event Ring_StatusStatic() {
+        var disCatch = 64.0 * 64.0;
+        var player, ring = this;
+        with ("Player") {
+            player = this;
+            if (player.Shield == ShieldType_ELECTRIC) {
+                var disX = player.X - ring.X;
+                    disX *= disX;
+                var disY = player.Y - ring.Y;
+                    disY *= disY;
+                if (disX + disY < disCatch) {
+                    ring.Status = ring.Ring_StatusMagnetized;
+                    ring.MagnetizedTo = player;
+                }
+            }
+        }
+        this.Ring_CheckCollect();
+    }
+    event Ring_StatusMagnetized() {
+        var sx = Math.Sign(this.MagnetizedTo.X - this.X);
+        var sy = Math.Sign(this.MagnetizedTo.Y - this.Y);
+
+        this.OnScreenHitboxW = this.OnScreenHitboxH = 0.0;
+
+        if (Math.Sign(this.HSpeed) == sx)
+            this.HSpeed += 0.1875 * sx;
+        else
+            this.HSpeed += 0.75 * sx;
+
+        if (Math.Sign(this.VSpeed) == sy)
+            this.VSpeed += 0.1875 * sy;
+        else
+            this.VSpeed += 0.75 * sy;
+
+        if (this.MagnetizedTo.Shield != 3) {
+            this.Magnetized = false;
+            this.Status = this.Ring_StatusBounceable;
+        }
+
+        this.X += this.HSpeed;
+        this.Y += this.VSpeed;
+
+        this.Ring_CheckCollect();
+    }
+    event Ring_StatusBounceable() {
+        this.OnScreenHitboxW = this.OnScreenHitboxH = 0.0;
+
+        if (this.RegatherTimer > 0) {
+            this.RegatherTimer--;
+        }
+
+        if (this.DeathTimer > 0) {
+            this.DeathTimer--;
+            if (this.DeathTimer == 0) {
+                this.Active = false;
+                return;
+            }
+        }
+
+        this.X += this.HSpeed;
+        this.Y += this.VSpeed;
+        this.VSpeed += this.GravityRate;
+
+        // Moving left
+        if (this.HSpeed < 0.0 && TileCollision.PointExtended(this.X - this.HitboxHalfW, this.Y, this.PlaneIndex, 15) >= 0) {
+            while (TileCollision.PointExtended(this.X - this.HitboxHalfW, this.Y, this.PlaneIndex, 15) >= 0) {
+                this.X += 1.0;
+            }
+            this.HSpeed = Math.Abs(this.HSpeed) * 0.25;
+        }
+        // Moving right
+        if (this.HSpeed > 0.0 && TileCollision.PointExtended(this.X + this.HitboxHalfW, this.Y, this.PlaneIndex, 15) >= 0) {
+            while (TileCollision.PointExtended(this.X + this.HitboxHalfW, this.Y, this.PlaneIndex, 15) >= 0) {
+                this.X -= 1.0;
+            }
+            this.HSpeed = Math.Abs(this.HSpeed) * -0.25;
+        }
+
+        // Moving down
+        if (TileCollision.PointExtended(this.X, this.Y + this.HitboxHalfH, this.PlaneIndex, 15) >= 0) {
+            this.VSpeed *= -0.75;
+        }
+        // Moving upwards
+        if (this.VSpeed < 0.0 && TileCollision.PointExtended(this.X, this.Y - this.HitboxHalfH, this.PlaneIndex, 15) >= 0) {
+            this.VSpeed = 0.0;
+        }
+
+        if (this.RegatherTimer == 0)
+            this.Ring_CheckCollect();
+    }
+    event Ring_StatusBounceableCombine() {
+        this.OnScreenHitboxW = this.OnScreenHitboxH = 0.0;
+
+        if (this.RegatherTimer > 0) {
+            this.RegatherTimer--;
+        }
+
+        if (this.DeathTimer > 0) {
+            this.DeathTimer--;
+            if (this.DeathTimer == 0) {
+                this.Active = false;
+                return;
+            }
+        }
+
+        this.X += this.HSpeed;
+        this.VSpeed += 0.0703125;
+        this.Y += this.VSpeed;
+
+        var as = this.AngleSpeed;
+        this.Angle += as >> 6;
+
+        if (this.DeathTimer > 16) {
+            var sin = Static.HexSin(this.Angle);
+            this.ScaleX = -sin * 0.25 + 0.75;
+            this.ScaleY =  sin * 0.25 + 0.75;
+        }
+        else {
+            if (this.ScaleX > this.ScaleY) {
+                this.ScaleX += 0.015625;
+                this.ScaleY -= this.ScaleY / 8.0;
+            }
+            else {
+                this.ScaleX -= this.ScaleX / 8.0;
+                this.ScaleY += 0.015625;
+            }
+        }
+
+        // Moving left
+        if (this.HSpeed < 0.0 && TileCollision.PointExtended(this.X - this.HitboxHalfW, this.Y, this.PlaneIndex, 15) >= 0) {
+            while (TileCollision.PointExtended(this.X - this.HitboxHalfW, this.Y, this.PlaneIndex, 15) >= 0) {
+                this.X += 1.0;
+            }
+            this.HSpeed = Math.Abs(this.HSpeed) * 0.25;
+        }
+        // Moving right
+        if (this.HSpeed > 0.0 && TileCollision.PointExtended(this.X + this.HitboxHalfW, this.Y, this.PlaneIndex, 15) >= 0) {
+            while (TileCollision.PointExtended(this.X + this.HitboxHalfW, this.Y, this.PlaneIndex, 15) >= 0) {
+                this.X -= 1.0;
+            }
+            this.HSpeed = Math.Abs(this.HSpeed) * -0.25;
+        }
+
+        // Moving down
+        if (TileCollision.PointExtended(this.X, this.Y + this.HitboxHalfH, this.PlaneIndex, 15) >= 0) {
+            this.VSpeed *= -0.75;
+        }
+        // Moving upwards
+        if (this.VSpeed < 0.0 && TileCollision.PointExtended(this.X, this.Y - this.HitboxHalfH, this.PlaneIndex, 15) >= 0) {
+            this.VSpeed = 0.0;
+        }
+
+        if (this.RegatherTimer == 0)
+            this.Ring_CheckCollect();
+
+        // Spawn sparkles
+        if (!(this.Angle & 0xF)) {
+
+        }
+
+        var deathTimer = this.DeathTimer;
+        if (!(deathTimer & 7)) {
+            if (as > 0x80)
+                this.AngleSpeed = as - 8;
+        }
+    }
+    event Ring_CheckCollect() {
+        with ("Player") {
+            if (Static.Entity_CollideWithObject(other, this)) {
+                this.GainRings(other.RingCount);
+                Sound.Play(this.SFX_RingLeft);
+                other.Active = false;
+            }
+        }
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+    event OnAnimationFinish() {
+        if (this.CurrentAnimation == 2)
+            this.Active = false;
+    }
+    event Render() {
+        if (!this.OnScreen)
+            return;
+
+        if (this.DeathTimer >= 0 && this.DeathTimer < 64 && ((this.DeathTimer >> 1) & 1) == 0)
+            return;
+
+        if (this.Status == this.Ring_StatusBounceableCombine) {
+            Draw.Save();
+            Draw.Translate(Math.Floor(this.X), Math.Floor(this.Y));
+            Draw.Scale(this.ScaleX, this.ScaleY, 1.0);
+                Draw.Sprite(this.Sprite, this.CurrentAnimation, (Scene_Frame >> 2) & 15, 0.0, 0.0, false, false);
+            Draw.Restore();
+        }
+        else {
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, (Scene_Frame >> 2) & 15, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+        }
+    }
+}

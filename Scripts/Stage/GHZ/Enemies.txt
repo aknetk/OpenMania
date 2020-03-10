@@ -1,0 +1,45 @@
+WARNING: Object "Motobug" does not exist!
+WARNING: Object "BuzzBomber" does not exist!
+VERBOSE: Property: direction    Type: uint8
+VERBOSE: Property: shotRange    Type: uint8
+WARNING: Object "Crabmeat" does not exist!
+WARNING: Object "Newtron" does not exist!
+VERBOSE: Property: type    Type: uint8
+VERBOSE: Property: direction    Type: uint8
+WARNING: Object "Splats" does not exist!
+VERBOSE: Property: bounceCount    Type: uint8
+VERBOSE: Property: direction    Type: uint8
+VERBOSE: Property: numActive    Type: uint8
+VERBOSE: Property: minDelay    Type: uint16
+WARNING: Object "Chopper" does not exist!
+VERBOSE: Property: type    Type: uint8
+VERBOSE: Property: direction    Type: uint8
+VERBOSE: Property: charge    Type: bool
+WARNING: Object "Batbrain" does not exist!
+
+WARNING: Object "CorkscrewPath" does not exist!
+VERBOSE: Property: period    Type: int32
+VERBOSE: Property: amplitude    Type: int32
+VERBOSE: Property: angle    Type: int32
+
+WARNING: Object "SpikeLog" does not exist!
+VERBOSE: Property: frame    Type: uint8
+WARNING: Object "BurningLog" does not exist!
+VERBOSE: Property: timer    Type: int32
+WARNING: Object "ZipLine" does not exist!
+VERBOSE: Property: angle    Type: int32
+VERBOSE: Property: length    Type: int32
+WARNING: Object "SpinBooster" does not exist!
+VERBOSE: Property: direction    Type: uint8
+VERBOSE: Property: autoGrip    Type: uint8
+VERBOSE: Property: bias    Type: uint8
+VERBOSE: Property: size    Type: int32
+VERBOSE: Property: boostPower    Type: int32
+VERBOSE: Property: boostAlways    Type: bool
+VERBOSE: Property: forwardOnly    Type: bool
+VERBOSE: Property: playSound    Type: bool
+VERBOSE: Property: allowTubeInput    Type: bool
+WARNING: Object "CutsceneSeq" does not exist!
+WARNING: Object "GHZ2Outro" does not exist!
+WARNING: Object "WaterfallSound" does not exist!
+VERBOSE: Property: size    Type: vector2

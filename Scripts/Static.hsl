@@ -36,6 +36,7 @@ class Static {
         global.SpecialRingID = 0;
         global.BlueSphereID = 0;
         global.BlueSphereInit = 0;
+        global.AtlEnabled = false;
         global.SaveLoaded = 0;
         global.SaveRAM = 0;
         global.SaveSlotID = 0;

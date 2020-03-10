@@ -1,0 +1,15 @@
+class SignPost {
+    event Create() {
+        /*
+        Property: type    Type: uint8
+        Property: vsBoundsSize    Type: vector2
+        Property: vsBoundsOffset    Type: vector2
+        Property: vsExtendTop    Type: int32
+        Property: vsExtendBottom    Type: int32
+        */
+
+        this.OnScreenHitboxW = this.OnScreenHitboxH = 32.0;
+    }
+    event Update() { }
+    event Render() { }
+}

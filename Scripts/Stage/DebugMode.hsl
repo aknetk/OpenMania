@@ -1,0 +1,11 @@
+class DebugMode {
+    event Create() {
+
+    }
+    event Update() {
+
+    }
+    event Render() {
+        // DebugMode
+    }
+}

@@ -1,19 +1,15 @@
 class MusicObject {
     event Create() {
-        /*
-        VERBOSE: Property Hash: 6672A69BU (trackFile)
-        VERBOSE: Property Hash: C1136580U (soundTestTitle)
-        VERBOSE: Property Hash: 6900C72EU (trackID)
-        VERBOSE: Property Hash: 6F88C82FU (trackLoop)
-        VERBOSE: Property Hash: ACD7EF2AU (playOnLoad)
-        //*/
-        print "trackFile: " + this.PropertyGet("trackFile");
-        print "soundTestTitle: " + this.PropertyGet("soundTestTitle");
-        print "trackID: " + this.PropertyGet("trackID");
-        print "trackLoop: " + this.PropertyGet("trackLoop");
-        print "playOnLoad: " + this.PropertyGet("playOnLoad");
+        if (this.PropertyGet("playOnLoad")) {
+            print "trackFile: " + this.PropertyGet("trackFile");
+            print "soundTestTitle: " + this.PropertyGet("soundTestTitle");
+            print "trackID: " + this.PropertyGet("trackID");
+            print "trackLoop: " + this.PropertyGet("trackLoop");
+            print "playOnLoad: " + this.PropertyGet("playOnLoad");
+        }
 
-        this.MusicIndex = Resources.LoadMusic("Music/" + this.PropertyGet("trackFile"), SCOPE_SCENE);
+        this.TrackFile = this.PropertyGet("trackFile");
+        this.MusicIndex = -1;
         this.TrackLoop = this.PropertyGet("trackLoop");
         this.PlayOnLoad = this.PropertyGet("playOnLoad");
 
@@ -21,8 +17,19 @@ class MusicObject {
         // this.TrackLoop = 1;
         // this.PlayOnLoad = true;
 
-        if (this.PlayOnLoad)
+        if (this.PlayOnLoad) {
+            this.MusicIndex = Resources.LoadMusic("Music/" + this.TrackFile, SCOPE_SCENE);
             this.PlayMus();
+        }
+
+
+        if (Instance.GetCount("LevelSelect") == 0) {
+            var sceneName = Scene.GetName();
+            if (String.Contains(sceneName, "LSelect")) {
+                Instance.Create("LevelSelect", 0.0, 0.0);
+            }
+        }
+
 
         this.Active = false;
     }

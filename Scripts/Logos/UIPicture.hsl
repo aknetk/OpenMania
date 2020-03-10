@@ -9,8 +9,25 @@ class UIPicture {
         this.Fade = 0;
         this.FadeLength = 30;
 
+        return;
+
         if (this.PropertyExists("listID"))
             this.ListID = this.PropertyGet("listID");
+        if (this.PropertyExists("frameID"))
+            this.FrameID = this.PropertyGet("frameID");
+        if (this.PropertyExists("tag"))
+            this.Tag = this.PropertyGet("tag");
+        if (this.PropertyExists("zonePalette"))
+            this.ZonePalette = this.PropertyGet("zonePalette");
+        if (this.PropertyExists("zoneID"))
+            this.ZoneID = this.PropertyGet("zoneID");
+
+        print "this.ListID: " + this.ListID;
+        print "this.FrameID: " + this.FrameID;
+        print "this.Tag: " + this.Tag;
+        print "this.ZonePalette: " + this.ZonePalette;
+        print "this.ZoneID: " + this.ZoneID;
+        print "";
 
         if (this.ListID == 0)
             this.RectY = 0.0;
@@ -38,6 +55,8 @@ class UIPicture {
         }
     }
     event Render() {
+        return;
+
         var vw = 424.0, vh = 240.0;
         var eased = this.Fade * 1.0 / this.FadeLength;
         // if (this.FadeIn) {

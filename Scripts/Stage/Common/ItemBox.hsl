@@ -1,0 +1,497 @@
+class ItemBox {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        /*
+        Property: type    Type: int32
+        Property: isFalling    Type: bool
+        Property: hidden    Type: bool
+        Property: direction    Type: uint8
+        Property: planeFilter    Type: int32
+        Property: lrzConvPhys    Type: bool
+        */
+
+        // Pre
+        this.Priority = DrawGroup_FGLow_Low;
+        this.HighPriority = DrawGroup_FGHigh_High;
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/Global/ItemBox.bin", SCOPE_GAME);
+        this.SFX_Destroy = Resources.LoadSound("SoundFX/Global/Destroy.wav", SCOPE_GAME);
+        this.SFX_Teleport = Resources.LoadSound("SoundFX/Global/Teleport.wav", SCOPE_GAME);
+        this.SFX_HyperRing = Resources.LoadSound("SoundFX/Global/HyperRing.wav", SCOPE_GAME);
+        this.SFX_PowerDown = Resources.LoadSound("SoundFX/Stage/PowerDown.wav", SCOPE_GAME);
+        this.SFX_Recovery = Resources.LoadSound("SoundFX/Global/Recovery.wav", SCOPE_GAME);
+        this.AutoPhysics = false;
+        this.Status = null;
+
+        this.AutoAnimate = true;
+
+        // Setup
+        this.Type = 0;
+        this.IsFalling = false;
+        this.Hidden = false;
+        this.Direction = 0;
+        this.PlaneFilter = 0;
+        this.LRZConvPhys = false;
+        this.Broken = false;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("isFalling"))
+            this.IsFalling = this.PropertyGet("isFalling");
+        if (this.PropertyExists("hidden"))
+            this.Hidden = this.PropertyGet("hidden");
+        if (this.PropertyExists("direction"))
+            this.Direction = this.PropertyGet("direction");
+        if (this.PropertyExists("planeFilter"))
+            this.PlaneFilter = this.PropertyGet("planeFilter");
+        if (this.PropertyExists("lrzConvPhys"))
+            this.LRZConvPhys = this.PropertyGet("lrzConvPhys");
+
+        this.PowerupFrame = 0;
+        this.PowerupX = 0.0;
+        this.PowerupY = 0.0;
+        this.SnowTimer = 4;
+        this.NotFalling = 0;
+
+        this.DeltaX = 0.0;
+        this.DeltaY = 0.0;
+
+        this.PlatformOffsetX = 0.0;
+        this.PlatformOffsetY = 0.0;
+        this.Platform = null;
+
+        // // OnCreate
+        if (this.Status == null) {
+            this.SetAnimation(4, 0);
+
+            var type = this.Type;
+            var gamemode = 0;
+            switch (type) {
+                case 7:
+                case 8:
+                case 9:
+                case 15:
+                case 16:
+                    if (gamemode == 2) {
+                        this.Type = 0;
+                    }
+                    else if (gamemode == 1) {
+                        this.Type = 17;
+                    }
+                    else {
+                        var player, itemBox = this;
+                        with ("Player") {
+                            player = this;
+                            if (!player.Active)
+                                continue;
+
+                            if (player.Character == Character_SONIC)
+                                itemBox.Type = 7;
+                            else if (player.Character == Character_TAILS)
+                                itemBox.Type = 8;
+                            else if (player.Character == Character_KNUCKLES)
+                                itemBox.Type = 9;
+                            else if (player.Character == Character_MIGHTY)
+                                itemBox.Type = 15;
+                            else if (player.Character == Character_RAY)
+                                itemBox.Type = 16;
+
+                            continue;
+                        }
+
+                        this.PowerupFrame = itemBox.Type;
+                    }
+                    break;
+                case 12:
+                case 13:
+                    if (gamemode != 1 && gamemode != 3) {
+                        this.Active = false;
+                        return;
+                    }
+                    break;
+            }
+        }
+
+        var planeFilter = this.PlaneFilter;
+        if (planeFilter > 0 && (planeFilter - 1) & 2)
+            this.Priority = DrawGroup_FGHigh_High;
+        else
+            this.Priority = DrawGroup_FGLow_Low;
+
+        if (this.Hidden) {
+            this.Status = null;
+        }
+        else if (this.IsFalling) {
+            this.Status = this.ItemBox_StatusFalling;
+        }
+        else if (this.LRZConvPhys) {
+            // this.Status = this.ItemBox_StatusLRZConvPhys;
+        }
+        else {
+            this.Status = this.ItemBox_StatusNormal;
+        }
+
+        this.FlipFlag = this.Direction;
+        this.HitboxW = 30.0;
+        this.HitboxH = 32.0;
+
+        this.OnScreenHitboxW = this.OnScreenHitboxH = 32.0;
+    }
+
+    event OnAnimationFinish() {
+        if (!this.Broken)
+            this.AnimationSpeedMult = 0.0;
+
+        if (this.Status == this.ItemBox_StatusWaitingForItemDisappear) {
+            this.AnimationSpeedMult = 0.0;
+            this.ResetAnimation(this.CurrentAnimation, 13);
+        }
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+
+        // TODO: Finish ItemBox_Update
+        if (this.Type == 17) {
+            // var animation =
+        }
+    }
+
+    event ItemBox_StatusNormal() {
+        var flip = this.Direction == 0;
+        this.PowerupX = 0.0;
+        this.PowerupY = flip ? -3.0 : 3.0;
+
+        this.ItemBox_DoCollideWithSolids();
+        this.ItemBox_DoCollideWithPlayer();
+
+        if (this.Type == 17) {
+
+        }
+
+        var snowTimer = this.SnowTimer;
+        if (snowTimer > 0) {
+            this.SnowTimer = snowTimer - 1;
+        }
+        else {
+            this.SnowTimer = Number.AsInteger(Math.RandomRange(1, 15));
+            this.AnimationSpeedMult = 1.0;
+        }
+    }
+    event ItemBox_StatusFalling() {
+        this.ItemBox_DoGravityAndSolidCollision();
+
+        if (this.NotFalling)
+            this.Status = this.ItemBox_StatusNormal;
+
+        var flip = this.Direction == 0;
+        this.PowerupX = 0.0;
+        this.PowerupY = flip ? -3.0 : 3.0;
+
+        this.ItemBox_DoCollideWithPlayer();
+
+        if (this.Type == 17) {
+
+        }
+
+        var snowTimer = this.SnowTimer;
+        if (snowTimer > 0) {
+            this.SnowTimer = snowTimer - 1;
+        }
+        else {
+            this.SnowTimer = Number.AsInteger(Math.RandomRange(1, 15));
+            this.AnimationSpeedMult = 1.0;
+        }
+    }
+    event ItemBox_StatusLRZConvPhys() {
+
+    }
+    event ItemBox_StatusPostBreakup() {
+        if (this.LRZConvPhys) {
+        }
+        else
+            this.ItemBox_DoGravityAndSolidCollision();
+
+        var yspeed = this.PowerupYSpeed;
+        if (yspeed < 0) {
+            this.PowerupY += yspeed;
+            this.PowerupYSpeed = yspeed + 0.09375;
+        }
+
+        this.PowerupY -= this.DeltaY;
+
+        this.OnScreenHitboxW = this.OnScreenHitboxH = 0.0;
+
+        if (this.PowerupYSpeed >= 0.0) {
+            this.PowerupYSpeed = 0.0;
+
+            this.ItemBox_SendItemToPlayer();
+
+            this.AnimationSpeedMult = 1.0;
+            this.SetAnimation(5, 0);
+            this.Status = this.ItemBox_StatusWaitingForItemDisappear;
+        }
+    }
+    event ItemBox_StatusWaitingForItemDisappear() {
+        if (this.LRZConvPhys) {
+        }
+        else
+            this.ItemBox_DoGravityAndSolidCollision();
+
+        this.PowerupY -= this.DeltaY;
+
+        // In Mania, Animate() is called here
+        if (this.CurrentFrame == 14 - 1) {
+            this.AnimationSpeedMult = 0.0;
+            this.ResetAnimation(this.CurrentAnimation, 13);
+            // this.Status = null;
+
+            this.OnScreenHitboxW = this.OnScreenHitboxH = 32.0;
+        }
+    }
+
+    event ItemBox_SendItemToPlayer() {
+        // AYAYYAYA
+        var player = this.PlayerToReceivePowerup;
+        if (!player)
+            return;
+
+        switch (this.Type) {
+            // Rings
+            case 0:
+                player.GainRings(10);
+                Sound.Play(player.SFX_RingLeft);
+                Sound.Play(player.SFX_RingRight);
+                break;
+            // Shield (Basic)
+            case 1:
+                player.GiveShield(ShieldType_BASIC, true);
+                break;
+            // Shield (Bubble)
+            case 2:
+                player.GiveShield(ShieldType_BUBBLE, true);
+                break;
+            // Shield (Fire)
+            case 3:
+                player.GiveShield(ShieldType_FIRE, true);
+                break;
+            // Shield (Electric)
+            case 4:
+                player.GiveShield(ShieldType_ELECTRIC, true);
+                break;
+            // Invincibility
+            case 5:
+                player.Invincibility = true;
+                Music.Play(player.BGM_Invincible);
+                break;
+            // Speed Sneakers
+            case 6:
+                player.SpeedShoesTimer = 1320; // 22 seconds
+                player.Player_ResetSpeeds();
+                Music.Play(player.BGM_Sneakers);
+                break;
+            // Extra life
+            case 7:
+            case 8:
+            case 9:
+            case 15:
+            case 16:
+                player.GainLife();
+                break;
+            // Eggman
+            case 10:
+                player.GetHurt();
+                break;
+            // Hyper Ring
+            case 11:
+                player.CombineRing = true;
+                Sound.Play(player.SFX_HyperRing);
+                break;
+            case 12:
+                // switch character
+                break;
+            case 13:
+                // random
+                break;
+            // Super Form
+            case 14:
+                player.SuperForm = 2;
+                break;
+        }
+    }
+
+    event ItemBox_DoGravityAndSolidCollision() {
+        this.DeltaX = -this.X;
+        this.DeltaY = -this.Y;
+        if (this.YSpeed != 0.0)
+            this.NotFalling = 0;
+
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+        this.YSpeed += 0.21875;
+
+        this.ItemBox_DoCollideWithSolids();
+        // TODO:
+        if (this.YSpeed >= 0.0 && (!this.Broken ? TileCollision.Point(this.X, this.Y + 16.0) : TileCollision.Point(this.X, this.Y + 16.0))) {
+            var itemBoxStatus = this.Status;
+            this.YSpeed = 0.0;
+            this.NotFalling = 1;
+            if (itemBoxStatus != this.ItemBox_StatusWaitingForItemDisappear &&
+                itemBoxStatus != this.ItemBox_StatusPostBreakup) {
+            }
+            this.DeltaX += this.X;
+            this.DeltaY += this.Y;
+        }
+        else {
+            this.DeltaX += this.X;
+            this.DeltaY += this.Y;
+        }
+    }
+
+    event ItemBox_DoCollideWithSolids() {
+        var platform = this.Platform;
+        if (platform) {
+            platform.IsPlayerOnTop = true;
+            this.X = this.PlatformOffsetX + platform.FinalX;
+            this.Y = this.PlatformOffsetY + platform.FinalY;
+            this.DeltaX = platform.DeltaX;
+            this.DeltaY = platform.DeltaY;
+            // this.PowerupX += this.DeltaX;
+            // this.PowerupY += this.DeltaY;
+            this.YSpeed = 0.0;
+        }
+    }
+    event ItemBox_DoCollideWithPlayer() {
+        var itemBox = this, player;
+        with ("Player") {
+            player = this;
+            var planeFilter = itemBox.PlaneFilter;
+            if (planeFilter <= 0 || player.PlaneIndex == ((planeFilter - 1) & 1)) {
+                if (player.Character == Character_MIGHTY && player.MidAirFlag > 1 && !itemBox.NotFalling) {
+
+                }
+
+                var animation = player.CurrentAnimation;
+                var canBreakViaJump = animation == 10 && (player.YSpeed >= 0.0 || player.Ground || itemBox.Direction);
+                var canBreak = canBreakViaJump || player.Status == player.Player_StatusFrozen_PGZ;
+                if (player.Character == Character_SONIC) {
+                    canBreak |= animation == 16;
+                }
+                else if (player.Character == Character_KNUCKLES) {
+                    canBreak |= animation == 48 || animation == 51;
+                }
+                else if (player.Character == Character_MIGHTY) {
+                    canBreak |= animation == 16 || player.MidAirFlag > 1;
+                }
+
+                if (!canBreak) {
+                    itemBox.X -= itemBox.DeltaX;
+                    itemBox.Y -= itemBox.DeltaY;
+
+                    var initialPlayerX = player.X;
+                    var initialPlayerY = player.Y;
+                    var side = Static.Entity_SolidCollideWithPlayer(itemBox, player);
+
+                    itemBox.X += itemBox.DeltaX;
+                    itemBox.Y += itemBox.DeltaY;
+
+                    // Not top side
+                    if (side != 1) {
+                        // Bottom side
+                        if (side == 4) {
+                            if (!itemBox.LRZConvPhys)
+                                itemBox.Status = itemBox.ItemBox_StatusFalling;
+
+                            itemBox.YSpeed = -2.0;
+                            if (!player.Ground)
+                                player.YSpeed = 2.0;
+                        }
+                    }
+                    // Top side
+                    else {
+                        player.X += itemBox.DeltaX;
+                        player.Y += itemBox.DeltaY;
+                    }
+
+                    if (Static.Entity_SolidCollideWithPlayer(itemBox, player) == 4) {
+                        if (player.Ground) {
+                            player.X = initialPlayerX;
+                            player.Y = initialPlayerY;
+                        }
+                    }
+                }
+                // TODO: Fix
+                else if (Static.CollideWithObject(itemBox, player) == 1) {
+                    // If not Mighty or (implied Mighty and) Drill Dive
+                    if (player.Character != Character_MIGHTY || player.CurrentAnimation != 16)
+                        player.YSpeed = -(player.YSpeed + 2.0 * player.GravityRate);
+                    else
+                        player.YSpeed -= 1.0;
+                    itemBox.PlayerToReceivePowerup = player;
+                    itemBox.PowerupYSpeed = -3.0;
+                    itemBox.YSpeed = -2.0;
+                    itemBox.Broken = true;
+                    itemBox.Status = itemBox.ItemBox_StatusPostBreakup;
+                    // Custom
+                    itemBox.AnimationSpeedMult = 1.0;
+                    itemBox.SetAnimation(2, itemBox.Type);
+
+                    // Spawn Explosion
+                    var expl = Instance.Create("Explosion", itemBox.X, itemBox.Y - 16.0);
+                    expl.Priority = itemBox.Priority; // itemBox.HighPriority;
+
+                    // Spawn Debris
+                    for (var i = 0; i < 6; i++) {
+                        expl = Instance.Create("Debris", itemBox.X + Math.RandomRange(-8.0, 8.0), itemBox.Y + Math.RandomRange(-8.0, 8.0));
+                        // expl.Status = null;
+                        expl.Gravity = 0.25;
+                        expl.XSpeed = Math.RandomMax(2.0);
+                        if (expl.X < itemBox.X)
+                            expl.XSpeed = -expl.XSpeed;
+                        expl.YSpeed = Math.RandomRange(-4.0, -1.0);
+                        expl.Priority = itemBox.Priority;
+                        expl.Sprite = itemBox.Sprite;
+                        expl.ResetAnimation(6, Number.AsInteger(Math.RandomMax(4)));
+                    }
+
+                    Sound.Play(itemBox.SFX_Destroy);
+                    // break;
+                    // return;
+                    continue;
+                }
+            }
+        }
+    }
+
+    event Render() {
+        if (!this.OnScreen)
+            return;
+        if (this.Hidden)
+            return;
+
+        var flipX = (this.FlipFlag & 1);
+        var flipY = (this.FlipFlag & 2);
+
+        var x = Math.Floor(this.X), y = Math.Floor(this.Y);
+        Draw.Sprite(this.Sprite, this.Broken, 0, x, y, flipX, flipY);
+        if (this.Broken) {
+            // Powerup
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, x + this.PowerupX, y + this.PowerupY, flipX, flipY);
+        }
+        else {
+            // Powerup
+            Draw.Sprite(this.Sprite, 2, this.Type, x + this.PowerupX, y + this.PowerupY, flipX, flipY);
+
+            // Scanline
+            // Draw.Sprite(this.Sprite, 3, Scene_Frame & 1, x, y, flipX, flipY);
+
+            // Snow
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, x, y, flipX, flipY);
+        }
+    }
+}

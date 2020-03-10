@@ -21,15 +21,15 @@ class BreakableWallPiece {
             this.AutoPhysics = false;
         }
         else {
-            if (!this.InView(0, this.X - this.HitboxHalfW, this.Y - this.HitboxHalfH, this.HitboxW, this.HitboxH)) {
+            if (!this.InView(0, this.X - 64.0, this.Y - 64.0, 128.0, 128.0)) {
                 this.Active = false;
                 return;
             }
         }
-        
+
         if (!this.AutoPhysics && this.Wait == 0) {
             this.AutoPhysics = true;
-            Scene.SetTile(this.TileLayer, this.TileX, this.TileY, 1 + 0x3FF, false, false, 0);
+            Scene.SetTile(this.TileLayer, this.TileX, this.TileY, 0x3FF, false, false, 0);
         }
     }
 

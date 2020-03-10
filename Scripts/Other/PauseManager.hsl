@@ -63,8 +63,10 @@ class PauseManager {
             Sound.StopAll();
             Music.Clear();
 
-            global.Level = (global.Level + 1) % Array.Length(global.LevelScenes);
-            Scene.Load(global.LevelScenes[global.Level]);
+            Scene.Load("Stages/LSelect/Scene1.bin");
+
+            // global.Level = (global.Level + 1) % Array.Length(global.LevelScenes);
+            // Scene.Load(global.LevelScenes[global.Level]);
         }
     }
 

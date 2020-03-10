@@ -1,0 +1,9 @@
+class EggPrison {
+    event Create() {
+        // Property: type    Type: int32
+        this.OnScreenHitboxW = 128.0;
+        this.OnScreenHitboxH = 128.0;
+    }
+    event Update() { }
+    event Render() { }
+}

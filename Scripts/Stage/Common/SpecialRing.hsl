@@ -1,0 +1,12 @@
+class SpecialRing {
+    event Create() {
+        /*
+        Property: id    Type: int32
+        Property: planeFilter    Type: int32
+        */
+
+        this.OnScreenHitboxW = this.OnScreenHitboxH = 32.0;
+    }
+    event Update() { }
+    event Render() { }
+}
