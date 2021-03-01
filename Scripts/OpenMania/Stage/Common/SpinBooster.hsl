@@ -1,0 +1,371 @@
+class SpinBooster {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.AutoGrip = 0;
+        this.Bias = 0;
+        this.Size = 16.0;
+        this.BoostPower = 0;
+        this.BoostAlways = false;
+        this.ForwardOnly = false;
+        this.PlaySound = false;
+        this.AllowTubeInput = false;
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+        if (this.PropertyExists("autoGrip"))
+            this.AutoGrip = this.PropertyGet("autoGrip");
+        if (this.PropertyExists("bias"))
+            this.Bias = this.PropertyGet("bias");
+        if (this.PropertyExists("size"))
+            this.Size = 16.0 * this.PropertyGet("size");
+        if (this.PropertyExists("boostPower"))
+            this.BoostPower = this.PropertyGet("boostPower");
+        if (this.PropertyExists("boostAlways"))
+            this.BoostAlways = this.PropertyGet("boostAlways");
+        if (this.PropertyExists("forwardOnly"))
+            this.ForwardOnly = this.PropertyGet("forwardOnly");
+        if (this.PropertyExists("playSound"))
+            this.PlaySound = this.PropertyGet("playSound");
+        if (this.PropertyExists("allowTubeInput"))
+            this.AllowTubeInput = this.PropertyGet("allowTubeInput");
+
+        this.PlaneSprite = Resources.LoadSprite("Sprites/Global/PlaneSwitch.bin", SCOPE_SCENE);
+
+        var direction = (this.FlipFlag << 6) & 0xFF;
+
+        this.Angle = direction;
+        this.CosVal = Static.HexCos(direction);
+        this.SinVal = Static.HexSin(direction);
+        this.RCosVal = Static.HexCos(-direction);
+        this.RSinVal = Static.HexSin(-direction);
+        this.PlayersCaptured = 0;
+
+        this.Visible = false;
+        this.UpdateRegionW = this.UpdateRegionH = 128.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+        this.Priority = DrawGroup_AboveTiles;
+    }
+    event Update() {
+        var spinBooster = this, player, playerIndex = -1;
+        with ("Player") {
+            player = this;
+            playerIndex++;
+
+            var cos = spinBooster.RCosVal;
+            var sin = spinBooster.RSinVal;
+            var relX = player.X - spinBooster.X;
+            var relY = player.Y - spinBooster.Y;
+            var projectedX = relY * sin + relX * cos;
+            var projectedY = relY * cos - relX * sin;
+
+            if (Math.Abs(projectedX) >= 24.0 ||
+                Math.Abs(projectedY) >= spinBooster.Size * 0.5) {
+                if (projectedX < 0.0)
+                    spinBooster.PlayersCaptured &= ~(1 << playerIndex);
+                else
+                    spinBooster.PlayersCaptured |=  (1 << playerIndex);
+            }
+            else {
+                if (projectedX < 0.0) {
+                    if ((1 << playerIndex) & spinBooster.PlayersCaptured) {
+                        if (!spinBooster.ForwardOnly) {
+                            var playerStatus = player.Status;
+                            if (playerStatus == player.Player_StatusRoll_WithInputLock ||
+                                playerStatus == player.Player_StatusJumping_WithInputLock) {
+                                player.LateUpdateAirStatus = null;
+                                player.LateUpdateGroundStatus = null;
+                                if (!spinBooster.AllowTubeInput)
+                                    player.InputLock = 0;
+
+                                if (player.Ground)
+                                    player.Status = player.Player_StatusRoll;
+                                else
+                                    player.Status = player.Player_StatusJumping;
+                            }
+                        }
+                    }
+                    spinBooster.PlayersCaptured &= ~(1 << playerIndex);
+                }
+                else if (((1 << playerIndex) & spinBooster.PlayersCaptured) == 0) {
+                    spinBooster.DoSomethingWith(player);
+                    spinBooster.PlayersCaptured |=  (1 << playerIndex);
+                }
+            }
+        }
+    }
+    event DoSomethingWith(player) {
+        player.UseGroundSpeed = true;
+        this.GripPlayer(player);
+
+        var playerStatus = player.Status;
+        if (playerStatus == player.Player_StatusRoll_WithInputLock ||
+            playerStatus == player.Player_StatusJumping_WithInputLock) {
+            if (this.BoostAlways)
+                this.BoostPlayer(player);
+        }
+        else {
+            if (this.PlaySound)
+                Sound.Play(player.SFX_Roll);
+
+            if (player.CurrentAnimation != 10) {
+                player.SetAnimation(10, 0);
+                if (player.AngleMode == 0 && player.Ground)
+                    player.Y += player.RollHitboxDelta;
+                player.PushingTimer = 0;
+            }
+            player.LateUpdateAirStatus = null;
+            player.LateUpdateGroundStatus = null;
+            if (!this.AllowTubeInput)
+                player.InputLock = 0xFFFF;
+
+            if (player.Ground)
+                player.Status = player.Player_StatusRoll_WithInputLock;
+            else
+                player.Status = player.Player_StatusJumping_WithInputLock;
+
+            var gsp = player.GroundSpeed;
+            if (gsp < 1.0 && gsp > -1.0) {
+                if (this.FlipFlag & 1)
+                    player.GroundSpeed = -4.0;
+                else
+                    player.GroundSpeed = 4.0;
+            }
+            this.BoostPlayer(player);
+        }
+    }
+    event InputGrip(player) {
+        var direction = this.FlipFlag;
+
+        var autoGrip = this.AutoGrip;
+        switch (direction) {
+            case 0:
+                if (autoGrip != 5) {
+                    if ((autoGrip == 7 || autoGrip == 8) && player.InputUp)
+                        return 2;
+                    return 0;
+                }
+                if (player.InputUp)
+                    return 2;
+                if (player.InputDown)
+                    return 0;
+
+                return (direction + (this.Bias << 1)) & 3;
+            case 1:
+                if (autoGrip == 5) {
+                    if (player.InputLeft)
+                        return 3;
+                    if (player.InputRight)
+                        return 1;
+
+                    return (direction + (this.Bias << 1)) & 3;
+                }
+                else if (autoGrip == 7) {
+                    if (player.InputLeft)
+                        return 3;
+                    return -1;
+                }
+                else if (autoGrip == 6) {
+                    if (player.InputRight)
+                        return 1;
+                    return -1;
+                }
+                else if (autoGrip == 8) {
+                    if (player.InputLeft)
+                        return 3;
+                    if (player.InputRight)
+                        return 1;
+                    return -1;
+                }
+                return -1;
+            case 2:
+                if (autoGrip != 5) {
+                    if ((autoGrip == 6 || autoGrip == 8) && player.InputUp)
+                        return 2;
+                    return 0;
+                }
+                if (player.InputUp)
+                    return 2;
+                if (player.InputDown)
+                    return 0;
+
+                return (direction + (this.Bias << 1)) & 3;
+            case 3:
+                if (autoGrip == 5) {
+                    return (player.InputLeft << 1) + 1;
+                }
+                else if (autoGrip == 6) {
+                    if (player.InputLeft)
+                        return 3;
+                    return -1;
+                }
+                else if (autoGrip == 7) {
+                    if (player.InputRight)
+                        return 1;
+                    return -1;
+                }
+                else if (autoGrip == 8) {
+                    if (player.InputLeft)
+                        return 3;
+                    if (player.InputRight)
+                        return 1;
+                    return -1;
+                }
+        }
+        return -1;
+    }
+    event GripPlayer(player) {
+        var autoGrip = this.AutoGrip;
+        if (!autoGrip)
+            return;
+
+        if (autoGrip < 5)
+            autoGrip--;
+        else
+            autoGrip = this.InputGrip(player);
+
+        if (autoGrip < 0) {
+            player.Ground = false;
+            return;
+        }
+
+        var offsetX = 0.0,
+            offsetY = 0.0;
+        var playerAngleToSet = 0,
+            chkAngle = 0;
+
+        player.UpdateHitbox(0);
+
+        switch (autoGrip) {
+            case 0:
+                playerAngleToSet = 0x00;
+                chkAngle = 0x40;
+                offsetY = player.HitboxH * 0.5 + player.HitboxOffY;
+                break;
+            case 1:
+                playerAngleToSet = 0xC0;
+                chkAngle = 0x00;
+                offsetX = player.HitboxW * 0.5 + player.HitboxOffX;
+                break;
+            case 2:
+                playerAngleToSet = 0x80;
+                chkAngle = 0xC0;
+                offsetY = -player.HitboxH * 0.5 + player.HitboxOffY;
+                break;
+            case 3:
+                playerAngleToSet = 0x40;
+                chkAngle = 0x80;
+                offsetX = -player.HitboxW * 0.5 + player.HitboxOffX;
+                break;
+        }
+
+        player.X += Static.HexCos(chkAngle);
+        player.Y += Static.HexSin(chkAngle);
+        Static.Entity_MoveToTileCollision(player, 0x0000, autoGrip, 0 /* player.PlaneIndex */, offsetX, offsetY, true);
+        player.Angle = playerAngleToSet;
+
+        if (player.Ground) {
+            var oppAngleMode = (player.AngleMode + 2) & 3;
+            if (autoGrip == oppAngleMode) {
+                player.GroundSpeed = -player.GroundSpeed;
+            }
+        }
+        else {
+            switch (autoGrip) {
+                case 0:
+                    player.GroundSpeed = player.XSpeed;
+                    break;
+                case 1:
+                    player.GroundSpeed = -player.YSpeed;
+                    break;
+                case 2:
+                    player.GroundSpeed = -player.XSpeed;
+                    break;
+                case 3:
+                    player.GroundSpeed = player.YSpeed;
+                    break;
+            }
+        }
+        player.AngleMode = autoGrip;
+        player.Ground = true;
+    }
+    event BoostPlayer(player) {
+        var angle = this.Angle;
+        var sin = Static.HexSin(angle),
+            cos = Static.HexCos(angle);
+        var psin = Static.HexSin(player.Angle),
+            pcos = Static.HexCos(player.Angle);
+
+        if (player.Ground) {
+            var sum = cos + sin;
+            var dif = pcos - psin;
+            var boost = this.BoostPower * 0.5 * ((dif > 0.0) - (dif < 0.0)) * ((sum > 0.0) - (sum < 0.0));
+            if (this.BoostPower >= 0)
+                player.GroundSpeed += boost;
+            else
+                player.GroundSpeed = boost;
+        }
+        else {
+            var bcos =  cos * this.BoostPower * 0.5;
+            var bsin = -sin * this.BoostPower * 0.5;
+            if (this.BoostPower >= 0) {
+                player.XSpeed += bcos;
+                player.YSpeed += bsin;
+            }
+            else {
+                player.XSpeed = bcos;
+                player.YSpeed = bsin;
+            }
+        }
+
+        if (this.BoostPower < 0 && !this.ForwardOnly) {
+            var playerStatus = player.Status;
+            if (playerStatus == player.Player_StatusRoll_WithInputLock ||
+                playerStatus == player.Player_StatusJumping_WithInputLock) {
+                player.LateUpdateAirStatus = null;
+                player.LateUpdateGroundStatus = null;
+
+                if (!this.AllowTubeInput)
+                    player.InputLock = 0;
+
+                player.UseGroundSpeed = true;
+                if (player.Ground)
+                    player.Status = player.Player_StatusRoll;
+                else
+                    player.Status = player.Player_StatusJumping;
+            }
+        }
+    }
+
+    event Render() {
+        if (!this.Visible)
+            return;
+        if (!this.OnScreen)
+            return;
+
+        var cos = this.CosVal;
+        var sin = this.SinVal;
+        var cos16 = cos * 16.0;
+        var sin16 = sin * 16.0;
+
+        var sx = Math.Floor(this.X), sy = Math.Floor(this.Y);
+        var x, y, frame, tempX, tempY;
+
+        // Path
+        x = 0.0;
+        y = -this.Size / 2.0;
+
+        tempX = y * sin + x * cos;
+        tempY = y * cos - x * sin;
+        x = sx + tempX; y = sy + tempY;
+
+        for (var i = 0.0; i < this.Size; i += 16.0) {
+            Draw.Sprite(this.PlaneSprite, 0, 4, x, y, false, false);
+            x += sin16;
+            y += cos16;
+        }
+    }
+}

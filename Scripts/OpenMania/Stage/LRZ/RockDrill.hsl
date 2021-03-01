@@ -1,0 +1,79 @@
+class RockDrill {
+    Load() {
+        this.LockCamera = false;
+    }
+    Setup() {
+        if (this.PropertyExists("lockCamera"))
+            this.LockCamera = this.PropertyGet("lockCamera");
+        if (this.PropertyExists("planeFilter"))
+            this.PlaneFilter = this.PropertyGet("planeFilter");
+    }
+    Create(flag) {
+        this.Load();
+        this.Setup();
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.UpdateRegionW = this.UpdateRegionH = 256.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+
+        this.Status = this.RockDrill_Status_WaitForPlayer;
+
+        this.Timer = 120;
+    }
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+    RockDrill_Status_WaitForPlayer() {
+        var zone = Instance.GetNth("Zone", 0);
+        if (!zone) return;
+
+        this.Status = this.RockDrill_Status_Rumble;
+
+        if (this.LockCamera) {
+            var vw = View.GetWidth(0) * 0.5;
+            this.CameraMinX = zone.CameraMinX[0];
+            this.CameraMaxX = zone.CameraMaxX[0];
+            this.CameraMinY = zone.CameraMinY[0];
+            this.CameraMaxY = zone.CameraMaxY[0];
+
+            zone.CameraMinX[0] = this.X - vw - 96.0;
+            zone.CameraMaxX[0] = this.X + vw - 96.0;
+            zone.CameraMaxY[0] = this.Y + 96.0;
+        }
+        this.Timer = 120;
+    }
+    RockDrill_Status_Rumble() {
+        var zone = Instance.GetNth("Zone", 0);
+        if (!zone) return;
+
+        var camera = Instance.GetNth("Camera", 0);
+        if (!camera) return;
+
+        if (camera.ShakeY == 0)
+            camera.ShakeY = 4;
+
+        if (this.Timer-- <= 0) {
+            with ("LRZRockPile") {
+                if (Static.Entity_IsOnScreen(this, 128.0, 64.0)) {
+                    this.Broken = true;
+                    this.DelayTimer = 0;
+                }
+            }
+
+            camera.ShakeY = 0;
+
+            if (this.LockCamera) {
+                zone.CameraMinX[0] = this.CameraMinX;
+                zone.CameraMaxX[0] = this.CameraMaxX;
+                zone.CameraMinY[0] = this.CameraMinY;
+                zone.CameraMaxY[0] = this.CameraMaxY;
+            }
+            this.Active = false;
+        }
+    }
+}

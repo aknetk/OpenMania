@@ -1,0 +1,109 @@
+class TilePlatform < Platform {
+    Load() {
+        super.Load();
+
+        this.SizeX = 0;
+        this.SizeY = 0;
+        this.TileOriginX = 0;
+        this.TileOriginY = 0;
+    }
+    Setup() {
+        super.Setup();
+
+        if (this.PropertyExists("size")) {
+            var size = this.PropertyGet("size");
+            this.SizeX = size[0];
+            this.SizeY = size[1];
+        }
+        if (this.PropertyExists("targetPos")) {
+            var targetPos = this.PropertyGet("targetPos");
+            this.TileOriginX = targetPos[0];
+            this.TileOriginY = targetPos[1];
+        }
+
+        this.FrameID = -1;
+        this.Collision = 2;
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        super.Create();
+
+        this.TileW = Number.AsInteger((this.SizeX + 15.0) / 16.0);
+        this.TileH = Number.AsInteger((this.SizeY + 15.0) / 16.0);
+
+        this.HitboxW = this.TileW * 16.0;
+        this.HitboxH = this.TileH * 16.0;
+        this.HitboxOffX = 0.0;
+        this.HitboxOffY = 0.0;
+
+        this.BufferedTiles = Array.Create(this.TileW * this.TileH);
+        this.BufferedTilesFlipX = Array.Create(this.TileW * this.TileH);
+        this.BufferedTilesFlipY = Array.Create(this.TileW * this.TileH);
+
+        this.TargetLayerIndex = Scene.GetLayerIndex("Move");
+        Scene.SetLayerCollidable(this.TargetLayerIndex, true);
+
+        // this.Priority = DrawGroup_FGLow_Low;
+        var txS = (Number.AsInteger(this.TileOriginX) - (this.TileW << 3)) >> 4;
+        var txE = (txS + this.TileW);
+        var tyS = (Number.AsInteger(this.TileOriginY) - (this.TileH << 3)) >> 4;
+        var tyE = (tyS + this.TileH);
+
+        var t = 0;
+        var layer = this.TargetLayerIndex,
+            tiles = this.BufferedTiles,
+            tilesFX = this.BufferedTilesFlipX,
+            tilesFY = this.BufferedTilesFlipY;
+        for (var y = tyS; y < tyE; y++) {
+            for (var x = txS; x < txE; x++) {
+                tiles[t] = Scene.GetTileID(layer, x, y);
+                tilesFX[t] = Scene.GetTileFlipX(layer, x, y);
+                tilesFY[t] = Scene.GetTileFlipY(layer, x, y);
+                t++;
+            }
+        }
+
+        this.UpdateRegionW = this.HitboxW * 2.0;
+        this.UpdateRegionH = this.HitboxH * 2.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+
+        this.LastX = this.X;
+        this.LastY = this.Y;
+    }
+    UpdateEarly() {
+        super.UpdateEarly();
+    }
+    Update() {
+        this.LastX = this.FinalX;
+        this.LastY = this.FinalY;
+
+        super.Update();
+    }
+    Render() {
+        var t = 0;
+        var tiles = this.BufferedTiles,
+            tilesFX = this.BufferedTilesFlipX,
+            tilesFY = this.BufferedTilesFlipY;
+
+        var tW = this.TileW, tH = this.TileH;
+        var tY = Math.Floor(this.FinalY - (tH << 3));
+        for (var y = 0; y < tH; y++) {
+            var tX = Math.Floor(this.FinalX - (tW << 3));
+            for (var x = 0; x < tW; x++) {
+                if (tiles[t] != 0x3FF)
+                    Draw.Tile(tiles[t], tX, tY, tilesFX[t], tilesFY[t]);
+                tX += 16.0;
+                t++;
+            }
+            tY += 16.0;
+        }
+
+        // Draw.SetBlendColor(0.5, 0.5, 0.625, 0.5);
+        // Draw.Rectangle(Math.Floor(this.FinalX - this.HitboxW * 0.5 + this.HitboxOffX), Math.Floor(this.FinalY - this.HitboxH * 0.5 + this.HitboxOffY), this.HitboxW, this.HitboxH);
+    }
+}

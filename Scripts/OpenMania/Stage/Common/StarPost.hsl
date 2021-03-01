@@ -1,0 +1,372 @@
+var StarPost_PlayerUsing = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+var StarPost_PlayerPosX = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+var StarPost_PlayerPosY = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+var StarPost_PlayerFlipFlag = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+
+class StarPost {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.ID = 0;
+        this.FlipFlag = 0;
+        this.VSRemove = false;
+        this.AllPlayersMask = 0;
+        this.BulbPosX = this.X;
+        this.BulbPosY = this.Y;
+        this.Status = null;
+        this.HitboxW = 16.0;
+        this.HitboxH = 64.0;
+        this.HitboxOffY = -12.0;
+        if (this.PropertyExists("id"))
+            this.ID = this.PropertyGet("id");
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+        if (this.PropertyExists("vsRemove"))
+            this.VSRemove = this.PropertyGet("vsRemove");
+
+        /*
+        Property: id    Type: int32
+        Property: direction    Type: uint8
+        Property: vsRemove    Type: bool
+        */
+
+        if (global.GameMode == GameModes_TimeAttack ||
+            global.GameMode == GameModes_Competition && this.VSRemove) {
+            this.Active = false;
+            return;
+        }
+
+        this.Sprite = Resources.LoadSprite("Sprites/Global/StarPost.bin", SCOPE_GAME);
+        this.SFX_StarPost = Resources.LoadSound("SoundFX/Global/StarPost.wav", SCOPE_GAME);
+        this.SFX_SpecialWarp = Resources.LoadSound("SoundFX/Global/SpecialWarp.wav", SCOPE_GAME);
+
+        if (true) {
+            this.Priority = DrawGroup_FGLow_Low;
+            this.UpdateRegionW = this.UpdateRegionH = 128.0;
+            this.UpdateRegionBackupW = this.UpdateRegionBackupH = 128.0;
+            this.RenderRegionW =
+            this.RenderRegionH = 128.0;
+            this.Status = this.StarPost_Status_Normal;
+            this.Angle = 0x100;
+        }
+
+        if (this.AllPlayersMask) {
+            this.AnimationSpeedMult = 2.0;
+            this.SetAnimation(2, 0);
+        }
+        else {
+            this.SetAnimation(1, 0);
+        }
+
+        // this.SetAnimation(3, 0); // Stars
+        this.BulbPosX = this.X;
+        this.BulbPosY = this.Y - 24.0;
+        this.StarAngle = 0;
+        this.StarTimer = 0;
+        this.StarBoolean = 0;
+        this.OtherTimer = 0;
+        this.StarRingSize = 0;
+        this.AngleSpeed = 0;
+        this.SpinCount = 0;
+
+        if (global.UseCheckpoint > -1) {
+            var index = -1, player;
+            with ("Player") {
+                index++;
+                player = this;
+
+                if (StarPost_PlayerUsing[index]) {
+                    player.X = StarPost_PlayerPosX[index];
+                    player.Y = StarPost_PlayerPosY[index] + 16.0;
+                    player.Flip = StarPost_PlayerFlipFlag[index];
+                }
+            }
+
+            if (this.ID <= global.UseCheckpoint) {
+                this.AnimationSpeedMult = 2.0;
+                this.SetAnimation(2, 0);
+            }
+        }
+    }
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+
+    event StarPost_Status_Normal() {
+        // Custom:
+        if (this.ID > global.UseCheckpoint) {
+            this.StarPost_HandlePlayerCollide();
+        }
+        else {
+            this.AnimationSpeedMult = 2.0;
+            this.SetAnimation(2, 0);
+        }
+
+        if (this.StarBoolean > 0)
+            this.StarPost_HandleStars();
+    }
+    event StarPost_Status_Spin() {
+        // Custom:
+        if (this.ID > global.UseCheckpoint) {
+            this.StarPost_HandlePlayerCollide();
+        }
+        else {
+            this.AnimationSpeedMult = 2.0;
+            this.SetAnimation(2, 0);
+        }
+
+        this.Angle += this.AngleSpeed;
+
+        if (this.SpinCount == 10) {
+            // this.AngleSpeed = 0;
+        }
+
+        var angleSpeed = this.AngleSpeed;
+        var angle = this.Angle;
+        var newAngleSpeed = angleSpeed;
+        var stop = false;
+        if (angleSpeed <= 0) {
+            if (angle <= -0x300) {
+                this.SpinCount++;
+                this.Angle = angle + 0x400;
+                newAngleSpeed = angleSpeed + 8;
+                if (newAngleSpeed > -32)
+                    newAngleSpeed = -32;
+                stop = newAngleSpeed == -32;
+            }
+        }
+        else {
+            if (angle >= 0x500) {
+                this.SpinCount++;
+                this.Angle = angle - 0x400;
+                newAngleSpeed = angleSpeed - 8;
+                if (newAngleSpeed < 32)
+                    newAngleSpeed = 32;
+                stop = newAngleSpeed == 32;
+            }
+        }
+        this.AngleSpeed = newAngleSpeed;
+
+        if (stop) {
+            this.Status = this.StarPost_Status_Normal;
+            this.AngleSpeed = 0;
+            this.Angle = 0x100;
+            this.AnimationSpeedMult = 2.0;
+
+            if (this.StarBoolean == 0) {
+                this.UpdateRegionBackupW = this.UpdateRegionW;
+                this.UpdateRegionBackupH = this.UpdateRegionH;
+            }
+        }
+
+        if (this.StarBoolean > 0)
+            this.StarPost_HandleStars();
+    }
+
+    event StarPost_HandlePlayerCollide() {
+        var player, starPost = this;
+
+        var index = -1, indexFlag;
+        with ("Player") {
+            index++;
+            indexFlag = 1 << index;
+            player = this;
+            if (player.IsSubPlayer)
+                continue;
+            if (indexFlag & starPost.AllPlayersMask)
+                continue;
+
+            if (!Static.GameObject_TestCollide(player, starPost))
+                continue;
+
+            StarPost_PlayerUsing[index] = 1;
+            StarPost_PlayerPosX[index] = starPost.X;
+            StarPost_PlayerPosY[index] = starPost.Y;
+            StarPost_PlayerFlipFlag[index] = player.Flip;
+            global.UseCheckpoint = starPost.ID;
+            global.SavedBG = global.CurrentBG;
+
+            starPost.Status = starPost.StarPost_Status_Spin;
+            starPost.UpdateRegionW = starPost.UpdateRegionH = 0.0;
+
+            var speed = player.XSpeed;
+            if (player.Ground)
+                speed = player.GroundSpeed;
+
+            speed = -12 * Number.AsInteger(speed * 0.5);
+            if (speed >= 0)
+                speed += 32;
+            else
+                speed -= 32;
+
+            var angleSpeed = starPost.AngleSpeed;
+
+            if (angleSpeed == 0) {
+                starPost.AngleSpeed = speed;
+            }
+            else if (angleSpeed <= 0) {
+                if (speed < angleSpeed) {
+                    starPost.AngleSpeed = speed;
+                }
+                else if (speed > 0) {
+                    speed += angleSpeed;
+                    starPost.AngleSpeed = speed;
+                }
+            }
+            else {
+                if (speed > angleSpeed) {
+                    starPost.AngleSpeed = speed;
+                }
+                else if (speed < 0) {
+                    speed += angleSpeed;
+                    starPost.AngleSpeed = speed;
+                }
+            }
+
+            starPost.SpinCount = 0;
+            if (global.GameMode < GameModes_TimeAttack) {
+                var ringThreshold = 50;
+                if (global.GameMode != GameModes_Encore)
+                    ringThreshold = 25;
+
+                if (player.Rings >= ringThreshold) {
+                    starPost.StarTimer = 0;
+                    starPost.OtherTimer = 0;
+                    starPost.StarAngle = 0;
+                    starPost.StarRingSize = 0;
+                    starPost.StarBoolean = 1;
+                }
+            }
+
+            if (!starPost.AllPlayersMask) {
+                starPost.AnimationSpeedMult = 0.0;
+                starPost.SetAnimation(2, 0);
+            }
+
+            starPost.AllPlayersMask |= indexFlag;
+            starPost.UpdateRegionW = starPost.UpdateRegionH = 0.0;
+            Sound.Play(starPost.SFX_StarPost);
+        }
+    }
+    event StarPost_HandleStars() {
+        this.StarAngle = (this.StarAngle + 0x12) & 0x1FF;
+        this.OtherTimer = (this.OtherTimer + 4) & 0x1FF;
+
+        if (this.StarTimer >= 0x80) {
+            if (this.StarTimer > 0x1D8)
+                this.StarRingSize--;
+        }
+        else {
+            this.StarRingSize++;
+        }
+
+        var starTimer = this.StarTimer + 1;
+        this.StarTimer = starTimer;
+        if (starTimer == 600) {
+            this.StarTimer = 0;
+            this.StarBoolean = 0;
+
+            // Custom:
+            this.UpdateRegionW = this.UpdateRegionH = 128.0;
+        }
+
+        if (this.StarTimer > 60) {
+            var hitboxWidth = this.HitboxW;
+            var hitboxHeight = this.HitboxH;
+            var hitboxOffY = this.HitboxOffY;
+
+            this.HitboxW = this.StarRingSize >> 1;
+            this.HitboxH = 8.0;
+            this.HitboxOffY = -44.0;
+
+            var player, doWarp = false;
+            with ("Player") {
+                if (player) continue;
+
+                player = this;
+                if (Static.GameObject_TestCollide(player, other)) {
+                    doWarp = true;
+                }
+            }
+
+            this.HitboxW = hitboxWidth;
+            this.HitboxH = hitboxHeight;
+            this.HitboxOffY = hitboxOffY;
+
+            if (doWarp) {
+                var zone = Instance.GetNth("Zone", 0);
+                if (zone)
+                    zone.Zone_BackupGameState();
+
+                Sound.Play(this.SFX_SpecialWarp);
+                player.Interactable = false;
+                player.Visible = false;
+                player.InvincibilityTimer = 0;
+                player.Status = player.Player_StatusNone;
+                player.XSpeed = player.YSpeed = 0.0;
+
+                global.TimerActive = false;
+
+                var fxfade = Instance.GetNth("FXFade", 0);
+                if (!fxfade)
+                    fxfade = Instance.Create("FXFade", 0.0, 0.0);
+
+                fxfade.SpeedIn = 4;
+                fxfade.Wait = 0;
+                fxfade.SpeedOut = 10;
+                fxfade.Color = 0xFFFFFF;
+                fxfade.Status = this.StarPost_SetFXFade_Status_BlueSpheres;
+                fxfade.Timer = 0;
+                fxfade.Priority = 15;
+            }
+        }
+    }
+
+    event StarPost_SetFXFade_Status_BlueSpheres() {
+        this.Wait += this.SpeedOut;
+        this.Timer = this.Wait;
+        if (this.Wait > 1024) {
+            if (true) {
+                // global.EnableIntro = true;
+                // global.SuppressAutoMusic = true;
+                // global.SuppressTitlecard = true;
+            }
+
+            Scene.Restart();
+            // Scene.Load("Stages/SpecialBS/Scene1.bin");
+        }
+    }
+
+    event Render() {
+        if (!this.OnScreen)
+            return;
+
+        var angle = this.Angle;
+        var cos = Static.HexCosHighPrec(angle);
+        var sin = Static.HexSinHighPrec(angle);
+
+        var x = Math.Floor(this.X), y = Math.Floor(this.Y);
+        var bulbX = Math.Floor(this.X - 10.0 * cos),
+            bulbY = Math.Floor(this.Y - 10.0 * sin - 14.0);
+
+        Draw.Sprite(this.Sprite, 0, 0, x, y, false, false);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, bulbX, bulbY, false, false);
+
+        if (this.StarBoolean > 0) {
+            var otherTimer = 3.0 * Static.HexSinMedPrec(this.OtherTimer);
+            var starAngle = this.StarAngle;
+            for (var i = 0; i < 4; i++) {
+                var otherTimerMult = otherTimer * Static.HexSinMedPrec(starAngle);
+                var x = Math.Floor(this.X + Static.HexSinMedPrec(starAngle) * this.StarRingSize * 0.25),
+                    y = Math.Floor(this.Y + (otherTimerMult + Static.HexCosMedPrec(starAngle)) * this.StarRingSize / 32.0) - 50.0;
+
+                Draw.Sprite(this.Sprite, 3, (this.OtherTimer >> 3) & 3, x, y, false, false);
+                starAngle += 0x80;
+            }
+        }
+    }
+}

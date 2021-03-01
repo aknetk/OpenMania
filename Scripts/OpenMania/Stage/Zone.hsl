@@ -1,0 +1,220 @@
+var DrawGroup_FGLow_Tile = 0;
+var DrawGroup_FGLow_Low = 2;
+var DrawGroup_FGLow_High = 4;
+var DrawGroup_FGHigh_Low = 6;
+var DrawGroup_FGHigh_High = 8;
+var DrawGroup_AboveTiles = 12;
+var DrawGroup_HUD = 14;
+
+var GameModes_Mania = 0;
+var GameModes_Encore = 1;
+var GameModes_TimeAttack = 2;
+var GameModes_Competition = 3;
+
+class Zone {
+    event Create() {
+        var sceneWidth = Scene.GetWidth() * 16.0;
+        var sceneHeight = Scene.GetHeight() * 16.0;
+        var maxPlayerCount = 8;
+
+        this.StaticWorldInertia = 0.0;
+        this.MinPlayerX = Array.Create(maxPlayerCount);
+        this.MaxPlayerX = Array.Create(maxPlayerCount);
+        this.MinPlayerY = Array.Create(maxPlayerCount);
+        this.MaxPlayerY = Array.Create(maxPlayerCount);
+        this.CameraMinX = Array.Create(maxPlayerCount);
+        this.CameraMaxX = Array.Create(maxPlayerCount);
+        this.CameraMinY = Array.Create(maxPlayerCount);
+        this.CameraMaxY = Array.Create(maxPlayerCount);
+        this.DeathZoneY = Array.Create(maxPlayerCount);
+        this.BoundPlayerTop = Array.Create(maxPlayerCount);
+        this.BoundPlayerLeft = Array.Create(maxPlayerCount);
+        this.BoundPlayerRight = Array.Create(maxPlayerCount);
+        this.BoundPlayerBottom = Array.Create(maxPlayerCount);
+
+        for (var i = 0; i < maxPlayerCount; i++) {
+            this.MinPlayerX[i] = 0.0;
+            this.MaxPlayerX[i] = sceneWidth;
+            this.MinPlayerY[i] = 0.0;
+            this.MaxPlayerY[i] = sceneHeight;
+            this.CameraMinX[i] = 0.0;
+            this.CameraMaxX[i] = sceneWidth;
+            this.CameraMinY[i] = 0.0;
+            this.CameraMaxY[i] = sceneHeight;
+            this.DeathZoneY[i] = sceneHeight;
+            this.BoundPlayerTop[i] = false;
+            this.BoundPlayerLeft[i] = true;
+            this.BoundPlayerRight[i] = true;
+            this.BoundPlayerBottom[i] = false;
+        }
+
+        var sceneName = Scene.GetName();
+        var ind = String.LastIndexOf(sceneName, "/");
+        if (ind > -1) {
+            sceneName = String.Substring(sceneName, 0, ind) + "/TileConfig.bin";
+            Scene.LoadTileCollisions(sceneName);
+        }
+
+        var scratchInd = -1;
+        if ((scratchInd = Scene.GetLayerIndex("Scratch")) != -1) {
+            Scene.SetLayerVisible(scratchInd, false);
+        }
+        scratchInd = -1;
+        if ((scratchInd = Scene.GetLayerIndex("Move")) != -1) {
+            Scene.SetLayerVisible(scratchInd, false);
+        }
+
+        if (String.Contains(Scene.GetName(), "GHZ")) {
+            Instance.Create("GHZSetup", 0.0, 0.0);
+        }
+        else if (String.Contains(Scene.GetName(), "FBZ")) {
+            Instance.Create("FBZSetup", 0.0, 0.0);
+        }
+        else if (String.Contains(Scene.GetName(), "MSZ")) {
+            Instance.Create("MSZSetup", 0.0, 0.0);
+        }
+        else if (String.Contains(Scene.GetName(), "HCZ")) {
+            Instance.Create("HCZSetup", 0.0, 0.0);
+        }
+        else if (String.Contains(Scene.GetName(), "LRZ1")) {
+            Instance.Create("LRZ1Setup", 0.0, 0.0);
+        }
+        else if (String.Contains(Scene.GetName(), "LRZ2")) {
+            Instance.Create("LRZ2Setup", 0.0, 0.0);
+        }
+    }
+    event UpdateEarly() {
+        // if (!String.Contains(Scene.GetName(), "OOZ1"))
+        //     return;
+        //
+        // with ("Player") {
+        //     if (this.Y > 1824.0 - 32.0) {
+        //         if (this.YSpeed < 0.0) {
+        //             this.YSpeed += 0.21875;
+        //         }
+        //         else {
+        //             this.DoEntityInteraction = true;
+        //             this.UseGroundSpeed = true;
+        //
+        //             this.Status = this.Player_StatusSinking_OOZ;
+        //         }
+        //     }
+        // }
+    }
+    event UpdateLate() {
+        var player, zone = this;
+        with ("Player") {
+            player = this;
+
+            var index = 0;
+            var staticWorldInertia = zone.StaticWorldInertia;
+
+            // Bound left
+            if (zone.BoundPlayerLeft[index]) {
+                var zoneMinPlayerX = zone.MinPlayerX[index];
+                var playerHitboxLeft = player.HitboxW * -0.5 + player.HitboxOffX;
+                if (player.X + playerHitboxLeft <= zoneMinPlayerX) {
+                    player.X = -playerHitboxLeft + zoneMinPlayerX;
+                    if (player.Ground) {
+                        if (player.GroundSpeed < staticWorldInertia) {
+                            player.XSpeed =
+                            player.GroundSpeed = staticWorldInertia;
+                            player.PushingTimer = 0;
+                        }
+                    }
+                    else if (player.XSpeed < staticWorldInertia) {
+                        player.XSpeed = staticWorldInertia;
+                        player.GroundSpeed = 0.0;
+                    }
+                }
+            }
+
+            // Bound right
+            if (zone.BoundPlayerRight[index]) {
+                var zoneMaxPlayerX = zone.MaxPlayerX[index];
+                var playerHitboxRight = player.HitboxW * 0.5 + player.HitboxOffX;
+                if (player.X + playerHitboxRight >= zoneMaxPlayerX) {
+                    player.X = -playerHitboxRight + zoneMaxPlayerX;
+                    if (player.Ground) {
+                        if (player.GroundSpeed > staticWorldInertia) {
+                            player.XSpeed =
+                            player.GroundSpeed = staticWorldInertia;
+                            player.PushingTimer = 0;
+                        }
+                    }
+                    else if (player.XSpeed > staticWorldInertia) {
+                        player.XSpeed = staticWorldInertia;
+                        player.GroundSpeed = 0.0;
+                    }
+                }
+            }
+
+            // Bound top
+            if (zone.BoundPlayerTop[index]) {
+                var zoneMinPlayerY = zone.MinPlayerY[index];
+                var playerHitboxTop = -20.0; // player.HitboxH * -0.5 + player.HitboxOffY;
+                if (player.Y + playerHitboxTop <  zoneMinPlayerY) {
+                    player.Y = -playerHitboxTop + zoneMinPlayerY;
+                    if (player.YSpeed < 0.0) {
+                        player.YSpeed = 0.0;
+                    }
+                }
+            }
+
+            // Kill player if they reach bottom of screen
+            if (player.Status != player.Player_StatusDead && !player.KillFlag) {
+                var doKill = false;
+                if (zone.DeathZoneY[index] >= zone.MaxPlayerY[index])
+                    doKill = player.Y > zone.DeathZoneY[index];
+                else
+                    doKill = player.Y > zone.MaxPlayerY[index];
+
+                if (doKill) {
+                    player.KillFlag = 1;
+                    zone.BoundPlayerBottom[index] = false;
+                }
+            }
+
+            // Bound bottom
+            if (zone.BoundPlayerBottom[index]) {
+                var zoneMaxPlayerY = zone.MaxPlayerY[index];
+                var playerHitboxBottom = 20.0;
+                if (player.Y + playerHitboxBottom >  zoneMaxPlayerY) {
+                    player.Y = -playerHitboxBottom + zoneMaxPlayerY;
+                    player.YSpeed = 0.0;
+                    player.Ground = true;
+                }
+            }
+        }
+    }
+
+    Zone_BackupGameState() {
+        global.RecallEntities = true;
+
+        global.RecallPosX = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        global.RecallPosY = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        global.RecallSlot = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        global.RecallFlipFlag = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        global.RecallTimer = 0;
+        global.TempTimer = 0;
+        global.RecallLives = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+
+        var player, zone = this, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+            global.RecallPosX[index] = player.X;
+            global.RecallPosY[index] = player.Y;
+            global.RecallFlipFlag[index] = player.Flip;
+            global.RecallLives[index] = player.Lives;
+            if (index == 0) {
+                global.RecallTimer = player.TimerFrames;
+                global.RecallScore = player.Score;
+                global.RecallScore1UP = player.ScoreToNextLife;
+                global.RecallRings = player.Rings;
+                global.RecallRingExtraLifeLevel = player.RingExtraLifeLevel;
+                global.RecallShield = player.Shield | (player.CombineRing << 6);
+            }
+        }
+    }
+}

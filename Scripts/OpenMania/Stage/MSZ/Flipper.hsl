@@ -1,0 +1,92 @@
+class Flipper {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/MSZ/Flipper.bin", SCOPE_GAME);
+        this.SFX_Flipper = Resources.LoadSound("SoundFX/Stage/Flipper.wav", SCOPE_GAME);
+        this.HitboxW = 68.0;
+        this.HitboxH = 16.0;
+        this.HitboxOffX = 22.0;
+        this.HitboxOffY = 0.0;
+        this.AutoAnimate = false;
+        this.PlayersGrabbed = 0;
+
+        // Setup
+        this.Visible = true;
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+
+        this.Priority = DrawGroup_FGLow_Low;
+        this.SetAnimation(0, 0);
+
+        this.UpdateRegionW = this.UpdateRegionH = 128.0;
+        this.RenderRegionW = this.RenderRegionH = 128.0;
+    }
+
+    event Update() {
+        this.Animate();
+        if (this.CurrentAnimation == 1 && this.CurrentFrame == this.CurrentFrameCount - 1)
+            this.SetAnimation(0, 0);
+
+        var flipperFlip = this.FlipFlag ? -1.0 : 1.0;
+
+        var player, flipper = this, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+
+            if ((player.X - flipper.X) * flipperFlip >= 4.0)
+                flipper.HitboxOffY = ((player.X - flipper.X) * flipperFlip - 4.0) * 0.5 - 12.0;
+            else
+                flipper.HitboxOffY = -12.0;
+
+            if (Static.Entity_TopSolidCollideWithPlayer(flipper, player)) {
+                flipper.PlayersGrabbed |= (1 << index);
+                player.Y += 8.0;
+                player.SetAnimation(10, 0);
+                if (player.InputJumpPressed) {
+                    // for (var i = 0; i < 8; i++) {
+                    var i = index;
+                        if ((1 << i) & flipper.PlayersGrabbed) {
+                            var relX = (player.X - flipper.X) * flipperFlip - 4.0;
+                            player.AnimationSpeedMult = 0.5;
+                            player.Status = player.Player_StatusJumping;
+                            player.MidAirFlag = 1;
+                            player.Ground = false;
+                            player.XSpeed = relX / 7.0 * flipperFlip;
+                            player.YSpeed = -6.5 - relX / 8.0;
+                        }
+                    // }
+                    flipper.SetAnimation(1, 0);
+                    Sound.Play(flipper.SFX_Flipper);
+                }
+                else {
+                    player.UseGroundSpeed = 1;
+                    player.Status = player.Player_StatusJumping;
+                    var gsp = player.GroundSpeed * flipperFlip;
+                    if (gsp >= 1.0) {
+                        if (gsp > 2.0)
+                            player.GroundSpeed = 2.0 * flipperFlip;
+                        player.GroundSpeed += 0.0625 * flipperFlip;
+                    }
+                    else {
+                        if (gsp > 2.0)
+                            player.GroundSpeed = 2.0 * flipperFlip;
+                        player.GroundSpeed += 0.0625 * flipperFlip;
+                    }
+                }
+            }
+            else {
+                flipper.PlayersGrabbed &= ~(1 << index);
+            }
+        }
+    }
+
+    event Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), this.FlipFlag & 1, this.FlipFlag & 2);
+    }
+}

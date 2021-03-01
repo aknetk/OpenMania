@@ -1,0 +1,447 @@
+var TransportTube_Unk_0x04 = null;
+
+class TransportTube {
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.SFX_Travel = Resources.LoadSound("SoundFX/Tube/Travel.wav", SCOPE_SCENE);
+
+        this.Type = 0;
+        this.DirMask = 0;
+        this.Status = null;
+        this.DirectionCount = 0;
+        this.DirectionX = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        this.DirectionY = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        this.PlayerTimer = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.DirectionValues = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.Unk_0xD4 = [ null, null, null, null, null, null, null, null ];
+        this.AutoPhysics = false;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("dirMask"))
+            this.DirMask = this.PropertyGet("dirMask");
+
+        this.UpdateRegionW =
+        this.UpdateRegionH = 384.0;
+
+        switch (this.Type) {
+            case 0:
+                this.Status = this.TransportTube_Status_NoControl;
+                break;
+            case 1:
+                this.Status = this.TransportTube_Status_Door;
+                break;
+            case 2:
+            case 3:
+                this.Status = this.TransportTube_Status_AB;
+                break;
+            case 4:
+                this.Status = this.TransportTube_Status_C;
+                break;
+            case 5:
+                this.Status = this.TransportTube_Status_Junction;
+                break;
+            case 6:
+                this.Status = this.TransportTube_Status_Exit;
+                break;
+        }
+        this.TransportTube_SetMovementVectors();
+
+        // NOTE: Tiled support
+        if (this.PropertyExists("Rotation") || this.PropertyExists("flipFlag")) {
+            var adjustAngle = 0;
+            if (this.PropertyExists("Rotation"))
+                adjustAngle = (Number.AsInteger(this.PropertyGet("Rotation") * 128 / 180)) & 0xFF;
+            var cos = Static.HexCos(adjustAngle);
+            var sin = Static.HexSin(adjustAngle);
+            var flipX = 1.0;
+            var flipY = 1.0;
+
+            // print "X: " + this.X + " Y: " + this.Y + " flipFlag: " + (this.PropertyExists("flipFlag") ? this.PropertyGet("flipFlag"): "none");
+
+            if (this.PropertyExists("flipFlag") && (this.PropertyGet("flipFlag") & 1))
+                flipX = -1.0;
+            if (this.PropertyExists("flipFlag") && (this.PropertyGet("flipFlag") & 2))
+                flipY = -1.0;
+
+            this.DirMask = 0;
+            for (var d = 0; d < this.DirectionCount; d++) {
+                var dx = this.DirectionX[d] * flipX;
+                var dy = this.DirectionY[d] * flipY;
+                this.DirectionX[d] = dx * cos - dy * sin;
+                this.DirectionY[d] = dx * sin + dy * cos;
+
+                // change flag
+                dx = this.DirectionX[d]; var aDX = Math.Abs(dx);
+                dy = this.DirectionY[d]; var aDY = Math.Abs(dy);
+                if (aDX < 1.0) {
+                    if (dy < 0)
+                        this.DirMask |= 0x01;
+                    else
+                        this.DirMask |= 0x02;
+                }
+                else if (aDX > 15.0) {
+                    if (dx < 0)
+                        this.DirMask |= 0x04;
+                    else
+                        this.DirMask |= 0x08;
+                }
+                else {
+                    if (dy < 0) {
+                        if (dx > 0)
+                            this.DirMask |= 0x10;
+                        else
+                            this.DirMask |= 0x20;
+                    }
+                    else {
+                        if (dx > 0)
+                            this.DirMask |= 0x40;
+                        else
+                            this.DirMask |= 0x80;
+                    }
+                }
+            }
+        }
+
+        this.RenderRegionW =
+        this.RenderRegionH = 32.0;
+
+        TransportTube_Unk_0x04 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+
+        this.Priority = DrawGroup_AboveTiles;
+    }
+    TransportTube_SetMovementVectors() {
+        var dirMask = this.DirMask;
+
+        this.DirectionCount = 0;
+        if (dirMask & 0x01) {
+            this.DirectionX[this.DirectionCount  ] =   0.0;
+            this.DirectionY[this.DirectionCount++] = -16.0;
+        }
+        if (dirMask & 0x02) {
+            this.DirectionX[this.DirectionCount  ] =   0.0;
+            this.DirectionY[this.DirectionCount++] =  16.0;
+        }
+        if (dirMask & 0x04) {
+            this.DirectionX[this.DirectionCount  ] = -16.0;
+            this.DirectionY[this.DirectionCount++] =   0.0;
+        }
+        if (dirMask & 0x08) {
+            this.DirectionX[this.DirectionCount  ] =  16.0;
+            this.DirectionY[this.DirectionCount++] =   0.0;
+        }
+
+        if (dirMask & 0x10) {
+            this.DirectionX[this.DirectionCount  ] =  12.0;
+            this.DirectionY[this.DirectionCount++] = -12.0;
+        }
+        if (dirMask & 0x20) {
+            this.DirectionX[this.DirectionCount  ] = -12.0;
+            this.DirectionY[this.DirectionCount++] = -12.0;
+        }
+        if (dirMask & 0x40) {
+            this.DirectionX[this.DirectionCount  ] =  12.0;
+            this.DirectionY[this.DirectionCount++] =  12.0;
+        }
+        if (dirMask & 0x80) {
+            this.DirectionX[this.DirectionCount  ] = -12.0;
+            this.DirectionY[this.DirectionCount++] =  12.0;
+        }
+    }
+    TransportTube_GetTubeSpeed(xspeed, yspeed) {
+        var max = 65535.0;
+        var enterIndex = 0;
+        for (var i = 0; i < this.DirectionCount; i++) {
+            var displX = Math.Abs(xspeed - this.DirectionX[i]);
+            var displY = Math.Abs(yspeed - this.DirectionY[i]);
+
+            var value = displX + displY;
+            if (value < max)
+                enterIndex = i;
+            if (value >= max)
+                value = max;
+
+            max = value;
+        }
+
+        var valI = 0;
+        for (var i = 0; i < this.DirectionCount; i++) {
+            if (i != enterIndex) {
+                this.DirectionValues[valI] = i;
+                valI++;
+            }
+        }
+
+        var index = this.DirectionValues[Number.AsInteger(Math.RandomMax(this.DirectionCount - 1))];
+        this.XSpeed = this.DirectionX[index];
+        this.YSpeed = this.DirectionY[index];
+    }
+
+    // Statuses
+    TransportTube_Status_NoControl() {
+        // NOTE: Can't use "with" loop here, as it ignores non-Interactable
+        //       objects.
+        var tube = this, player, index = -1;
+        for (var i = 0, cnt = Instance.GetCount("Player"); i < cnt; i++) {
+            player = Instance.GetNth("Player", i);
+            index++;
+
+            var x = player.X - tube.X;
+            var y = player.Y - tube.Y;
+            var distSq = x * x + y * y;
+
+            var timer = tube.PlayerTimer[index];
+            if (timer) {
+                if (distSq >= 192.0)
+                    tube.PlayerTimer[index] = timer - 1;
+            }
+            else if (distSq < 192.0 &&
+                player.Status == player.Player_StatusTransportTube_CPZ &&
+                !TransportTube_Unk_0x04[index]) {
+                tube.TransportTube_GetTubeSpeed(x - player.XSpeed, y - player.YSpeed);
+                player.X = tube.X;
+                player.Y = tube.Y;
+                player.XSpeed = tube.XSpeed;
+                player.YSpeed = tube.YSpeed;
+                tube.PlayerTimer[index] = 2;
+            }
+        }
+    }
+    TransportTube_Status_Door() {
+        // NOTE: Can't use "with" loop here, as it ignores non-Interactable
+        //       objects.
+        var tube = this, player, index = -1;
+        for (var i = 0, cnt = Instance.GetCount("Player"); i < cnt; i++) {
+            player = Instance.GetNth("Player", i);
+            index++;
+            if (!player.Player_IsActiveStatus())
+                continue;
+
+            var x = player.X - tube.X;
+            var y = player.Y - tube.Y;
+            var distSq = x * x + y * y;
+
+            var timer = tube.PlayerTimer[index];
+            if (timer) {
+                if (distSq >= 192.0)
+                    tube.PlayerTimer[index] = timer - 1;
+            }
+            else if (distSq < 192.0) {
+                player.X = tube.X;
+                player.Y = tube.Y;
+                if (player.Status == player.Player_StatusTransportTube_CPZ) {
+                    player.Priority = DrawGroup_FGLow_High;
+                    player.UseGroundSpeed = true;
+                    player.Interactable = true;
+                    player.Status = player.Player_StatusJumping;
+                    if (player.XSpeed)
+                        player.FlipFlag = player.Flip = player.XSpeed <= 0.0;
+
+                    tube.PlayerTimer[index] = 2;
+                }
+                else {
+                    tube.TransportTube_GetTubeSpeed(x - player.XSpeed, y - player.YSpeed);
+                    player.XSpeed = tube.XSpeed;
+                    player.YSpeed = tube.YSpeed;
+                    player.SetAnimation(10, 0);
+
+                    player.Priority = 1;
+                    player.Ground = false;
+                    player.UseGroundSpeed = false;
+                    player.Interactable = false;
+                    player.Status = player.Player_StatusTransportTube_CPZ;
+                    player.LateUpdateAirStatus = null;
+                    player.LateUpdateGroundStatus = null;
+
+                    TransportTube_Unk_0x04[index] = 0;
+                    Sound.Play(tube.SFX_Travel);
+                    tube.PlayerTimer[index] = 2;
+                }
+            }
+        }
+    }
+    TransportTube_Status_AB() {
+        // NOTE: Can't use "with" loop here, as it ignores non-Interactable
+        //       objects.
+        var tube = this, player, index = -1;
+        for (var i = 0, cnt = Instance.GetCount("Player"); i < cnt; i++) {
+            player = Instance.GetNth("Player", i);
+            index++;
+            if (!player.Player_IsActiveStatus())
+                continue;
+
+            var x = player.X - tube.X;
+            var y = player.Y - tube.Y;
+            var distSq = x * x + y * y;
+
+            var timer = tube.PlayerTimer[index];
+            if (timer) {
+                if (distSq >= 192.0)
+                    tube.PlayerTimer[index] = timer - 1;
+            }
+            else if (distSq < 192.0 && player.Status == player.Player_StatusTransportTube_CPZ) {
+                if (tube.Unk_0xD4[index]) {
+                    TransportTube_Unk_0x04[index] = 0;
+                    tube.Unk_0xD4[index] = null;
+                    tube.PlayerTimer[index] = 2;
+                }
+                else {
+                    if (tube.Type == 2)
+                        TransportTube_Unk_0x04[index] = 1;
+                    else
+                        TransportTube_Unk_0x04[index] = -1;
+
+                    var nextValue = TransportTube_Unk_0x04[index];
+                    if (nextValue > 0)
+                        nextValue--;
+
+                    var nextTube = Instance.GetNextInstance(tube, nextValue);
+                    var angle = Math.Direction(player.X, player.Y, nextTube.X, nextTube.Y);
+                    player.XSpeed =  Math.Cos(angle) * 12.0;
+                    player.YSpeed = -Math.Sin(angle) * 12.0;
+                    nextTube.Unk_0xD4[index] = player;
+
+                    tube.PlayerTimer[index] = 2;
+                }
+            }
+        }
+    }
+    TransportTube_Status_C() {
+        // NOTE: Can't use "with" loop here, as it ignores non-Interactable
+        //       objects.
+        var tube = this, player, index = -1;
+        for (var i = 0, cnt = Instance.GetCount("Player"); i < cnt; i++) {
+            player = Instance.GetNth("Player", i);
+            index++;
+            if (!player.Player_IsActiveStatus())
+                continue;
+
+            if (tube.Unk_0xD4[index]) {
+                if (player.Status == player.Player_StatusTransportTube_CPZ) {
+                    var x = player.X - tube.X;
+                    var y = player.Y - tube.Y;
+                    var distSq = x * x + y * y;
+                    if (distSq < 192.0) {
+                        var nextValue = TransportTube_Unk_0x04[index];
+                        if (nextValue > 0)
+                            nextValue--;
+
+                        var nextTube = Instance.GetNextInstance(tube, nextValue);
+                        player.X = tube.X;
+                        player.Y = tube.Y;
+
+                        var angle = Math.Direction(player.X, player.Y, nextTube.X, nextTube.Y);
+                        player.XSpeed =  Math.Cos(angle) * 12.0;
+                        player.YSpeed = -Math.Sin(angle) * 12.0;
+
+                        tube.Unk_0xD4[index] = null;
+                        nextTube.Unk_0xD4[index] = player;
+                    }
+                }
+                else {
+                    tube.Unk_0xD4[index] = null;
+                }
+            }
+        }
+    }
+    TransportTube_Status_Junction() {
+        // NOTE: Can't use "with" loop here, as it ignores non-Interactable
+        //       objects.
+        var tube = this, player, index = -1;
+        for (var i = 0, cnt = Instance.GetCount("Player"); i < cnt; i++) {
+            player = Instance.GetNth("Player", i);
+            index++;
+            if (!player.Player_IsActiveStatus())
+                continue;
+
+            var x = player.X - tube.X;
+            var y = player.Y - tube.Y;
+            var distSq = x * x + y * y;
+
+            var timer = tube.PlayerTimer[index];
+            if (timer) {
+                if (distSq >= 192.0)
+                    tube.PlayerTimer[index] = timer - 1;
+            }
+            else if (player.Status == player.Player_StatusTransportTube_CPZ && distSq < 192.0) {
+                player.X = tube.X;
+                player.Y = tube.Y;
+                player.XSpeed = 0.0;
+                player.YSpeed = 0.0;
+
+                var inputFlag = player.InputUp;
+                inputFlag |= player.InputRight << 3;
+                inputFlag |= player.InputLeft << 2;
+                inputFlag |= player.InputDown << 1;
+
+                var dirMask = tube.DirMask & inputFlag;
+                if (dirMask & 1)
+                    player.YSpeed = -16.0;
+                if (dirMask & 2)
+                    player.YSpeed = 16.0;
+                if (dirMask & 4)
+                    player.XSpeed = -16.0;
+                if (dirMask & 8)
+                    player.XSpeed = 16.0;
+
+                if (player.XSpeed || player.YSpeed) {
+                    Sound.Play(tube.SFX_Travel);
+                    tube.PlayerTimer[index] = 2;
+                }
+            }
+        }
+    }
+    TransportTube_Status_Exit() {
+        // NOTE: Can't use "with" loop here, as it ignores non-Interactable
+        //       objects.
+        var tube = this, player, index = -1;
+        for (var i = 0, cnt = Instance.GetCount("Player"); i < cnt; i++) {
+            player = Instance.GetNth("Player", i);
+            index++;
+            if (!player.Player_IsActiveStatus())
+                continue;
+            if (player.Status != player.Player_StatusTransportTube_CPZ)
+                continue;
+
+            var x = player.X - tube.X;
+            var y = player.Y - tube.Y;
+            var distSq = x * x + y * y;
+
+            var timer = tube.PlayerTimer[index];
+            if (timer) {
+                if (distSq >= 192.0)
+                    tube.PlayerTimer[index] = timer - 1;
+            }
+            else if (distSq < 192.0) {
+                player.X = tube.X;
+                player.Y = tube.Y;
+                player.Priority = DrawGroup_FGLow_High;
+                player.UseGroundSpeed = true;
+                player.Interactable = true;
+                player.Status = player.Player_StatusJumping;
+
+                tube.PlayerTimer[index] = 2;
+            }
+        }
+    }
+
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+
+    // Render() {
+    //     Draw.SetBlendColor(0x0000C0, 1.0);
+    //     Draw.Circle(this.X, this.Y, 16);
+    //
+    //     Draw.SetBlendColor(0xFFFF4F, 1.0);
+    //     for (var d = 0; d < this.DirectionCount; d++) {
+    //         var dx = this.DirectionX[d];
+    //         var dy = this.DirectionY[d];
+    //         Draw.Line(this.X, this.Y, this.X + dx, this.Y + dy);
+    //     }
+    // }
+}

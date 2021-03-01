@@ -1,0 +1,158 @@
+var GLOBAL_SeamlessActTransition = true;
+var GLOBAL_SeamlessActTransitionFlag = false;
+
+class FXFade {
+    event Create(flag) {
+        // Setup
+        this.Status = null;
+        this.Timer = 512;
+        this.SpeedIn = 0x10;
+        this.Wait = 0;
+        this.SpeedOut = 0x10;
+        this.Color = 0xFFFFFF;
+        this.OneWay = 0;
+        this.EventOnly = 0;
+        this.OverHUD = 0;
+        this.FadeOutBlack = 0;
+        this.RestartOnEnd = false;
+        this.Pauseable = false;
+
+        if (this.PropertyExists("timer"))
+            this.Timer = this.PropertyGet("timer");
+        if (this.PropertyExists("speedIn"))
+            this.SpeedIn = this.PropertyGet("speedIn");
+        if (this.PropertyExists("wait"))
+            this.Wait = this.PropertyGet("wait");
+        if (this.PropertyExists("speedOut"))
+            this.SpeedOut = this.PropertyGet("speedOut");
+        if (this.PropertyExists("color"))
+            this.Color = this.PropertyGet("color");
+        if (this.PropertyExists("oneWay"))
+            this.OneWay = this.PropertyGet("oneWay");
+        if (this.PropertyExists("eventOnly"))
+            this.EventOnly = this.PropertyGet("eventOnly");
+        if (this.PropertyExists("overHUD"))
+            this.OverHUD = this.PropertyGet("overHUD");
+        if (this.PropertyExists("fadeOutBlack"))
+            this.FadeOutBlack = this.PropertyGet("fadeOutBlack");
+
+        // HACK:
+        this.OneWay = false;
+        this.FadeOutBlack = false;
+
+        // Create
+        var zone = true;
+        // if ("Menu") {
+        //
+        // }
+        // else
+        if (zone) {
+            this.Priority = 15; // DrawGroup_HUD;
+            if (!this.OverHUD)
+                this.Priority--;
+        }
+        else {
+            this.Priority = 15; // DrawGroup_HUD;
+        }
+
+        if (!this.SpeedIn)
+            this.SpeedIn = 32;
+        if (!this.SpeedOut)
+            this.SpeedOut = 32;
+        if (!this.Color)
+            this.Color = flag;
+        if (!this.EventOnly) {
+            this.RestartOnEnd = false;
+            if (this.Timer >= 0)
+                this.Status = this.FXFade_Status_TimerPositive;
+            else
+                this.Status = this.FXFade_Status_TimerNegative;
+        }
+    }
+
+    event FXFade_Status_TimerPositive() {
+        var timer = this.Timer;
+        if (timer >= 512) {
+            if (this.OneWay) {
+                this.Status = null;
+
+                // HACK:
+                this.Timer = 0;
+
+                if (this.RestartOnEnd)
+                    Scene.Restart();
+            }
+            else if (this.Wait <= 0) {
+                if (this.FadeOutBlack)
+                    this.Status = this.FXFade_Status_TimerNegative;
+                else
+                    this.Status = this.FXFade_Status_TimerNegative;
+            }
+            else {
+
+            }
+        }
+        else {
+            this.Timer = timer + this.SpeedIn;
+        }
+    }
+    event FXFade_Status_TimerNegative() {
+        var timer = this.Timer;
+        if (timer <= 0) {
+            if (this.OneWay) {
+                this.Status = null;
+            }
+            else {
+                this.Active = false;
+            }
+        }
+        else {
+            this.Timer = timer - this.SpeedOut;
+        }
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+
+    event Render() {
+        var vx = Math.Floor(View.GetX(0)),
+            vy = Math.Floor(View.GetY(0)),
+            vw = View.GetWidth(0),
+            vh = View.GetHeight(0);
+
+        var cl = this.Color;
+        var tr = this.Timer,
+            tg = this.Timer - 128,
+            tb = this.Timer - 256;
+        if (tr < 0x00) tr = 0x00;
+        else if (tr > 0xFF) tr = 0xFF;
+        if (tg < 0x00) tg = 0x00;
+        else if (tg > 0xFF) tg = 0xFF;
+        if (tb < 0x00) tb = 0x00;
+        else if (tb > 0xFF) tb = 0xFF;
+
+        // tr = (tr * ((cl >> 16) & 0xFF) / 65025.0);
+        // tg = (tg * ((cl >> 8) & 0xFF) / 65025.0);
+        // tb = (tb * (cl & 0xFF) / 65025.0);
+
+        tr /= 255.0;
+        tg /= 255.0;
+        tb /= 255.0;
+
+        if (cl != 0) {
+            Draw.SetBlendMode(BlendMode_ADD);
+        }
+        else {
+            var temp = tr;
+            tr = tb;
+            tb = temp;
+            Draw.SetBlendMode(BlendMode_SUBTRACT);
+        }
+
+        Draw.SetBlendColor(tr, tg, tb, 1.0);
+        Draw.Rectangle(vx, vy, vw, vh);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+}

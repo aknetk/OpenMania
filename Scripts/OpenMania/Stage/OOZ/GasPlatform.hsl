@@ -1,0 +1,312 @@
+class GasPlatform {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Springs.bin", SCOPE_GAME);
+        this.SFX_Spring = Resources.LoadSound("SoundFX/Global/Spring.wav", SCOPE_GAME);
+        this.AutoPhysics = false;
+        this.Status = null;
+
+        // Setup
+        this.Type = 1;
+        this.FlipFlag = 0;
+        this.OnGround = 0;
+        this.PlaneFilter = 0;
+        // if (this.PropertyExists("type"))
+        //     this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("flipFlag"))
+            this.FlipFlag = this.PropertyGet("flipFlag");
+        if (this.PropertyExists("onGround"))
+            this.OnGround = this.PropertyGet("onGround");
+        if (this.PropertyExists("planeFilter"))
+            this.PlaneFilter = this.PropertyGet("planeFilter");
+
+        // Initial Status
+        this.Type = this.Type % 6;
+
+        this.SetAnimation(this.Type, 0);
+        this.AnimationSpeedMult = 0.0;
+        this.UpdateRegionW =
+        this.UpdateRegionH = 64.0;
+        this.SoundCooldown = 0;
+
+        this.RenderRegionW =
+        this.RenderRegionH = 64.0;
+
+        this.Priority = DrawGroup_FGLow_Low;
+        this.Y -= 8.0;
+
+        var typeIsRed = this.Type & 1;
+        var typeDirection = this.Type >> 1;
+        var flipFlag = this.FlipFlag;
+
+        // Determine
+        switch (typeDirection) {
+            case 0: // Vertical
+                if (typeIsRed)
+                    this.YSpeed = -16.0;
+                else
+                    this.YSpeed = -10.0;
+                if (flipFlag)
+                    this.YSpeed = -this.YSpeed;
+                this.HitboxW = 32.0;
+                this.HitboxH = 16.0;
+                this.Status = this.Spring_Update_Vertical;
+                break;
+            case 1: // Horizontal
+                if (typeIsRed)
+                    this.XSpeed = 16.0;
+                else
+                    this.XSpeed = 10.0;
+                this.HitboxW = 16.0;
+                this.HitboxH = 32.0;
+                if (flipFlag)
+                    this.XSpeed = -this.XSpeed;
+                this.Status = this.Spring_Update_Horizontal;
+                break;
+            case 2: // Diagonal
+                if (typeIsRed) {
+                    this.XSpeed = 11.25;
+                    this.YSpeed = 11.25;
+                }
+                else {
+                    this.XSpeed = 7.25;
+                    this.YSpeed = 7.25;
+                }
+
+                if (flipFlag & 1)
+                    this.XSpeed = -this.XSpeed;
+                // if (!(flipFlag & 2))
+                if (flipFlag < 2)
+                    this.YSpeed = -this.YSpeed;
+
+                this.HitboxW = 24.0;
+                this.HitboxH = 24.0;
+                this.Status = this.Spring_Update_Diagonal;
+                break;
+        }
+    }
+
+    event Spring_Update_Vertical() {
+        var v3, v4;
+        var flipFlag = this.FlipFlag;
+        var spring = this, player;
+        with ("Player") {
+            if (!this.Active)
+                continue;
+
+            player = this;
+
+            var planeFilter = spring.PlaneFilter;
+            if (!planeFilter || player.PlaneIndex == ((planeFilter - 1) & 1)) {
+                if ((flipFlag & 2) == 0) {
+                    v3 = // spring.Type != 0xFF ||
+                        player.YSpeed >= -5.0 ?
+                            Static.Entity_SolidCollideWithPlayer(spring, player) :
+                            Static.Entity_SolidCollideWithPlayer(spring, player) == 1;
+                }
+                else {
+                    v3 = Static.Entity_SolidCollideWithPlayer(spring, player) == 4;
+                }
+
+                if (v3 == 1) {
+                    if (flipFlag == 0) {
+                        v4 = player.CurrentAnimation;
+                        if (v4 == 5 || v4 > 6 && v4 <= 9)
+                            player.AnimationAfterSpring = v4;
+                        else
+                            player.AnimationAfterSpring = 5;
+
+                        var playerStatus = player.Status;
+                        if (playerStatus != player.Player_StatusFrozen_PGZ) {
+                            if (playerStatus == player.Player_StatusJumping_WithInputLock ||
+                                playerStatus == player.Player_StatusRoll_WithInputLock) {
+                                player.Status = player.Player_StatusJumping_WithInputLock;
+                            }
+                            else {
+                                player.AnimationSpeedMult = 1.0;
+                                player.SetAnimation(11, 0);
+                                player.Status = this.Player_StatusJumping;
+                            }
+                        }
+                    }
+                    else {
+                        var playerStatus = player.Status;
+                        if (playerStatus != player.Player_StatusFrozen_PGZ) {
+                            if (playerStatus == player.Player_StatusJumping_WithInputLock ||
+                                playerStatus == player.Player_StatusRoll_WithInputLock) {
+                                player.Status = player.Player_StatusJumping_WithInputLock;
+                            }
+                            else {
+                                player.Status = this.Player_StatusJumping;
+                            }
+                        }
+                    }
+
+                    player.Ground = false;
+                    player.YSpeed = spring.YSpeed;
+                    player.UseGroundSpeed = true;
+
+                    spring.AnimationSpeedMult = 1.0;
+                    spring.ResetAnimation(spring.CurrentAnimation, 1);
+                    if (spring.SoundCooldown == 0) {
+                        Sound.Play(this.SFX_Spring);
+                        spring.SoundCooldown = 8;
+                    }
+                }
+            }
+        }
+    }
+    event Spring_Update_Horizontal() {
+        var v3, v4;
+        var flipFlag = this.FlipFlag;
+        var spring = this, player;
+        with ("Player") {
+            if (!this.Active)
+                continue;
+
+            player = this;
+
+            var planeFilter = spring.PlaneFilter;
+            if (!planeFilter || player.PlaneIndex == ((planeFilter - 1) & 1)) {
+                if (flipFlag & 1) {
+                    v3 = Static.Entity_SolidCollideWithPlayer(spring, player) == 2;
+                }
+                else {
+                    v3 = Static.Entity_SolidCollideWithPlayer(spring, player) == 3;
+                }
+
+                if (v3 == 1) {
+                    var xspeed = spring.XSpeed;
+                    if (player.AngleMode == 2) {
+                        xspeed = -xspeed;
+                        player.XSpeed = xspeed;
+                        player.GroundSpeed = xspeed;
+                    }
+                    else {
+                        player.XSpeed = xspeed;
+                        player.GroundSpeed = xspeed;
+                    }
+
+                    var playerStatus = player.Status;
+                    if (playerStatus != player.Player_StatusFrozen_PGZ) {
+                        if (playerStatus != player.Player_StatusRoll &&
+                            playerStatus != player.Player_StatusJumping_WithInputLock &&
+                            playerStatus != player.Player_StatusRoll_WithInputLock) {
+                            if (player.Ground)
+                                player.Status = player.Player_StatusStanding;
+                            else
+                                player.Status = player.Player_StatusJumping;
+                        }
+
+                        var animation = player.CurrentAnimation;
+                        if (!(animation == 10 || animation >= 7 && animation <= 9))
+                            player.SetAnimation(5, 0);
+                    }
+
+                    player.InputLock = 16;
+                    player.SkidTimer = 0;
+                    player.PushingTimer = 0;
+                    player.UseGroundSpeed = true;
+                    player.Flip = (flipFlag & 1);
+
+                    spring.AnimationSpeedMult = 1.0;
+                    spring.ResetAnimation(spring.CurrentAnimation, 1);
+                    if (spring.SoundCooldown == 0) {
+                        Sound.Play(this.SFX_Spring);
+                        spring.SoundCooldown = 8;
+                    }
+                }
+            }
+        }
+    }
+    event Spring_Update_Diagonal() {
+        var spring = this, player;
+        with ("Player") {
+            if (!this.Active)
+                continue;
+            player = this;
+
+            var planeFilter = spring.PlaneFilter;
+            if (planeFilter && player.PlaneIndex != ((planeFilter - 1) & 1) || player.IsGhost)
+                continue;
+
+            if (!Static.Entity_CollideWithObject(spring, player))
+                continue;
+
+            if (!player.Ground) {
+                var yspeed = player.YSpeed;
+                if (yspeed < 0.0) {
+                    var xspeed = player.XSpeed;
+                    if (xspeed < 0.0)
+                        xspeed = -xspeed;
+                    if (xspeed <= -yspeed)
+                        continue;
+                }
+            }
+
+            var playerStatus = player.Status;
+            if (playerStatus != player.Player_StatusFrozen_PGZ) {
+                if (playerStatus == player.Player_StatusJumping_WithInputLock ||
+                    playerStatus == player.Player_StatusRoll_WithInputLock) {
+                    player.Status = player.Player_StatusJumping_WithInputLock;
+                }
+                else {
+                    player.Status = player.Player_StatusJumping;
+                    var animation = player.CurrentAnimation;
+                    if (!(animation == 5 || animation >= 7 && animation <= 9))
+                        player.SetAnimation(5, 0);
+                }
+            }
+
+            playerStatus = player.Status;
+            if (!(spring.FlipFlag & 2)) {
+                if (playerStatus != player.Player_StatusJumping_WithInputLock &&
+                    playerStatus != player.Player_StatusRoll_WithInputLock) {
+                    var animation = player.CurrentAnimation;
+                    if (animation == 5 || animation >= 7 && animation <= 9)
+                        player.AnimationAfterSpring = animation;
+                    else
+                        player.AnimationAfterSpring = 5;
+                    player.AnimationSpeedMult = 1.0;
+                    player.ResetAnimation(12, 0);
+                }
+            }
+
+            player.Flip = spring.FlipFlag & 1;
+            player.Ground = false;
+            player.XSpeed = spring.XSpeed;
+            player.YSpeed = spring.YSpeed;
+            player.UseGroundSpeed = true;
+
+            spring.AnimationSpeedMult = 1.0;
+            spring.ResetAnimation(spring.CurrentAnimation, 1);
+            if (spring.SoundCooldown == 0) {
+                Sound.Play(this.SFX_Spring);
+                spring.SoundCooldown = 8;
+            }
+        }
+    }
+
+    event Update() {
+        var cooldown = this.SoundCooldown;
+        if (cooldown > 0)
+            this.SoundCooldown = cooldown - 1;
+
+        if (this.Status)
+            this.Status();
+    }
+    event OnAnimationFinish() {
+        this.AnimationSpeedMult = 0.0;
+    }
+
+    event Render() {
+        if (!this.OnScreen)
+            return;
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), (this.FlipFlag & 1), (this.FlipFlag & 2));
+    }
+}

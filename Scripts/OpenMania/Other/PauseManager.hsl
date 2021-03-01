@@ -1,0 +1,296 @@
+class PauseManager {
+    event Create() {
+        this.Priority = 15;
+        this.Pauseable = false;
+
+        this.GamePaused = false;
+        this.Timer = 0;
+        this.Frame = 0;
+
+        this.TextSprite = Resources.LoadSprite("Sprites/UI/TextEN.bin", SCOPE_GAME);
+        this.SelectedButton = 0;
+        this.LastSelectedButton = 0;
+        this.ButtonBounceTimers = [ 12, 12, 12 ];
+        this.PauseDisabled = false;
+
+        this.SFX_MenuAccept = Resources.LoadSound("SoundFX/Global/MenuAccept.wav", SCOPE_GAME);
+        this.SFX_MenuBleep = Resources.LoadSound("SoundFX/Global/MenuBleep.wav", SCOPE_GAME);
+        this.SFX_MenuWoosh = Resources.LoadSound("SoundFX/Global/MenuWoosh.wav", SCOPE_GAME);
+
+        this.FilterBlackAndWhite = Array.Create(0x8000);
+        for (var a = 0; a < 0x8000; a++) {
+            var r = (a >> 10) & 0x1F;
+            var g = (a >> 5) & 0x1F;
+            var b = (a) & 0x1F;
+
+            var bw = ((r + g + b) / 3) << 3;
+            var hex = r << 19 | g << 11 | b << 3;
+            this.FilterBlackAndWhite[a] = bw << 16 | bw << 8 | bw;
+        }
+    }
+
+    event SelectButton(b) {
+        this.LastSelectedButton = this.SelectedButton;
+        this.SelectedButton = (b + 3) % 3;
+        this.ButtonBounceTimers[this.SelectedButton] = 0;
+        Sound.Play(this.SFX_MenuBleep);
+    }
+
+    event OnAppDidEnterBackground() {
+        StartPause();
+        this.Timer = 16;
+    }
+
+    event StartPause() {
+        if (Scene.IsPaused()) return;
+        if (this.PauseDisabled) return;
+
+        Sound.PauseAll();
+
+        this.Timer = 0;
+        this.BounceTimer = 0;
+        this.GamePaused = true;
+        this.SelectButton(0);
+        Scene.SetPaused(true);
+
+        Sound.Play(this.SFX_MenuAccept);
+        Sound.Stop(this.SFX_MenuBleep);
+        Music.Pause();
+    }
+
+    event StartUnpause() {
+        this.GamePaused = false;
+        this.Timer = 8;
+
+        Sound.ResumeAll();
+        Music.Resume();
+    }
+
+    event DoButtonAction() {
+        if (this.SelectedButton == 0) {
+            this.StartUnpause();
+            Sound.Play(this.SFX_MenuAccept);
+        }
+        else if (this.SelectedButton == 1) {
+            Static.InitZone();
+            Scene.Restart();
+            Sound.Play(this.SFX_MenuAccept);
+        }
+        else if (this.SelectedButton == 2) {
+            Sound.StopAll();
+            Music.Clear();
+
+            Scene.Load("Stages/LSelect/Scene1.bin");
+        }
+    }
+
+    event Update() {
+        this.Frame++;
+
+        var input = Instance.GetNth("InputManager", 0);
+        if (!input)
+            return;
+
+        if (input.PausePressed) {
+            if (!this.GamePaused)
+                this.StartPause();
+            else
+                this.StartUnpause();
+        }
+
+        // this.InputUp = input.Up;
+        // this.InputDown = input.Down;
+        // this.InputLeft = input.Left;
+        // this.InputRight = input.Right;
+        // this.InputJump = input.Accept | input.Decline;
+        // this.InputJumpPressed = input.AcceptPressed | input.DeclinePressed;
+
+        if (this.GamePaused) {
+            if (this.Timer < 16)
+                this.Timer++;
+
+            // Key/joy selection
+            if (input.UpPressed) {
+                this.SelectButton(this.SelectedButton - 1);
+            }
+            if (input.DownPressed) {
+                this.SelectButton(this.SelectedButton + 1);
+            }
+            if (input.AcceptPressed) {
+                this.DoButtonAction();
+            }
+
+            // Mouse/touch selection
+            if (Input.IsMouseButtonDown(0) || Touch.IsDown(0)) {
+                if (this.SelectedButton != -1)
+                    this.LastSelectedButton = this.SelectedButton;
+
+                // Select based on Mouse/Touch Position here
+                var vw = View.GetWidth(0);
+                var vh = View.GetHeight(0);
+                var posX = Input.GetMouseX();
+                var posY = Input.GetMouseY();
+                if (Touch.IsDown(0)) {
+                    posX = Touch.GetX(0);
+                    posY = Touch.GetY(0);
+                }
+
+                posX = posX * vw / Window.GetWidth();
+                posY = posY * vh / Window.GetHeight();
+
+                var strt_x = vw / 2.0 + 106.0;
+                var strt_y = 140.0;
+                var seled = true;
+                for (var i = 0; i < 3; i++) {
+                    var yuh_x = strt_x - i * 36.0 - 4.0;
+                    var yuh_y = strt_y + i * 36.0 - 16.0;
+
+                    if (posX >= yuh_x &&         posY >= yuh_y &&
+                        posX <  yuh_x + 128.0 && posY <  yuh_y + 32.0) {
+                        if (this.SelectedButton != i) {
+                            this.SelectButton(i);
+                        }
+
+                        seled = false;
+                        // BUG: Breaking here breaking everything somehow
+                        // break;
+                    }
+                }
+                if (seled) {
+                    this.SelectedButton = -1;
+                }
+            }
+            if (Input.IsMouseButtonReleased(0) || Touch.IsReleased(0)) {
+                if (this.SelectedButton == -1) {
+                    this.SelectedButton = this.LastSelectedButton;
+                    this.ButtonBounceTimers[this.SelectedButton] = 0;
+                }
+                else {
+                    this.DoButtonAction();
+                }
+            }
+
+            for (var i = 0; i < 3; i++) {
+                if (i == this.SelectedButton) {
+                    if (this.ButtonBounceTimers[i] < 12)
+                        this.ButtonBounceTimers[i]++;
+                }
+                else {
+                    if (this.ButtonBounceTimers[i] < 14)
+                        this.ButtonBounceTimers[i]++;
+                }
+            }
+        }
+        else {
+            var timer = this.Timer - 1;
+            if (timer >= 0) {
+                this.Timer = timer;
+                if (timer == 0) {
+                    Scene.SetPaused(false);
+                }
+            }
+        }
+    }
+
+    event ClampNormal(v, a, b) {
+        return (Math.Clamp(v, a, b) - a) / (b - a);
+    }
+    event DrawWeirdRect(x, y, w, h) {
+        x = Number.AsInteger(x);
+        y = Number.AsInteger(y);
+        w = Number.AsInteger(w);
+        h = Number.AsInteger(h);
+        Draw.Triangle(x - h, y + h,
+            x, y,
+            x, y + h);
+        Draw.Rectangle(x, y, w, h);
+        Draw.Triangle(x + w + h, y,
+            x + w, y,
+            x + w, y + h);
+    }
+    event Render() {
+        if (Scene.IsPaused()) {
+            var vc = View.GetCurrent();
+            var vw = View.GetWidth(vc);
+            var vh = View.GetHeight(vc);
+            if (View.IsEnabled(3)) {
+                if (vc != 3)
+                    return;
+            }
+            else if (vc != 0)
+                return;
+
+            Shader.Set(this.FilterBlackAndWhite);
+            Draw.Rectangle(Math.Floor(CameraX), Math.Floor(CameraY), vw, vh);
+            Shader.Unset();
+
+            var frame = this.Frame;
+
+            Draw.Save();
+            Draw.Translate(Math.Floor(CameraX), Math.Floor(CameraY), 0.0);
+                // // Dimming
+                // Draw.SetBlendColor(0.0, 0.0, 0.0, 0.25);
+                // Draw.Rectangle(0.0, 0.0, vw, vh);
+
+                var vid_width = vw / 2.0;
+                var resultsTimer = this.Timer / 16.0;
+                var pauseRollIn  = Ease.OutQuad(this.ClampNormal(resultsTimer, 0.0, 0.5)) * vid_width - vid_width;
+                var pauseRollIn2 = Ease.OutQuad(this.ClampNormal(resultsTimer, 0.1, 0.6)) * vid_width - vid_width - pauseRollIn;
+                Draw.Save();
+                Draw.Translate(pauseRollIn, 0.0, 0.0);
+                    // Red
+                    Draw.SetBlendColor(0.93359375, 0.15625, 0.3515625, 1.0);
+                    this.DrawWeirdRect(0.0, 0.0, 200.0, 60.0);
+
+                    // Paused
+                    Draw.SetBlendColor(0.0, 0.0, 0.0, 1.0);
+                    this.DrawWeirdRect(106.0 - 56.0 + pauseRollIn2, 18.0, 112.0, 24.0);
+                    Draw.Sprite(this.TextSprite, 10, 3, 106.0 + pauseRollIn2, 30.0, false, false);
+                Draw.Restore();
+
+                Draw.Save();
+                Draw.Translate(vid_width - pauseRollIn, 0.0, 0.0);
+                    // Yellow
+                    var tri_y = 10.0;
+                    Draw.SetBlendColor(0.96484375, 0.85546875, 0.03125, 1.0);
+                    Draw.Triangle(vw - vid_width, tri_y, vw - (vh - tri_y) - vid_width, vh, vw - vid_width, vh);
+
+                    var strt_x = vw - vid_width - 106.0;
+                    var strt_y = 140.0;
+
+                    var col_b = Math.Sin(frame / 32.0 * Math_PI_DOUBLE) * 0.353515625 + 0.353515625;
+                    for (var i = 0; i < 3; i++) {
+                        var yuh_x = strt_x - i * 36.0;
+                        var yuh_y = strt_y + i * 36.0;
+                        if (this.ButtonBounceTimers[i] <= 12) {
+                            var factor = Math.Sin(this.ButtonBounceTimers[i] / 12.0 * Math_PI) * 1.5 + 1.0;
+                            var bounce = 2 * factor;
+
+                            yuh_x += bounce;
+                            yuh_y += bounce;
+                            Draw.SetBlendColor(0.70703125, col_b, col_b, 1.0);
+                            this.DrawWeirdRect(yuh_x - 4.0, yuh_y - 11.0, 80.0, 22.0);
+
+                            yuh_x -= bounce * 2;
+                            yuh_y -= bounce * 2;
+                            Draw.SetBlendColor(0.0, 0.0, 0.0, 1.0);
+                            this.DrawWeirdRect(yuh_x - 4.0, yuh_y - 11.0, 80.0, 22.0);
+
+                            factor -= 1.0;
+                            factor *= 2.0;
+                            Draw.Sprite(this.TextSprite, 10, i, yuh_x - factor, yuh_y - factor * 2.0, false, false);
+                        }
+                        else {
+                            var off = 14 - this.ButtonBounceTimers[i];
+                            Draw.SetBlendColor(0.70703125, col_b, col_b, 1.0);
+                            this.DrawWeirdRect(yuh_x - 4.0 + off, yuh_y - 11.0 + off, 80.0, 22.0);
+                            Draw.SetBlendColor(0.0, 0.0, 0.0, 1.0);
+                            this.DrawWeirdRect(yuh_x - 4.0 - off, yuh_y - 11.0 - off, 80.0, 22.0);
+                            Draw.Sprite(this.TextSprite, 10, i, yuh_x - off, yuh_y - off, false, false);
+                        }
+                    }
+                Draw.Restore();
+            Draw.Restore();
+        }
+    }
+}

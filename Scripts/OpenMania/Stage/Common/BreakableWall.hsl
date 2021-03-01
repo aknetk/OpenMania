@@ -1,0 +1,520 @@
+class BreakableWall {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Pre
+        this.Priority = DrawGroup_FGHigh_High;
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/Global/TicMark.bin", SCOPE_GAME);
+        this.SFX_LedgeBreak = Resources.LoadSound("SoundFX/Stage/LedgeBreak.wav", SCOPE_GAME);
+        this.AutoPhysics = false;
+        this.Status = null;
+
+        // Setup
+        this.Type = 0;
+        this.OnlyKnux = false;
+        this.OnlyMighty = false;
+        this.PriorityIndex = 0;
+        this.SizeX = 0.0;
+        this.SizeY = 0.0;
+        this.ClearTile = 0x3FF;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("onlyKnux"))
+            this.OnlyKnux = this.PropertyGet("onlyKnux");
+        if (this.PropertyExists("onlyMighty"))
+            this.OnlyMighty = this.PropertyGet("onlyMighty");
+        if (this.PropertyExists("priority"))
+            this.PriorityIndex = this.PropertyGet("priority");
+        if (this.PropertyExists("size")) {
+            var size = this.PropertyGet("size");
+            this.SizeX = size[0];
+            this.SizeY = size[1];
+        }
+        if (this.PropertyExists("clearTile"))
+            this.ClearTile = this.PropertyGet("clearTile");
+
+        // NOTE: Tiled Support
+        if (this.PropertyExists("Width") &&
+            this.PropertyExists("Height")) {
+            this.SizeX = (this.PropertyGet("Width") / 16.0);
+            this.SizeY = (this.PropertyGet("Height") / 16.0);
+
+            var xStr = (this.X / 16.0);
+            var yStr = (this.Y / 16.0);
+            var xEnd = xStr + this.SizeX;
+            var yEnd = yStr + this.SizeY;
+
+            this.X += this.SizeX * 8.0;
+            this.Y += this.SizeY * 8.0;
+
+            var layerStart, layerEnd;
+            if (this.PropertyExists("LayerIndex")) {
+                layerStart = layerEnd = this.PropertyGet("LayerIndex");
+            }
+            else {
+                layerStart = 0;
+                layerEnd = Scene.GetLayerCount() - 1;
+            }
+
+            for (var layerIndex = layerStart; layerIndex <= layerEnd; layerIndex++) {
+                for (var x = xStr; x < xEnd; x += 1.0) {
+                    for (var y = yStr; y < yEnd; y += 1.0) {
+                        Scene.SetTileCollisionSides(layerIndex, x, y, SOLID_NONE, SOLID_NONE);
+                    }
+                }
+            }
+        }
+
+        // Create
+        this.UpdateRegionW = 256.0;
+        this.UpdateRegionH = 256.0;
+        var sizeX = this.SizeX;
+        switch (this.Type) {
+            case 0:
+                this.Status = this.BreakableWall_Status_HorizontallyBreakable;
+                if (sizeX == 0.0) {
+                    this.SizeX = 2.0;
+                    this.SizeY = 4.0;
+                }
+                break;
+            case 1:
+                this.Status = this.BreakableWall_Status_TopBreakable;
+                if (sizeX == 0.0) {
+                    this.SizeX = 2.0;
+                    this.SizeY = 2.0;
+                }
+                break;
+            case 2:
+            case 3:
+                this.Status = this.BreakableWall_Status_TopStaggerBreakable;
+                if (sizeX == 0.0) {
+                    this.SizeX = 2.0;
+                }
+                break;
+            case 4:
+                this.Status = this.BreakableWall_Status_BottomBreakable;
+                if (sizeX == 0.0) {
+                    this.SizeX = 2.0;
+                }
+                break;
+            case 5:
+                // this.Status = this.BreakableWall_Status_BottomBreakable;
+                if (sizeX == 0.0) {
+                    this.SizeX = 2.0;
+                    this.SizeY = 2.0;
+                }
+                break;
+        }
+        this.HitboxW = 16.0 * this.SizeX;
+        this.HitboxH = 16.0 * this.SizeY;
+
+        // Initial Status
+        this.UpdateRegionHalfW = this.UpdateRegionW;
+        this.UpdateRegionHalfH = this.UpdateRegionH;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+    }
+
+    event CanBreakHorizontally(player) {
+        var characterFlag = player.Character;
+        var absGSP = Math.Abs(player.GroundSpeed);
+
+        var canBreak = false;
+        canBreak |= absGSP >= 4.5 && player.Ground && player.CurrentAnimation == 10;
+        canBreak |= characterFlag == Character_KNUCKLES;
+        canBreak |= characterFlag == Character_SONIC && player.SuperForm == SuperState_Super;
+        canBreak |= player.Status == player.Player_StatusFrozen_PGZ;
+        if (player.Shield == ShieldType_FIRE && player.ShieldObject.CurrentAnimation == 2)
+            canBreak = true;
+
+        return canBreak;
+    }
+    event CanBreakVertically(player) {
+        var characterFlag = player.Character;
+        var absGSP = Math.Abs(player.GroundSpeed);
+
+        var canBreak = false;
+        canBreak |= player.CurrentAnimation == 10;
+        canBreak |= characterFlag == Character_SONIC && player.CurrentAnimation == 16;
+        canBreak |= characterFlag == Character_KNUCKLES;
+        canBreak |= characterFlag == Character_MIGHTY && player.Status == player.Player_StatusMighty_HammerDrop;
+        if (player.OnGroundCopy && player.AngleMode != 1 && player.AngleMode != 3)
+            canBreak = false;
+
+        return canBreak;
+    }
+
+    event BreakableWall_Status_HorizontallyBreakable() {
+        var player, wall;
+        with ("Player") {
+            player = this;
+            wall = other;
+
+            var characterFlag = player.Character;
+            var collideWithWall = false;
+            if (wall.OnlyKnux && characterFlag != Character_KNUCKLES) {
+                collideWithWall = true;
+            }
+            else if (wall.OnlyMighty && characterFlag != Character_MIGHTY) {
+                collideWithWall = true;
+            }
+
+            var canBreak = wall.CanBreakHorizontally(player);
+            if (!canBreak)
+                collideWithWall = true;
+
+            if (!collideWithWall) {
+                if (canBreak && player.IsSubPlayer == 0) {
+                    if (!player.IsGhost) {
+                        if (Static.Entity_CollideWithObject(wall, player)) {
+                            wall.BreakHorizontally(player.X > wall.X);
+                            if (player.Character == Character_KNUCKLES) {
+                                var anim = player.CurrentAnimation;
+                                if (anim == 48) {
+                                    player.RayGlideSpeedStore *= 0.75;
+                                    player.XSpeed *= 0.75;
+                                    if (Math.Abs(player.XSpeed) <= 3.0) {
+                                        player.SetAnimation(49, 0);
+                                        player.Status = player.Player_StatusKnuckles_Falling;
+                                    }
+                                }
+                                else if (anim == 51) {
+                                    player.RayGlideSpeedStore *= 0.75;
+                                    player.XSpeed *= 0.75;
+                                }
+                            }
+                            Sound.Play(wall.SFX_LedgeBreak);
+                            wall.Active = false;
+                        }
+                    }
+                }
+            }
+            else {
+                Static.Entity_SolidCollideWithPlayer(wall, player);
+            }
+        }
+    }
+    event BreakableWall_Status_TopBreakable() {
+        var player, wall;
+        with ("Player") {
+            player = this;
+            wall = other;
+
+            var characterFlag = player.Character;
+            var collideWithWall = false;
+            if (wall.OnlyKnux && characterFlag != Character_KNUCKLES) {
+                collideWithWall = true;
+            }
+            else if (wall.OnlyMighty && characterFlag != Character_MIGHTY) {
+                collideWithWall = true;
+            }
+
+            var canBreak = wall.CanBreakVertically(player);
+
+            if (!canBreak)
+                collideWithWall = true;
+
+            if (!collideWithWall) {
+                if (canBreak && player.IsSubPlayer == 0) {
+                    if (!player.IsGhost) {
+                        if (Static.Entity_SolidCollideWithPlayer(wall, player) == 1) {
+                            wall.BreakVertically();
+
+                            player.Ground = false;
+                            if (player.Status == player.Player_StatusMighty_HammerDrop)
+                                player.YSpeed -= 1.0;
+                            else
+                                player.YSpeed = -3.0;
+                            player.IncreaseEnemyCombo();
+
+                            Sound.Play(wall.SFX_LedgeBreak);
+                            wall.Active = false;
+                        }
+                    }
+                }
+            }
+            else {
+                Static.Entity_SolidCollideWithPlayer(wall, player);
+            }
+        }
+    }
+    event BreakableWall_Status_TopStaggerBreakable() {
+        var player, wall;
+        with ("Player") {
+            player = this;
+            wall = other;
+
+            var characterFlag = player.Character;
+            var collideWithWall = false;
+            if (wall.OnlyKnux && characterFlag != Character_KNUCKLES) {
+                collideWithWall = true;
+            }
+            else if (wall.OnlyMighty && characterFlag != Character_MIGHTY) {
+                collideWithWall = true;
+            }
+
+            var canBreak = wall.CanBreakVertically(player);
+            if (!canBreak)
+                collideWithWall = true;
+
+            if (!collideWithWall) {
+                if (canBreak && player.IsSubPlayer == 0) {
+                    if (!player.IsGhost) {
+                        if (Static.Entity_CollideWithObject(wall, player) == 1) {
+                            wall.BreakVerticallyTop();
+
+                            player.Ground = false;
+                            if (player.Status == player.Player_StatusMighty_HammerDrop)
+                                player.YSpeed -= 1.0;
+                            else
+                                player.YSpeed = 0.0;
+                            player.IncreaseEnemyCombo();
+
+                            wall.HitboxH -= 16.0;
+                            wall.HitboxOffY += 8.0;
+                            wall.SizeY--;
+                            // wall.Y += 8.0;
+
+                            Sound.Play(wall.SFX_LedgeBreak);
+                            if (wall.SizeY <= 0)
+                                wall.Active = false;
+                        }
+                    }
+                }
+            }
+            else {
+                Static.Entity_SolidCollideWithPlayer(wall, player);
+            }
+        }
+    }
+    event BreakableWall_Status_BottomBreakable() {
+        var player, wall;
+        with ("Player") {
+            player = this;
+            wall = other;
+
+            var characterFlag = player.Character;
+            var collideWithWall = false;
+            if (wall.OnlyKnux && characterFlag != Character_KNUCKLES) {
+                collideWithWall = true;
+            }
+            else if (wall.OnlyMighty && characterFlag != Character_MIGHTY) {
+                collideWithWall = true;
+            }
+            // var absGSP = Math.Abs(player.GroundSpeed);
+            var canBreak = true;
+            // canBreak |= absGSP >= 4.5 && player.Ground && player.CurrentAnimation == 10;
+            // canBreak |= characterFlag == Character_KNUCKLES;
+            // canBreak |= characterFlag == Character_SONIC && player.SuperForm == 2;
+            // canBreak |= player.Status == player.Player_StatusFrozen_PGZ;
+
+            if (!canBreak)
+                collideWithWall = true;
+
+            if (!collideWithWall) {
+                if (canBreak && player.IsSubPlayer == 0) {
+                    if (!player.IsGhost) {
+                        if (Static.Entity_CollideWithObject(wall, player)) {
+                            wall.BreakVertically();
+                            Sound.Play(wall.SFX_LedgeBreak);
+                            wall.Active = false;
+                        }
+                    }
+                }
+            }
+            else {
+                Static.Entity_SolidCollideWithPlayer(wall, player);
+            }
+        }
+    }
+
+    event BreakHorizontally(toLeft) {
+        var highLayer = Scene.GetLayerIndex("FG High");
+        if (this.PriorityIndex == 1)
+            highLayer = Scene.GetLayerIndex("FG Low");
+        var tileStartX = (this.X - 8.0 * this.SizeX) / 16.0;
+        var tileStartY = (this.Y - 8.0 * this.SizeY) / 16.0;
+                print "this.X: " + this.X + " this.SizeX (" + this.SizeX + ")";
+                print "tileStartX: " + tileStartX + " (" + (tileStartX * 16) + ")";
+        var tileEndX = Number.AsInteger(tileStartX + this.SizeX);
+        var tileEndY = Number.AsInteger(tileStartY + this.SizeY);
+        tileStartX =   Number.AsInteger(tileStartX);
+        tileStartY =   Number.AsInteger(tileStartY);
+
+
+        var piece, angle;
+        for (var x = tileStartX; x < tileEndX; x++) {
+            for (var y = tileStartY; y < tileEndY; y++) {
+                angle = Math.Atan(((x - tileStartX) * 16.0) + 8.0, (y * 16.0) + 8.0 - this.Y);
+                piece = Instance.Create("BreakableWallPiece", (x * 16.0) + 8.0, (y * 16.0) + 8.0);
+                piece.TileID = Scene.GetTileID(highLayer, x, y);
+                piece.ClearTile = this.ClearTile;
+                piece.TileFlipX = Scene.GetTileFlipX(highLayer, x, y);
+                piece.TileFlipY = Scene.GetTileFlipY(highLayer, x, y);
+                piece.TileX = x;
+                piece.TileY = y;
+                piece.TileLayer = highLayer;
+                piece.XSpeed = 3.5 * Math.Cos(angle);
+                piece.YSpeed = 3.5 * Math.Sin(angle);
+                if (toLeft)
+                    piece.XSpeed = -piece.XSpeed;
+                piece.Gravity = 0.21875;
+                piece.Priority = this.Priority;
+            }
+        }
+    }
+    event BreakVertically() {
+        var highLayer = Scene.GetLayerIndex("FG High");
+        if (this.PriorityIndex == 1)
+            highLayer = Scene.GetLayerIndex("FG Low");
+        var tileStartX = (this.X - 8.0 * this.SizeX) / 16.0;
+        var tileStartY = (this.Y - 8.0 * this.SizeY) / 16.0;
+        var tileEndX = Number.AsInteger(tileStartX + this.SizeX);
+        var tileEndY = Number.AsInteger(tileStartY + this.SizeY);
+        tileStartX =   Number.AsInteger(tileStartX);
+        tileStartY =   Number.AsInteger(tileStartY);
+
+        var wallX = this.X;
+        var wallY = this.Y;
+        var wallSizeX = this.SizeX;
+        var wallSizeY = this.SizeY;
+        var pieceStartX = wallX - 8.0 * wallSizeX + 8.0;
+        var pieceStartY = wallY - 8.0 * wallSizeY + 8.0;
+        var pieceX = pieceStartX;
+        var pieceY = pieceStartY;
+
+        var tanY = -16.0 * wallSizeY;
+        var piece, angle, mult, tanX, tanX2;
+
+        for (var y = tileStartY; y < tileEndY; y++) {
+            tanX = pieceStartX - wallX;
+            tanX2 = 2.0 * tanX;
+
+            for (var x = tileStartX; x < tileEndX; x++) {
+                angle = Math.Atan(tanX2, tanY);
+                mult = (3.0 * Math.Abs(tanY) + Math.Abs(tanX)) / 64.0;
+
+                piece = Instance.Create("BreakableWallPiece", (x * 16.0) + 8.0, (y * 16.0) + 8.0);
+                piece.TileID = Scene.GetTileID(highLayer, x, y);
+                piece.ClearTile = this.ClearTile;
+                piece.TileFlipX = Scene.GetTileFlipX(highLayer, x, y);
+                piece.TileFlipY = Scene.GetTileFlipY(highLayer, x, y);
+                piece.TileX = x;
+                piece.TileY = y;
+                piece.TileLayer = highLayer;
+                piece.XSpeed = 2.5 * mult * Math.Cos(angle);
+                piece.YSpeed = 2.5 * mult * Math.Sin(angle);
+                piece.Gravity = 0.21875;
+                piece.Priority = this.Priority;
+
+                tanX += 16.0;
+                tanX2 += 32.0;
+            }
+
+            tanY += 16.0;
+        }
+    }
+    event BreakVerticallyTop() {
+        var sizeY = 0.0;
+
+        var highLayer = Scene.GetLayerIndex("FG High");
+        if (this.PriorityIndex == 1)
+            highLayer = Scene.GetLayerIndex("FG Low");
+        var tileStartX = (this.X - 8.0 * this.SizeX) / 16.0;
+        var tileStartY = (this.Y - 0.5 * this.HitboxH + this.HitboxOffY) / 16.0;
+        var tileEndX = Number.AsInteger(tileStartX + this.SizeX);
+        var tileEndY = Number.AsInteger(tileStartY + this.HitboxH / 16.0);
+        tileStartX =   Number.AsInteger(tileStartX);
+        tileStartY =   Number.AsInteger(tileStartY);
+
+        var wallX = this.X;
+        var wallY = this.Y;
+        var wallSizeX = this.SizeX;
+        var wallSizeY = this.SizeY;
+        var pieceStartX = wallX - 8.0 * wallSizeX + 8.0;
+        var pieceStartY = wallY - 0.5 * this.HitboxH + this.HitboxOffY + 8.0;
+        var pieceX = pieceStartX;
+        var pieceY = pieceStartY;
+
+        var tanY = -16.0 * wallSizeY;
+        var piece, angle, mult, tanX, tanX2;
+
+        for (var y = tileStartY; y <= tileStartY; y++) {
+            tanX = pieceStartX - wallX;
+            tanX2 = 2.0 * tanX;
+
+            for (var x = tileStartX; x < tileEndX; x++) {
+                angle = Math.Atan(tanX2, tanY);
+                mult = (3.0 * Math.Abs(tanY) + Math.Abs(tanX)) / 64.0;
+
+                piece = Instance.Create("BreakableWallPiece", (x * 16.0) + 8.0, (y * 16.0) + 8.0);
+                piece.TileID = Scene.GetTileID(highLayer, x, y);
+                piece.ClearTile = this.ClearTile;
+                piece.TileFlipX = Scene.GetTileFlipX(highLayer, x, y);
+                piece.TileFlipY = Scene.GetTileFlipY(highLayer, x, y);
+                piece.TileX = x;
+                piece.TileY = y;
+                piece.TileLayer = highLayer;
+                piece.XSpeed = 2.5 * mult * Math.Cos(angle);
+                piece.YSpeed = 2.5 * mult * Math.Sin(angle);
+                piece.Gravity = 0.21875;
+                piece.Priority = this.Priority;
+
+                tanX += 16.0;
+                tanX2 += 32.0;
+            }
+
+            tanY += 16.0;
+        }
+    }
+    event BreakVerticallyOLD(toLeft) {
+        var highLayer = Scene.GetLayerIndex("FG High");
+        if (this.PriorityIndex == 1)
+            highLayer = Scene.GetLayerIndex("FG Low");
+        var tileStartX = (this.X - 8.0 * this.SizeX) / 16.0;
+        var tileStartY = (this.Y - 8.0 * this.SizeY) / 16.0;
+        var tileEndX = Number.AsInteger(tileStartX + this.SizeX);
+        var tileEndY = Number.AsInteger(tileStartY + this.SizeY);
+        tileStartX =   Number.AsInteger(tileStartX);
+        tileStartY =   Number.AsInteger(tileStartY);
+
+        var piece, angle;
+        for (var y = tileStartY; y < tileEndY; y++) {
+            var tileY = ((y - tileStartY) * 16.0) + 8.0;
+            var yStaggerDelay = 3 * Math.Abs(tileY - (this.Y - 8.0 * this.SizeY));
+
+            for (var x = tileStartX; x < tileEndX; x++) {
+                angle = Math.Atan(((x * 16.0) + 8.0 - this.X) * 2.0, tileY);
+                piece = Instance.Create("BreakableWallPiece", (x * 16.0) + 8.0, (y * 16.0) + 8.0);
+                piece.TileID = Scene.GetTileID(highLayer, x, y);
+                piece.ClearTile = this.ClearTile;
+                piece.TileFlipX = Scene.GetTileFlipX(highLayer, x, y);
+                piece.TileFlipY = Scene.GetTileFlipY(highLayer, x, y);
+                piece.TileX = x;
+                piece.TileY = y;
+                piece.TileLayer = highLayer;
+                piece.XSpeed = 2.5 * Math.Cos(angle);
+                piece.YSpeed = 2.5 * Math.Sin(angle);
+                if (toLeft)
+                    piece.XSpeed = -piece.XSpeed;
+                piece.Gravity = 0.21875;
+                piece.Priority = this.Priority;
+            }
+        }
+    }
+
+    event Update() {
+        this.SpriteOnScreen = false;
+        if (!this.InView(0, this.X - this.UpdateRegionHalfW, this.Y - this.UpdateRegionHalfH, this.UpdateRegionW, this.UpdateRegionH))
+            return;
+        this.SpriteOnScreen = true;
+
+        if (this.Status)
+            this.Status();
+    }
+}

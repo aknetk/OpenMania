@@ -1,0 +1,46 @@
+class MSZSetup {
+    event Create() {
+        this.Status = null;
+
+        if (String.Contains(Scene.GetName(), "Scene2.bin")) {
+            Scene.SetLayerVisible(4, false);
+
+            print "0x8F: " + Palette.GetColor(0, 0x8F);
+
+            Palette.CopyColors(
+                // From
+                4, 0x80,
+                // To
+                0, 0x80,
+                // Count
+                128);
+
+            print "copying colors";
+            print "0x8F: " + Palette.GetColor(0, 0x8F);
+
+            this.Status = this.MSZSetup_Status_Act2;
+            this.SandTimer = 0;
+        }
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+
+    event MSZSetup_Status_Act2() {
+        if (!(Scene_Frame & 3)) {
+            Palette.RotateColorsRight(0, 0xF0, 4);
+        }
+
+        if (true) {
+            this.SandTimer += 6;
+            if (this.SandTimer >= 0x100) {
+                this.SandTimer -= 0x100;
+                Palette.RotateColorsLeft(1, 0xCC, 4);
+                Palette.RotateColorsLeft(2, 0xCC, 4);
+            }
+            Palette.MixPalettes(0, 1, 2, this.SandTimer / 256.0, 0xCC, 4);
+        }
+    }
+}

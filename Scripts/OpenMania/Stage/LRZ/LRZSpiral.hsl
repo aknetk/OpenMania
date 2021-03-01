@@ -1,0 +1,577 @@
+var LRZSpiral_StaticData1 = [
+    0x0,
+    0x1,
+    0x2,
+    0x3,
+    0x4,
+    0x5,
+    0x6,
+    0x7,
+    0x8,
+    0x9,
+    0xA,
+    0xC,
+    0xD,
+    0xF,
+    0x10,
+    0x12,
+    0x13,
+    0x13,
+    0x14,
+    0x14,
+    0x16,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x18,
+    0x18,
+    0x18,
+    0x18,
+    0x19,
+    0x1B,
+    0x1C,
+    0x1E,
+    0x1F,
+    0x21,
+    0x22,
+    0x24,
+    0x25,
+    0x27,
+    0x28,
+    0x2A,
+    0x2B,
+    0x2D,
+    0x2E,
+    0x30,
+    0x31,
+    0x33,
+    0x34,
+    0x36,
+    0x37,
+    0x39,
+    0x3A,
+    0x3C,
+    0x3D,
+    0x3F,
+    0x40,
+    0x42,
+    0x43,
+    0x45,
+    0x46,
+    0x48,
+    0x49,
+    0x4B,
+    0x4C,
+    0x4E,
+    0x4F,
+    0x51,
+    0x52,
+    0x54,
+    0x55,
+    0x57,
+    0x58,
+    0x5A,
+    0x5B,
+    0x5D,
+    0x5E,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x60,
+    0x61,
+    0x62,
+    0x63,
+    0x64,
+    0x65,
+    0x66,
+    0x67,
+    0x68,
+    0x69,
+    0x6A,
+    0x6B,
+    0x6C,
+    0x6D,
+    0x6E,
+    0x6F,
+    0x70,
+    0x71,
+    0x72,
+    0x73,
+    0x74,
+    0x75,
+    0x76,
+    0x77,
+    0x78,
+    0x79,
+    0x7A,
+    0x7B,
+    0x7C,
+    0x7D,
+    0x7E,
+    0x7F,
+];
+var LRZSpiral_StaticData2 = [
+    0x0,
+    0x1,
+    0x2,
+    0x3,
+    0x4,
+    0x5,
+    0x6,
+    0x7,
+    0x8,
+    0x9,
+    0xA,
+    0xC,
+    0xD,
+    0xF,
+    0x10,
+    0x12,
+    0x13,
+    0x13,
+    0x14,
+    0x14,
+    0x16,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x17,
+    0x18,
+    0x18,
+    0x18,
+    0x18,
+    0x19,
+    0x19,
+    0x19,
+    0x1A,
+    0x1A,
+    0x1A,
+    0x1B,
+    0x1B,
+    0x1B,
+    0x1C,
+    0x1C,
+    0x1C,
+    0x1D,
+    0x1D,
+    0x1D,
+    0x1D,
+    0x1E,
+    0x1E,
+    0x1E,
+    0x1F,
+    0x1F,
+    0x1F,
+    0x20,
+    0x20,
+    0x20,
+    0x21,
+    0x21,
+    0x21,
+];
+
+class LRZSpiral {
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Type = 0;
+        this.Height = 1;
+        this.Radius = 56;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("height"))
+            this.Height = this.PropertyGet("height");
+        if (this.PropertyExists("radius"))
+            this.Radius = this.PropertyGet("radius");
+
+        this.UpdateRegionW =
+        this.UpdateRegionH = 128.0;
+        this.RenderRegionW =
+        this.RenderRegionH = 1.0;
+        this.Priority = DrawGroup_FGHigh_High;
+
+        this.PlayerGrabbed = 0;
+        this.PlayerPosition = Array.Create(8, 0.0);
+        this.Status = null;
+
+        var v4;
+        switch (this.Type) {
+            case 0:
+            default:
+                this.Status = this.LRZSpiral_Status_Spiral;
+
+                this.UpdateRegionW = 256.0;
+                this.UpdateRegionH = (this.Height + 1) * 128.0;
+
+                v4 = this.Height * 64.0;
+                this.HitboxW = 32.0;
+                this.HitboxH = 128.0;
+                this.HitboxOffY = (-v4 * 0.5);
+
+                this.Height = (this.Height * 512.0) - 256.0;
+                break;
+            case 1:
+                this.Status = this.LRZSpiral_Status_SlopeRampLeft;
+
+                this.UpdateRegionW = 256.0;
+                this.UpdateRegionH = (this.Height + 64.0) * 2.0;
+
+                this.FlipFlag = 0;
+                this.HitboxW = 8.0;
+                this.HitboxH = 8.0;
+                this.HitboxOffX = -108.0;
+                this.HitboxOffY = -176.0;
+                break;
+            case 2:
+                this.Status = this.LRZSpiral_Status_SlopeRampRight;
+
+                this.UpdateRegionW = 256.0;
+                this.UpdateRegionH = (this.Height + 64.0) * 2.0;
+
+                this.FlipFlag = 1;
+                this.HitboxW = 8.0;
+                this.HitboxH = 8.0;
+                this.HitboxOffX = -142.0;
+                this.HitboxOffY = -176.0;
+                break;
+        }
+
+        this.UpdateRegionWCopy = this.UpdateRegionW;
+        this.UpdateRegionHCopy = this.UpdateRegionH;
+    }
+
+    LRZSpiral_Player_SetRunAnimation(player) {
+        var absGSP = Math.Abs(player.GroundSpeed);
+        if (absGSP < player.DashThreshold) {
+            player.SetAnimation(8, 1);
+
+            var speed = absGSP * 16.0 + 96.0;
+            if (speed > 512.0)
+                speed = 512.0;
+            player.AnimationSpeedMult = speed / 128.0;
+
+            player.RunThreshold = 5.8;
+            player.DashThreshold = 12.0;
+        }
+        else {
+            player.AnimationSpeedMult = 1.0;
+            player.SetAnimation(9, 1);
+            player.DashThreshold = 11.5;
+        }
+    }
+
+    LRZSpiral_Status_Spiral() {
+        var player, index = -1, indexFlag, spiral = this;
+        with ("Player") {
+            player = this;
+            index++;
+            indexFlag = 1 << index;
+
+            if (!(spiral.PlayerGrabbed & indexFlag)) {
+                if (player.X >= spiral.X && !player.IsGhost) {
+                    if (Static.GameObject_TestCollide(player, spiral)) {
+                        player.Ground = false;
+                        player.XSpeed =
+                        player.YSpeed = 0.0;
+                        if (player.GroundSpeed < 6.0)
+                            player.GroundSpeed = 6.0;
+
+                        player.SetAnimation(35, 0);
+                        player.AnimationSpeedMult = 0.0;
+
+                        player.Status = player.Player_StatusNone;
+                        player.LateUpdateAirStatus = null;
+                        player.LateUpdateGroundStatus = null;
+                        player.UseGroundSpeed = false;
+
+                        spiral.PlayerGrabbed |= indexFlag;
+                        spiral.PlayerPosition[index] = 0.0;
+
+                        spiral.UpdateRegionW =
+                        spiral.UpdateRegionH = 0.0;
+                    }
+                }
+            }
+            else {
+                if (player.Status == player.Player_StatusNone) {
+                    var playerGSP = player.GroundSpeed;
+                    spiral.PlayerPosition[index] += playerGSP;
+
+                    var playerPos = spiral.PlayerPosition[index];
+                    if (playerPos < 0.0) {
+                        spiral.PlayerGrabbed &= ~indexFlag;
+                    }
+                    else if (playerPos < spiral.Height) {
+                        if (playerGSP < 16.0)
+                            player.GroundSpeed = playerGSP + 0.0625;
+
+                        var halfPos = Number.AsInteger(playerPos * 0.5);
+
+                        if (((halfPos + 64) & 0xFF) < 0x80)
+                            player.Priority = DrawGroup_AboveTiles;
+                        else
+                            player.Priority = DrawGroup_FGLow_High;
+
+                        var sin = Static.HexSin(halfPos);
+                        player.X = sin * 72.0 + spiral.X;
+                        player.Y = (halfPos >> 1) & 0xFF80;
+
+                        player.Y += spiral.Y - (spiral.Height + 256.0) * 0.125 + 88.0;
+
+                        var fr = (halfPos >> 1) & 0x7F;
+                        if (playerPos >= spiral.Height - 256.0)
+                            player.Y += LRZSpiral_StaticData2[fr];
+                        else
+                            player.Y += LRZSpiral_StaticData1[fr];
+
+                        var frameCount = 24;
+                        player.ResetAnimation(35, (fr) * 0x100 / 0x555);
+                        player.Flip =
+                        player.FlipFlag = (player.CurrentFrame + 6) % 24 > 12;
+                    }
+                    else {
+                        player.UseGroundSpeed = true;
+                        player.PlaneIndex = 1;
+                        player.InputLock = 16;
+                        player.Flip = player.FlipFlag = 1;
+                        player.Ground = true;
+                        player.OnGroundCopy = true;
+                        player.Status = player.Player_StatusStanding;
+                        player.GroundSpeed = -player.GroundSpeed;
+
+                        spiral.PlayerGrabbed &= ~indexFlag;
+                        spiral.LRZSpiral_Player_SetRunAnimation(player);
+                        if (!spiral.PlayerGrabbed) {
+                            spiral.UpdateRegionW = spiral.UpdateRegionWCopy;
+                            spiral.UpdateRegionH = spiral.UpdateRegionHCopy;
+                        }
+                    }
+                }
+                else {
+                    spiral.PlayerGrabbed &= ~indexFlag;
+                }
+            }
+        }
+    }
+    LRZSpiral_Status_SlopeRampLeft() {
+        var player, index = -1, indexFlag, spiral = this;
+        with ("Player") {
+            player = this;
+            index++;
+            indexFlag = 1 << index;
+
+            // If player's not already in the spiral,
+            if (!(spiral.PlayerGrabbed & indexFlag)) {
+                // And if the player can be captured by the spiral,
+                if (player.X >= spiral.X - 108.0 &&
+                    player.GroundSpeed >= 0.0 &&
+                    player.Ground &&
+                    !player.IsGhost) {
+                    // And if the player collides with the capture hitbox,
+                    if (Static.GameObject_TestCollide(player, spiral)) {
+                        player.Ground = false;
+                        player.XSpeed =
+                        player.YSpeed = 0.0;
+                        if (player.GroundSpeed < 4.0)
+                            player.GroundSpeed = 4.0;
+
+                        player.SetAnimation(45, 0);
+                        player.AnimationSpeedMult = 0.0;
+
+                        player.Status = player.Player_StatusNone;
+                        player.LateUpdateAirStatus = null;
+                        player.LateUpdateGroundStatus = null;
+                        player.UseGroundSpeed = false;
+
+                        spiral.PlayerGrabbed |= indexFlag;
+                        spiral.PlayerPosition[index] = 0.0;
+
+                        spiral.UpdateRegionW =
+                        spiral.UpdateRegionH = 0.0;
+                    }
+                }
+            }
+            // Otherwise, if the player is captured
+            else {
+                // If the player is captured and is available to be controlled,
+                if (player.Status == player.Player_StatusNone) {
+                    var playerGSP = player.GroundSpeed;
+                    spiral.PlayerPosition[index] += playerGSP;
+
+                    var playerPos = spiral.PlayerPosition[index];
+                    if (playerPos < 0.0) {
+                        spiral.PlayerGrabbed &= ~indexFlag;
+                    }
+                    else {
+                        // spiral.PlayerPosition[index] += playerGSP / 131072.0;
+
+                        if (playerGSP < 16.0)
+                            player.GroundSpeed = playerGSP + 0.0625;
+
+                        var posToAngle = Number.AsInteger(spiral.PlayerPosition[index] * 0.25);
+
+                        var sin = Static.HexSin(posToAngle);
+                        player.X = spiral.X - 108.0 + sin * 160.0;
+
+                        var cos = Static.HexCos(posToAngle);
+                        player.Y = spiral.Y - 176.0 + 172.0 * (1.0 - cos);
+
+                        playerPos = spiral.PlayerPosition[index];
+                        if (playerPos < 0.0 || playerPos >= 512.0) {
+                            player.UseGroundSpeed = true;
+                            player.PlaneIndex = 1;
+                            player.InputLock = 16;
+                            player.Flip = player.FlipFlag = 1;
+                            player.Ground = true;
+                            player.OnGroundCopy = true;
+                            player.Status = player.Player_StatusStanding;
+                            player.GroundSpeed = -player.GroundSpeed;
+
+                            spiral.PlayerGrabbed &= ~indexFlag;
+                            spiral.LRZSpiral_Player_SetRunAnimation(player);
+                            if (!spiral.PlayerGrabbed) {
+                                spiral.UpdateRegionW = spiral.UpdateRegionWCopy;
+                                spiral.UpdateRegionH = spiral.UpdateRegionHCopy;
+                            }
+                        }
+                        else {
+                            var frameCount = 12;
+                            player.ResetAnimation(player.CurrentAnimation, Number.AsInteger(playerPos * frameCount / 512.0));
+                        }
+                    }
+                }
+                // Otherwise, if the player's Status has been changed by an outside force,
+                else {
+                    spiral.PlayerGrabbed &= ~indexFlag;
+                }
+            }
+        }
+    }
+    LRZSpiral_Status_SlopeRampRight() {
+        var player, index = -1, indexFlag, spiral = this;
+        with ("Player") {
+            player = this;
+            index++;
+            indexFlag = 1 << index;
+
+            // If player's not already in the spiral,
+            if (!(spiral.PlayerGrabbed & indexFlag)) {
+                // And if the player can be captured by the spiral,
+                if (player.X >= spiral.X + 142.0 &&
+                    player.GroundSpeed <= 0.0 &&
+                    player.Ground &&
+                    !player.IsGhost) {
+                    // And if the player collides with the capture hitbox,
+                    if (Static.GameObject_TestCollide(player, spiral)) {
+                        player.Ground = false;
+                        player.XSpeed =
+                        player.YSpeed = 0.0;
+                        if (player.GroundSpeed > -4.0)
+                            player.GroundSpeed = -4.0;
+
+                        player.SetAnimation(45, 0);
+                        player.AnimationSpeedMult = 0.0;
+
+                        player.Status = player.Player_StatusNone;
+                        player.LateUpdateAirStatus = null;
+                        player.LateUpdateGroundStatus = null;
+                        player.UseGroundSpeed = false;
+
+                        spiral.PlayerGrabbed |= indexFlag;
+                        spiral.PlayerPosition[index] = 0.0;
+
+                        spiral.UpdateRegionW =
+                        spiral.UpdateRegionH = 0.0;
+                    }
+                }
+            }
+            // Otherwise, if the player is captured
+            else {
+                // If the player is captured and is available to be controlled,
+                if (player.Status == player.Player_StatusNone) {
+                    var playerGSP = player.GroundSpeed;
+                    spiral.PlayerPosition[index] -= playerGSP;
+
+                    var playerPos = spiral.PlayerPosition[index];
+                    if (playerPos < 0.0) {
+                        spiral.PlayerGrabbed &= ~indexFlag;
+                    }
+                    else {
+                        // spiral.PlayerPosition[index] += playerGSP / 131072.0;
+
+                        if (playerGSP > -16.0)
+                            player.GroundSpeed = playerGSP - 0.0625;
+
+                        var posToAngle = Number.AsInteger(spiral.PlayerPosition[index] * 0.25);
+
+                        var sin = Static.HexSin(posToAngle);
+                        player.X = spiral.X + 142.0 + sin * -160.0;
+
+                        var cos = Static.HexCos(posToAngle);
+                        player.Y = spiral.Y - 180.0 + 161.0 * (1.0 - cos);
+
+                        playerPos = spiral.PlayerPosition[index];
+                        if (playerPos < 0.0 || playerPos >= 512.0) {
+                            player.UseGroundSpeed = true;
+                            player.PlaneIndex = 1;
+                            player.InputLock = 16;
+                            player.Flip = player.FlipFlag = 0;
+                            player.Ground = true;
+                            player.OnGroundCopy = true;
+                            player.Status = player.Player_StatusStanding;
+                            player.GroundSpeed = -player.GroundSpeed;
+
+                            spiral.PlayerGrabbed &= ~indexFlag;
+                            spiral.LRZSpiral_Player_SetRunAnimation(player);
+                            if (!spiral.PlayerGrabbed) {
+                                spiral.UpdateRegionW = spiral.UpdateRegionWCopy;
+                                spiral.UpdateRegionH = spiral.UpdateRegionHCopy;
+                            }
+                        }
+                        else {
+                            var frameCount = 12;
+                            player.ResetAnimation(player.CurrentAnimation, Number.AsInteger(playerPos * frameCount / 512.0));
+                        }
+                    }
+                }
+                // Otherwise, if the player's Status has been changed by an outside force,
+                else {
+                    spiral.PlayerGrabbed &= ~indexFlag;
+                }
+            }
+        }
+    }
+
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+}

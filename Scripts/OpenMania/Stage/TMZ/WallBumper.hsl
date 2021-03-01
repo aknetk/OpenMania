@@ -1,0 +1,155 @@
+class WallBumper {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Sprite = Resources.LoadSprite("Sprites/TMZ1/WallBumper.bin", SCOPE_SCENE);
+        this.SFX_Bounce = Resources.LoadSound("SoundFX/TMZ1/Bouncer.wav", SCOPE_SCENE);
+
+        this.Priority = DrawGroup_FGLow_Low;
+
+        this.FlipFlag = 0;
+        this.Type = 0;
+        this.Size = 0;
+        this.Reverse = false;
+        this.Destructible = false;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("size"))
+            this.Size = this.PropertyGet("size");
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+        if (this.PropertyExists("flipFlag"))
+            this.FlipFlag = this.PropertyGet("flipFlag");
+        if (this.PropertyExists("reverse"))
+            this.Reverse = this.PropertyGet("reverse");
+        if (this.PropertyExists("destructible"))
+            this.Destructible = this.PropertyGet("destructible");
+
+        this.HitboxW = 32.0;
+        this.HitboxH = 32.0;
+        this.UpdateRegionW = 64.0;
+        this.UpdateRegionH = 64.0;
+
+        // Vertical
+        if (this.Type == 0) {
+            this.UpdateRegionH += this.Size * 64.0;
+
+            this.HitboxW = 8.0;
+            this.HitboxOffX = 4.0;
+            this.HitboxH = this.Size * 32.0;
+            this.HitboxOffY = -16.0;
+        }
+        // Horizontal
+        else {
+            this.FlipFlag <<= 1;
+
+            this.UpdateRegionW += this.Size * 64.0;
+
+            this.HitboxH = 8.0;
+            this.HitboxOffY = 4.0;
+            this.HitboxW = this.Size * 32.0;
+            this.HitboxOffX = -16.0;
+        }
+
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+
+        this.SetAnimation(this.Type, 0);
+    }
+    event Update() {
+        var wallBumper = this, player;
+        with ("Player") {
+            player = this;
+            if (player.CurrentAnimation == 18 || !player.Player_BreakableCollide(wallBumper))
+                continue;
+
+            // Horizontal
+            if (wallBumper.Type) {
+                if (wallBumper.FlipFlag) {
+                    if (player.YSpeed < 0.0)
+                        continue;
+                    player.YSpeed = -8.0;
+                }
+                else {
+                    if (player.YSpeed > 0.0)
+                        continue;
+                    player.YSpeed = 8.0;
+                }
+
+                var speed = 8.0;
+                if (wallBumper.Reverse)
+                    speed = -8.0;
+
+                player.XSpeed =
+                player.GroundSpeed = speed;
+            }
+            // Vertical
+            else {
+                if (wallBumper.FlipFlag) {
+                    if (player.XSpeed < 0.0)
+                        continue;
+                    player.XSpeed =
+                    player.GroundSpeed = -8.0;
+                }
+                else {
+                    if (player.XSpeed > 0.0)
+                        continue;
+                    player.XSpeed =
+                    player.GroundSpeed = 8.0;
+                }
+
+                var speed = -8.0;
+                if (wallBumper.Reverse)
+                    speed = 8.0;
+
+                player.YSpeed = speed;
+            }
+
+            Sound.Play(wallBumper.SFX_Bounce);
+            player.AnimationSpeedMult = 1.0;
+            player.SetAnimation(23, 0);
+
+            if (player.Status == player.Player_StatusHangingFromTails && player.TailsPtr) {
+                player.TailsPtr.TailsGrabTimer = 30;
+            }
+
+            player.JumpAbility = 0;
+            player.Ground = false;
+            player.UseGroundSpeed = true;
+            player.Status = player.Player_StatusJumping;
+            if (wallBumper.Destructible) {
+                this.Active = false;
+                break;
+            }
+        }
+    }
+    event Render() {
+        var reverse = this.Reverse;
+
+        var sprite = this.Sprite;
+        var animation = this.CurrentAnimation;
+        var frame = this.CurrentFrame;
+
+        if (this.Type) {
+            var direction = this.FlipFlag ^ reverse;
+            var x = Math.Floor(this.X - this.Size * 16.0),
+                y = Math.Floor(this.Y);
+            for (var i = 0; i < this.Size; i++) {
+                Draw.Sprite(sprite, animation, frame, x, y, direction & 1, direction & 2);
+                x += 32.0;
+            }
+        }
+        else {
+            var direction = this.FlipFlag ^ (reverse << 1);
+            var x = Math.Floor(this.X),
+                y = Math.Floor(this.Y - this.Size * 16.0);
+            for (var i = 0; i < this.Size; i++) {
+                Draw.Sprite(sprite, animation, frame, x, y, direction & 1, direction & 2);
+                y += 32.0;
+            }
+        }
+    }
+}

@@ -1,0 +1,236 @@
+class CircleBumper {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        if (String.Contains(Scene.GetName(), "SPZ2"))
+            this.Sprite = Resources.LoadSprite("Sprites/SPZ2/CircleBumper.bin", SCOPE_SCENE);
+        else
+            this.Sprite = Resources.LoadSprite("Sprites/SPZ1/CircleBumper.bin", SCOPE_SCENE);
+        this.SFX_Bumper = Resources.LoadSound("SoundFX/Stage/Bumper.wav", SCOPE_SCENE);
+        this.Status = null;
+        this.MoveStatus = null;
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+
+        // Setup
+        this.Visible = true;
+        this.HitCount = 0;
+        this.Type = 0;
+        this.AmplitudeX = 0.0;
+        this.AmplitudeY = 0.0;
+        this.Speed = 0;
+        this.Angle = 0;
+        if (this.PropertyExists("hitCount"))
+            this.HitCount = this.PropertyGet("hitCount");
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("speed"))
+            this.Speed = this.PropertyGet("speed");
+        if (this.PropertyExists("angle"))
+            this.Angle = this.PropertyGet("angle");
+        if (this.PropertyExists("amplitude")) {
+            var amplitude = this.PropertyGet("amplitude");
+            this.AmplitudeX = amplitude[0];
+            this.AmplitudeY = amplitude[1];
+        }
+
+        this.Priority = DrawGroup_FGHigh_High;
+        this.FinalX = this.X;
+        this.FinalY = this.Y;
+
+        var absAmpX = Math.Abs(this.AmplitudeX);
+        var absAmpY = Math.Abs(this.AmplitudeY);
+        switch (this.Type) {
+            default:
+                this.UpdateRegionW = (64.0) * 2.0;
+                this.UpdateRegionH = (64.0) * 2.0;
+                this.MoveStatus = this.CircleBumper_MoveStatus_Stationary;
+                break;
+            case 1:
+                this.UpdateRegionW = (absAmpX + 64.0) * 2.0;
+                this.UpdateRegionH = (absAmpY + 64.0) * 2.0;
+                this.MoveStatus = this.CircleBumper_MoveStatus_Oscillating;
+                break;
+            case 2:
+                this.UpdateRegionW = (absAmpX + 64.0) * 2.0;
+                this.UpdateRegionH = (absAmpY + 64.0) * 2.0;
+                this.MoveStatus = this.CircleBumper_MoveStatus_Circular;
+                break;
+            case 3:
+                this.UpdateRegionW = (absAmpX + 64.0) * 2.0;
+                this.UpdateRegionH = (absAmpY + 64.0) * 2.0;
+                this.MoveStatus = this.CircleBumper_MoveStatus_Path;
+                break;
+            case 4:
+                this.UpdateRegionW = (64.0) * 2.0;
+                this.UpdateRegionH = (64.0) * 2.0;
+                this.MoveStatus = this.CircleBumper_MoveStatus_Track;
+                break;
+        }
+
+        this.SetAnimation(0, 0);
+        this.Status = this.CircleBumper_Status_Normal;
+        if (this.HitCount == 0)
+            this.HitCount = 5;
+
+        this.HitboxW = 14.0;
+        this.HitboxH = 12.0;
+
+        this.UpdateRegionBackupW = this.UpdateRegionW;
+        this.UpdateRegionBackupH = this.UpdateRegionH;
+    }
+
+    CircleBumper_HandlePlayers() {
+        var bumperX = this.X,
+            bumperY = this.Y;
+
+        this.X = this.FinalX;
+        this.Y = this.FinalY;
+
+        var player, circleBumper = this;
+        with ("Player") {
+            player = this;
+            if (player.CurrentAnimation == 18)
+                continue;
+            if (!player.Player_BreakableCollide(circleBumper))
+                continue;
+
+            circleBumper.ResetAnimation(circleBumper.CurrentAnimation, 0);
+            circleBumper.Status = circleBumper.CircleBumper_Status_Collided;
+            Sound.Play(circleBumper.SFX_Bumper);
+
+            circleBumper.UpdateRegionW =
+            circleBumper.UpdateRegionH = 0.0;
+
+            var angle = Math.Direction(circleBumper.X, circleBumper.Y, player.X, player.Y);
+            var xspeed =  Math.Cos(angle) * 7.0;
+            var yspeed = -Math.Sin(angle) * 7.0;
+            if (player.Status == player.Player_StatusHangingFromTails && player.TailsPtr) {
+                player.TailsPtr.TailsGrabTimer = 30;
+            }
+
+            var playerStatus = player.Status;
+            if (playerStatus == player.Player_StatusMighty_HammerDrop) {
+                player.AnimationSpeedMult = 1.0;
+                player.SetAnimation(10, 0);
+            }
+            else {
+                var playerAnim = player.CurrentAnimation;
+                if (playerAnim != 48 && playerAnim != 51 && playerStatus != player.Player_StatusTails_Flying) {
+                    if (playerStatus != player.Player_StatusSonic_DropDash) {
+                        player.Status = player.Player_StatusJumping;
+                    }
+                    if (playerAnim != 10 && playerAnim != 7 && playerAnim != 8 && playerAnim != 9) {
+                        player.SetAnimation(5, 0);
+                    }
+                }
+            }
+
+            if (player.CurrentAnimation != 48) {
+                player.XSpeed =
+                player.GroundSpeed = xspeed;
+                player.JumpAbility = 0;
+            }
+
+            player.YSpeed = yspeed;
+            player.Ground = false;
+            player.UseGroundSpeed = true;
+
+            if (circleBumper.HitCount) {
+                // Spawn ScoreBonus
+                var bonus = Instance.Create("ScoreBonus", circleBumper.X, circleBumper.Y);
+                bonus.Priority = circleBumper.Priority + 1;
+                bonus.ResetAnimation(0, 16);
+                player.GainScore(10);
+                circleBumper.HitCount--;
+            }
+        }
+
+        this.X = bumperX;
+        this.Y = bumperY;
+    }
+
+    CircleBumper_Status_Normal() {
+        this.CircleBumper_HandlePlayers();
+    }
+    CircleBumper_Status_Collided() {
+        this.CircleBumper_HandlePlayers();
+        this.Animate();
+
+        if (this.CurrentFrame == this.CurrentFrameCount - 1) {
+            this.ResetAnimation(this.CurrentAnimation, 0);
+
+            this.UpdateRegionW = this.UpdateRegionBackupW;
+            this.UpdateRegionH = this.UpdateRegionBackupH;
+
+            this.Status = this.CircleBumper_Status_Normal;
+        }
+    }
+
+    CircleBumper_MoveStatus_Stationary() {
+        this.FinalX = this.X;
+        this.FinalY = this.Y;
+    }
+    CircleBumper_MoveStatus_Oscillating() {
+        this.FinalX = this.AmplitudeX * Static.HexSinHighPrec(this.Speed * Scene_Frame) + this.X;
+        this.FinalY = this.AmplitudeY * Static.HexSinHighPrec(this.Speed * Scene_Frame) + this.Y;
+    }
+    CircleBumper_MoveStatus_Circular() {
+        this.FinalX = this.AmplitudeX * Static.HexCosHighPrec(this.Speed * Scene_Frame + (this.Angle << 2)) + this.X;
+        this.FinalY = this.AmplitudeY * Static.HexSinHighPrec(this.Speed * Scene_Frame + (this.Angle << 2)) + this.Y;
+    }
+    CircleBumper_MoveStatus_Path() {
+        var amplitudeX = this.AmplitudeX * 0.5;
+        var amplitudeY = this.AmplitudeY * 0.5;
+
+        var oscill = Scene_Frame;
+        var dir = (oscill >> 9) & 1;
+
+        oscill &= 0x1FF;
+
+        if (dir == this.FlipFlag) {
+            this.FinalX = this.X + (oscill * amplitudeX / 256.0) - amplitudeX;
+            this.FinalY = this.Y + (oscill * amplitudeY / 256.0) - amplitudeY;
+        }
+        else {
+            this.FinalX = this.X - (oscill * amplitudeX / 256.0) + amplitudeX;
+            this.FinalY = this.Y - (oscill * amplitudeY / 256.0) + amplitudeY;
+        }
+    }
+    CircleBumper_MoveStatus_Track() {
+        this.FinalX += this.XSpeed;
+        this.FinalY += this.YSpeed;
+
+        var baseObject = this;
+            // baseObject = Instance.GetFromSlotID(this.Speed);
+        var baseObjectX = baseObject.X;
+        var baseObjectY = baseObject.Y;
+        if (this.XSpeed <= 0.0) {
+            if (this.FinalX < baseObjectX)
+                this.FinalX = baseObjectX;
+        }
+        else if (this.FinalX > baseObjectX)
+            this.FinalX = baseObjectX;
+
+        if (this.YSpeed <= 0.0) {
+            if (this.FinalY < baseObjectY)
+                this.FinalY = baseObjectY;
+        }
+        else if (this.FinalY > baseObjectY)
+            this.FinalY = baseObjectY;
+    }
+
+    Update() {
+        if (this.MoveStatus)
+            this.MoveStatus();
+        if (this.Status)
+            this.Status();
+    }
+    Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.FinalX), Math.Floor(this.FinalY), false, false);
+    }
+}

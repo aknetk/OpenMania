@@ -1,7 +1,7 @@
 class Static {
     // This event is unique only to the Static object
     event GameStart() {
-        global.SelectedCharacter = 2;
+        global.SelectedCharacter = 0;
         global.Level = 0;
         global.LevelScenes = [
             "Stages/GHZ/Scene1.bin",
@@ -30,7 +30,29 @@ class Static {
             "Stages/TMZ2/Scene1.bin",
         ];
 
-        global.GameMode = 0;
+        this.SetupManiaGlobals();
+
+        // Custom:
+        global.PlayerOffsetX = 0.0;
+        global.PlayerOffsetY = 0.0;
+        global.UseCheckpoint = -1;
+        global.CurrentBG = -1;
+        global.SavedBG = -1;
+        global.CurrentLives = 3;
+        global.CurrentScore = 0;
+
+        Palette.EnablePaletteUsage(true);
+
+        this.InitGame();
+
+        this.InitTrigTables();
+    }
+
+    SetupManiaGlobals() {
+        global.GameMode = 0; // Main
+        // global.GameMode = 1; // Encore
+        // global.GameMode = 2; // TimeAttack
+        // global.GameMode = 3; // Competition
         global.PlayerID = 0;
         global.SpecialCleared = 0;
         global.SpecialRingID = 0;
@@ -43,10 +65,10 @@ class Static {
         global.NoSaveSlot = 0;
         global.MenuParam = 0;
         global.ItemMode = 0;
-        global.SuppressTitlecard = 0;
+        global.SuppressTitlecard = false;
         global.SuppressAutoMusic = 0;
         global.CompetitionSession = 0;
-        global.MedalMods = 0;
+        global.MedalMods = 0; // 0x04: Enable Peelout, 0x08: Enable Instashield, 0x10: Disable Dropdash
         global.ParallaxOffset = 0;
         global.EnableIntro = 0;
         global.OptionsLoaded = 0;
@@ -56,26 +78,80 @@ class Static {
         global.NoSave = 0;
         global.NotifiedAutosave = 0;
         global.RecallEntities = 0;
-        global.RestartRings = 0;
-        global.Restart1UP = 0;
-        global.RestartShield = 0;
-        global.RestartPos = 0;
-        global.RestartSlot = 0;
-        global.RestartDir = 0;
-        global.RestartMinutes = 0;
-        global.RestartSeconds = 0;
-        global.RestartMilliseconds = 0;
+        global.RecallRings = 0;
+        global.RecallRingExtraLifeLevel = 0;
+        global.RecallShield = 0;
+        global.RecallPosX = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        global.RecallPosY = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        global.RecallSlot = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        global.RecallFlipFlag = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        global.RecallTimer = 0;
+        global.RecallMinutes = 0;
+        global.RecallSeconds = 0;
+        global.RecallMilliseconds = 0;
+        global.TempTimer = 0;
         global.TempMinutes = 0;
         global.TempSeconds = 0;
         global.TempMilliseconds = 0;
-        global.RestartScore = 0;
-        global.RestartScore1UP = 0;
-        global.RestartLives = 0;
-        global.RestartMusicID = 0;
-        global.RestartFlags = 0;
+        global.RecallScore = 0;
+        global.RecallScore1UP = 0;
+        global.RecallLives = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        global.RecallMusicID = 0;
+        global.RecallFlags = 0;
         global.TempFlags = 0;
+        global.TimerActive = true;
     }
 
+    // Custom:
+    event InitZone() {
+        global.PlayerOffsetX = 0.0;
+        global.PlayerOffsetY = 0.0;
+        global.UseCheckpoint = -1;
+        global.CurrentBG = -1;
+        global.SavedBG = -1;
+        global.TimerActive = true;
+
+        global.SuppressTitlecard = false;
+    }
+    event NextAct() {
+        global.UseCheckpoint = -1;
+        global.CurrentBG = -1;
+        global.SavedBG = -1;
+        global.TimerActive = true;
+    }
+    event InitGame() {
+        global.DebugActive = true;
+        global.CurrentLives = 3;
+        global.CurrentScore = 0;
+        this.InitZone();
+    }
+    event InitTrigTables() {
+        global.THexSin = Array.Create(0x100);
+        global.THexCos = Array.Create(0x100);
+        global.THexSinMedPrec = Array.Create(0x200);
+        global.THexCosMedPrec = Array.Create(0x200);
+        global.THexSinHighPrec = Array.Create(0x400);
+        global.THexCosHighPrec = Array.Create(0x400);
+        for (var i = 0; i < 0x100; i++) {
+            global.THexSin[i] = Math.Sin(i * Math_PI / 128.0);
+            global.THexCos[i] = Math.Cos(i * Math_PI / 128.0);
+        }
+        for (var i = 0; i < 0x200; i++) {
+            global.THexSinMedPrec[i] = Math.Sin(i * Math_PI / 256.0);
+            global.THexCosMedPrec[i] = Math.Cos(i * Math_PI / 256.0);
+        }
+        for (var i = 0; i < 0x400; i++) {
+            global.THexSinHighPrec[i] = Math.Sin(i * Math_PI / 512.0);
+            global.THexCosHighPrec[i] = Math.Cos(i * Math_PI / 512.0);
+        }
+    }
+
+    event Entity_CircularCollision(source, sourceRad, other, otherRad) {
+        var x = source.X - other.X;
+        var y = source.Y - other.Y;
+        var rad = sourceRad + otherRad;
+        return x * x + y * y < rad * rad;
+    }
     event Entity_CollideWithObject(source, other) {
         return source.CollideWithObject(other);
 
@@ -103,10 +179,10 @@ class Static {
         if (player.IsGhost)
             return 0;
 
-        var v6, v7;
-        // v6 = player.StaticHitbox;
-        // if (!v6)
-        //     v6 = GetPlayerHitbox
+        var staticOuterHitbox, v7;
+        // staticOuterHitbox = player.StaticHitbox;
+        // if (!staticOuterHitbox)
+        //     staticOuterHitbox = GetPlayerHitbox
 
         // playerHitbox = &unk_66B804;
         // if (v6)
@@ -441,28 +517,104 @@ class Static {
         // */
     }
 
-    event Entity_CheckTileCollision_Move(entity, unused_layerCollisionMask, angleMode, planeIndex, offsetX, offsetY, moveEntity) {
+    event GameObject_TestCollide(player, source) {
+        if (player.IsGhost)
+            return 0;
+
+        player.UpdateHitbox(0);
+        return Static.Entity_CollideWithObject(source, player);
+    }
+
+    event Entity_CheckTileCollision(entity, unused_layerCollisionMask, angleMode, planeIndex, offsetX, offsetY, moveEntity) {
         var startX = entity.X + offsetX;
         var startY = entity.Y + offsetY;
+        var length = 14.0;
         switch (angleMode) {
+            // Checking below
             case 0:
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_TOP, 0.0, 1.0, -16.0, 16.0, planeIndex)) {
+                    if (entity.STC_Length >= -length &&
+                        entity.STC_Length <= 0.0) {
+                        if (moveEntity)
+                            entity.Y = entity.STC_Y - offsetY;
+                        return true;
+                    }
+                }
                 return false;
             // Checking to right
             case 1:
-                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_LEFT, 1.0, 0.0, -8.0, 14.0, planeIndex)) {
-                    if (moveEntity)
-                        entity.X = entity.STC_X - offsetX;
-                    return true;
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_LEFT, 1.0, 0.0, -16.0, 16.0, planeIndex)) {
+                    if (entity.STC_Length >= -length &&
+                        entity.STC_Length <= 0.0) {
+                        if (moveEntity)
+                            entity.X = entity.STC_X - offsetX;
+                        return true;
+                    }
                 }
                 return false;
+            // Checking above
             case 2:
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_BOTTOM, 0.0, -1.0, -16.0, 16.0, planeIndex)) {
+                    if (entity.STC_Length >= -length &&
+                        entity.STC_Length <= 0.0) {
+                        if (moveEntity)
+                            entity.Y = entity.STC_Y - offsetY;
+                        return true;
+                    }
+                }
                 return false;
             // Checking to left
             case 3:
-                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_RIGHT, -1.0, 0.0, -8.0, 14.0, planeIndex)) {
-                    if (moveEntity)
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_RIGHT, -1.0, 0.0, -16.0, 16.0, planeIndex)) {
+                    if (entity.STC_Length >= -length &&
+                        entity.STC_Length <= 0.0) {
+                        if (moveEntity)
+                            entity.X = entity.STC_X - offsetX;
+                        return true;
+                    }
+                }
+                return false;
+        }
+        return false;
+    }
+    event Entity_MoveToTileCollision(entity, unused_layerCollisionMask, angleMode, planeIndex, offsetX, offsetY, length) {
+        var startX = entity.X + offsetX;
+        var startY = entity.Y + offsetY;
+        switch (angleMode) {
+            // Checking below
+            case 0:
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_TOP, 0.0, 1.0, -16.0 - length, length, planeIndex)) {
+                    if (entity.STC_Length >= -length) {
+                        entity.Y = entity.STC_Y - offsetY;
+                        return true;
+                    }
+                }
+                return false;
+            // Checking to right
+            case 1:
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_LEFT, 1.0, 0.0, -16.0 - length, length, planeIndex)) {
+                    if (entity.STC_Length >= -length) {
                         entity.X = entity.STC_X - offsetX;
-                    return true;
+                        return true;
+                    }
+                }
+                return false;
+            // Checking above
+            case 2:
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_BOTTOM, 0.0, -1.0, -16.0 - length, length, planeIndex)) {
+                    if (entity.STC_Length >= -length) {
+                        entity.Y = entity.STC_Y - offsetY;
+                        return true;
+                    }
+                }
+                return false;
+            // Checking to left
+            case 3:
+                if (Static.SenseTileCollision(entity, startX, startY, CollideSide_RIGHT, -1.0, 0.0, -16.0 - length, length, planeIndex)) {
+                    if (entity.STC_Length >= -length) {
+                        entity.X = entity.STC_X - offsetX;
+                        return true;
+                    }
                 }
                 return false;
         }
@@ -471,40 +623,69 @@ class Static {
     event SenseTileCollision(entity, x, y, side, dirX, dirY, startLen, endLen, planeIndex) {
         x += dirX * startLen;
         y += dirY * startLen;
+        x = Math.Floor(x);
+        y = Math.Floor(y);
 
-        var angle;
-        for (var i = startLen; i < endLen; i += 1.0) {
-            angle = TileCollision.PointExtended(x, y, planeIndex, side);
-            if (angle >= 0) {
-                entity.STC_X = Math.Floor(x);
-                entity.STC_Y = Math.Floor(y);
-                entity.STC_Angle = angle;
-                entity.STC_Length = i;
+        var sensor,
+            angleMode = 0;
+        if (dirX < 0)
+            angleMode = 3;
+        else if (dirX > 0)
+            angleMode = 1;
+        else if (dirY < 0)
+            angleMode = 2;
+        if (sensor = TileCollision.Line(x, y, angleMode, endLen - startLen, planeIndex, -1)) {
+            if (sensor["Collided"]) {
+                entity.STC_X = Math.Floor(sensor["X"]);
+                entity.STC_Y = Math.Floor(sensor["Y"]);
+                entity.STC_Angle = sensor["Angle"];
+                switch (angleMode) {
+                    case 0: entity.STC_Length = entity.STC_Y - y; break;
+                    case 1: entity.STC_Length = entity.STC_X - x; break;
+                    case 2: entity.STC_Length = y - entity.STC_Y; break;
+                    case 3: entity.STC_Length = x - entity.STC_X; break;
+                }
+                entity.STC_Length += startLen;
                 return true;
             }
-
-            x += dirX;
-            y += dirY;
         }
         return false;
     }
 
+    event Entity_IsOnScreen(entity, width, height) {
+        if (!entity) return false;
+
+        if (!width) width = entity.OnScreenHitboxW;
+        if (!height) height = entity.OnScreenHitboxH;
+
+        return entity.InView(0, entity.X - width * 0.5, entity.Y - height * 0.5, width, height);
+    }
+    event Position_IsOnScreen(x, y, width, height) {
+        return Static.InView(null, 0, x - width * 0.5, y - height * 0.5, width, height);
+    }
+
     event HexSin(n) {
-        return Math.Sin((n & 0xFF) * Math_PI / 128.0);
+        // return Math.Sin((n & 0xFF) * Math_PI / 128.0);
+        return global.THexSin[n & 0xFF];
     }
     event HexCos(n) {
-        return Math.Cos((n & 0xFF) * Math_PI / 128.0);
+        // return Math.Cos((n & 0xFF) * Math_PI / 128.0);
+        return global.THexCos[n & 0xFF];
     }
     event HexSinMedPrec(n) {
-        return Math.Sin((n & 0x1FF) * Math_PI / 256.0);
+        // return Math.Sin((n & 0x1FF) * Math_PI / 256.0);
+        return global.THexSinMedPrec[n & 0x1FF];
     }
     event HexCosMedPrec(n) {
-        return Math.Cos((n & 0x1FF) * Math_PI / 256.0);
+        // return Math.Cos((n & 0x1FF) * Math_PI / 256.0);
+        return global.THexCosMedPrec[n & 0x1FF];
     }
     event HexSinHighPrec(n) {
-        return Math.Sin((n & 0x3FF) * Math_PI / 512.0);
+        // return Math.Sin((n & 0x3FF) * Math_PI / 512.0);
+        return global.THexSinHighPrec[n & 0x3FF];
     }
     event HexCosHighPrec(n) {
-        return Math.Cos((n & 0x3FF) * Math_PI / 512.0);
+        // return Math.Cos((n & 0x3FF) * Math_PI / 512.0);
+        return global.THexCosHighPrec[n & 0x3FF];
     }
 }

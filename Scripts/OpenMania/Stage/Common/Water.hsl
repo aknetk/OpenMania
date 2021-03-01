@@ -1,0 +1,814 @@
+var Water_PlayerTimer1 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+var Water_PlayerTimer2 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+
+class Water {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Water.bin", SCOPE_GAME);
+        this.AutoPhysics = false;
+        this.Status = null;
+        this.RenderStatus = null;
+        this.SFX_Splash = Resources.LoadSound("SoundFX/Stage/Splash.wav", SCOPE_GAME);
+        this.SFX_Breathe = Resources.LoadSound("SoundFX/Stage/Breathe.wav", SCOPE_GAME);
+        this.SFX_Warning = Resources.LoadSound("SoundFX/Stage/Warning.wav", SCOPE_GAME);
+        this.SFX_Drown = Resources.LoadSound("SoundFX/Stage/Drown.wav", SCOPE_GAME);
+        this.SFX_DrownAlert = Resources.LoadSound("SoundFX/Stage/DrownAlert.wav", SCOPE_GAME);
+        this.SFX_Skim = Resources.LoadSound("SoundFX/HCZ/Skim.wav", SCOPE_GAME);
+
+        // Setup
+        this.Type = 0;
+        this.NumDuds = 0;
+        this.SizeX = 0.0;
+        this.SizeY = 0.0;
+        this.HeightX = 0.0;
+        this.HeightY = 0.0;
+        this.Speed = 0;
+        this.ButtonTag = 0;
+        this.R = 0.0;
+        this.G = 0.0;
+        this.B = 0.0;
+        this.A = 0.5;
+        this.PriorityIndex = 0;
+        this.DestroyOnTrigger = false;
+        this.Water_Unk_0x64 = null;
+        this.Visible = true;
+
+        this.Type = flag;
+
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("numDuds"))
+            this.NumDuds = this.PropertyGet("numDuds");
+        if (this.PropertyExists("size")) {
+            var size = this.PropertyGet("size");
+            this.SizeX = size[0];
+            this.SizeY = size[1];
+        }
+        if (this.PropertyExists("height")) {
+            var height = this.PropertyGet("height");
+            this.HeightX = height[0];
+            this.HeightY = height[1];
+        }
+        if (this.PropertyExists("speed"))
+            this.Speed = this.PropertyGet("speed");
+        if (this.PropertyExists("buttonTag"))
+            this.ButtonTag = this.PropertyGet("buttonTag");
+        if (this.PropertyExists("r"))
+            this.R = Math.Max((this.PropertyGet("r") - 150.0) / 255.0, 0.0);
+        if (this.PropertyExists("g"))
+            this.G = Math.Max((this.PropertyGet("g") - 150.0) / 255.0, 0.0);
+        if (this.PropertyExists("b"))
+            this.B = Math.Max((this.PropertyGet("b") - 150.0) / 255.0, 0.0);
+        if (this.PropertyExists("priority"))
+            this.PriorityIndex = this.PropertyGet("priority");
+        if (this.PropertyExists("destroyOnTrigger"))
+            this.DestroyOnTrigger = this.PropertyGet("destroyOnTrigger");
+
+        // Tiled Compatibility:
+        if (this.PropertyExists("RGBA")) {
+            var argb = this.PropertyGet("RGBA");
+            var signCarry = (argb < 0);
+
+            argb &= 0x7FFFFFFF;
+
+            var a = (argb >> 24) & 0xFF;
+            if (signCarry)
+                a |= 0x80;
+            var r = (argb >> 16) & 0xFF;
+            var g = (argb >> 8) & 0xFF;
+            var b = argb & 0xFF;
+            this.R = Math.Max((r - 150.0) / 255.0, 0.0);
+            this.G = Math.Max((g - 150.0) / 255.0, 0.0);
+            this.B = Math.Max((b - 150.0) / 255.0, 0.0);
+            this.A = Math.Max(a / 255.0, 0.0);
+        }
+        if (this.Type == 0) {
+            if (this.PropertyExists("Tide")) {
+                this.SizeX = this.PropertyGet("Tide");
+            }
+        }
+        else if (this.Type == 1) {
+            if (this.PropertyExists("Width")) {
+                this.SizeX = this.PropertyGet("Width");
+                this.X += this.SizeX * 0.5;
+            }
+            if (this.PropertyExists("Height")) {
+                this.SizeY = this.PropertyGet("Height");
+                this.Y += this.SizeY * 0.5;
+            }
+        }
+
+        // Create
+        var sceneName = Scene.GetName();
+        switch (this.Type) {
+            // Set water level
+            case 0:
+                if (global.GameMode == 3 && String.Contains(sceneName, "CPZ")) {
+                    this.Active = false;
+                }
+                else if (this.PropertyExists("RGBA")) {
+                    this.Status = this.Water_Status_GlobalWaterBlockController;
+                    this.RenderStatus = this.Water_RenderStatus_GlobalWaterBlockController;
+                    this.Priority = DrawGroup_HUD - 1;
+
+                    if (this.PropertyExists("priority")) {
+                        switch (this.PriorityIndex) {
+                            case 0:
+                                this.Priority = DrawGroup_FGLow_Low - 1;
+                                break;
+                            case 1:
+                                this.Priority = DrawGroup_FGLow_High;
+                                break;
+                            case 2:
+                                this.Priority = DrawGroup_AboveTiles;
+                                break;
+                            case 3:
+                                this.Priority = DrawGroup_HUD - 1;
+                                break;
+                        }
+                    }
+                }
+                else {
+                    this.A = String.Contains(sceneName, "CPZ") ? 0.375 : 0.875;
+                    this.ResetAnimation(0, 0);
+                    this.Status = this.Water_Status_GlobalWaterBlockController;
+                    this.RenderStatus = null;
+                }
+                print "Water Controller at: " + this.X + ", " + this.Y;
+
+                this.CurrentWaterLevel =
+                this.BaseWaterLevel = this.Y;
+
+                Water_PlayerTimer1 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+                Water_PlayerTimer2 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+                break;
+            // Water block
+            case 1:
+                switch (this.PriorityIndex) {
+                    case 0:
+                        this.Priority = DrawGroup_FGLow_Low - 1;
+                        break;
+                    case 1:
+                        this.Priority = DrawGroup_FGLow_High;
+                        break;
+                    case 2:
+                        this.Priority = DrawGroup_AboveTiles;
+                        break;
+                    case 3:
+                        this.Priority = DrawGroup_HUD - 1;
+                        break;
+                }
+                // this.A = String.Contains(sceneName, "CPZ") ? 0.375 : 0.875;
+                this.PriorityIndex = 4;
+                this.UpdateRegionW = this.SizeX;
+                this.UpdateRegionH = this.SizeY;
+                this.HitboxW = this.SizeX;
+                this.HitboxH = this.SizeY;
+                this.RenderRegionW = this.SizeX;
+                this.RenderRegionH = this.SizeY;
+                this.HitboxOffX = 0.0;
+                this.HitboxOffY = 0.0;
+                this.FlipFlag = 0;
+                this.Status = null;
+                this.RenderStatus = this.Water_RenderStatus_WaterBlock;
+                break;
+            // Bubbler
+            case 2:
+            case 4:
+                this.BubbleAttachedPlayer = null;
+                this.AutoAnimate = false;
+                this.Priority = DrawGroup_FGLow_Low;
+                this.ScaleX = 1.0;
+                this.ScaleY = 1.0;
+
+                this.SetAnimation(2, 0);
+                this.Status = this.Water_Status_Bubbler;
+                this.RenderStatus = this.Water_RenderStatus_Bubble;
+
+                this.Unk_0xA4 = 0;
+                this.Unk_0xA8 = 0;
+                this.Unk_0x6C = 0;
+                this.DudCount = 0;
+                this.Unk_0x6E = 0;
+                this.Unk_0x6F = 0;
+
+                this.UpdateRegionW =
+                this.UpdateRegionH = 128.0;
+                this.RenderRegionW =
+                this.RenderRegionH = 64.0;
+
+                this.Timer = 0;
+                break;
+            // Trigger To Set Water Level
+            case 3:
+                break;
+            // Bubble Ride
+            case 5:
+                break;
+            // Water splash
+            case 6:
+                this.RenderRegionW =
+                this.RenderRegionH = 128.0;
+
+                this.ResetAnimation(1, 0);
+                this.AutoAnimate = false;
+
+                this.Status = this.Water_Status_WaterSplash;
+                this.RenderStatus = this.Water_RenderStatus_WaterSplash;
+                break;
+            // Bubble
+            case 7:
+                this.BubbleAttachedPlayer = null;
+                this.AutoAnimate = false;
+                this.Priority = DrawGroup_AboveTiles;
+                this.ScaleX = 1.0;
+                this.ScaleY = 1.0;
+
+                this.SetAnimation(5, 0);
+                this.Status = this.Water_Status_AirBubble;
+                this.RenderStatus = this.Water_RenderStatus_Bubble;
+                break;
+            // Countdown Timer
+            case 8:
+                this.BubbleAttachedPlayer = null;
+                this.AutoAnimate = false;
+                this.Priority = DrawGroup_AboveTiles;
+                this.ScaleX = 1.0;
+                this.ScaleY = 1.0;
+
+                this.SetAnimation(7, 0);
+                this.Status = this.Water_Status_CountdownAppear;
+                this.RenderStatus = this.Water_RenderStatus_Countdown;
+                break;
+            default:
+                break;
+        }
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+
+    event Water_DoSplash(player, waterBlock) {
+        if (true) {
+            var splash;
+            if (waterBlock)
+                splash = Instance.Create("Water", player.X, waterBlock.Y - waterBlock.SizeY * 0.5, 6);
+            else
+                splash = Instance.Create("Water", player.X, this.CurrentWaterLevel, 6);
+
+            splash.Priority = DrawGroup_HUD - 2;
+            Sound.Play(this.SFX_Splash);
+        }
+    }
+
+    event Water_Status_GlobalWaterBlockController() {
+        var tide = this.SizeX * Static.HexSinMedPrec(2 * Scene_Frame);
+
+        this.CurrentWaterLevel = tide + this.BaseWaterLevel;
+
+        var player, water = this, playerIndex = -1;
+        with ("Player") {
+            player = this;
+            playerIndex++;
+
+            var playerStatus = player.Status;
+            if (player.Player_IsActiveStatus()) {
+                var inWater = false;
+                var pHH = player.HitboxH;
+                player.HitboxH = 1.0;
+
+                var waterBlock;
+                with ("Water") {
+                    if (Static.Entity_CollideWithObject(this, player)) {
+                        waterBlock = this;
+                        inWater = true;
+                    }
+                    // var doSplash = true;
+                    // var changedUnderwaterness = false;
+                    // if (waterBlock.Type == 1) {
+                    //     if (Static.Entity_CollideWithObject(waterBlock, player) && player.Y >= waterBlock.Y - waterBlock.HitboxH * 0.5) {
+                    //         waterBlock.Water_Unk_0x64 = player;
+                    //         if (!player.Underwater)
+                    //             changedUnderwaterness = true;
+                    //         player.Underwater = true;
+                    //     }
+                    //     else if (waterBlock.Water_Unk_0x64 == player) {
+                    //         waterBlock.Water_Unk_0x64 = null;
+                    //         if (player.Underwater)
+                    //             changedUnderwaterness = true;
+                    //         player.Underwater = false;
+                    //     }
+                    // }
+                }
+
+                player.HitboxH = pHH;
+
+                if (player.Y > water.CurrentWaterLevel)
+                    inWater = true;
+
+                // if (!player.Player_IsActiveStatus())
+                //     inWater = false;
+
+                if (player.IsGhost)
+                    inWater = false;
+
+                if (!inWater) {
+                    if (player.Underwater) {
+                        var lastWaterBlock = player.LastWaterBlock;
+                        player.Underwater = false;
+                        player.LastWaterBlock = null;
+                        player.Player_ResetSpeeds();
+
+                        if (player.YSpeed != 0.0 && true &&
+                            (player.Player_IsActiveStatus() || player.Status == player.Player_StatusFlyingIn)) {
+                            water.Water_DoSplash(player, lastWaterBlock);
+
+                            if (player.YSpeed >= -4.0) {
+                                player.YSpeed *= 2.0;
+                                if (player.YSpeed < -16.0)
+                                    player.YSpeed = -16.0;
+                            }
+                        }
+                    }
+                    else {
+                        var gsp = Math.Abs(player.GroundSpeed);
+                        if (gsp >= 7.5) {
+
+                        }
+                    }
+
+                    if (!player.IsSubPlayer && player.UnderwaterAirTimer >= 1080) {
+                        player.UnderwaterAirTimer = 0;
+                        // Stop the drowning music
+                        Music.Stop(player.BGM_Drowning);
+                    }
+                }
+                else {
+                    player.LastWaterBlock = waterBlock;
+                    if (!player.Underwater) {
+                        player.Underwater = true;
+                        player.Player_ResetSpeeds();
+
+                        water.Water_DoSplash(player, waterBlock);
+
+                        player.YSpeed *= 0.25;
+                        player.XSpeed *= 0.5;
+                        if (player.AngleMode == 0)
+                            player.GroundSpeed *= 0.5;
+                    }
+                    else {
+                        if (player.Invincibility <= 0) {
+                            if (player.Shield == ShieldType_FIRE ||
+                                player.Shield == ShieldType_ELECTRIC) {
+                                player.Shield = ShieldType_NONE;
+                            }
+                        }
+                        if (player.Shield != ShieldType_BUBBLE) {
+                            water.Water_SpawnPlayerBreathingBubbles(player, playerIndex);
+
+                            player.UnderwaterAirTimer++;
+
+                            var timer = player.UnderwaterAirTimer;
+                            switch (timer) {
+                                case 1800:
+                                    player.KillFlag = 3;
+                                    if (!waterBlock)
+                                        player.Priority = DrawGroup_AboveTiles;
+                                    break;
+                                case 1680:
+                                    water.SpawnCountdownBubble(player, 0);
+                                    break;
+                                case 1560:
+                                    water.SpawnCountdownBubble(player, 1);
+                                    break;
+                                case 1440:
+                                    water.SpawnCountdownBubble(player, 2);
+                                    break;
+                                case 1320:
+                                    water.SpawnCountdownBubble(player, 3);
+                                    break;
+                                case 1200:
+                                    water.SpawnCountdownBubble(player, 4);
+                                    break;
+                                case 1080:
+                                    if (global.GameMode == GameModes_Competition || global.GameMode == GameModes_Encore) {
+                                        Sound.Play(water.SFX_DrownAlert);
+                                    }
+                                    else {
+                                        if (!player.IsSubPlayer) {
+                                            Music.Play(player.BGM_Drowning);
+                                        }
+                                    }
+
+                                    water.SpawnCountdownBubble(player, 5);
+                                    break;
+                                case 960:
+                                case 660:
+                                case 360:
+                                    if (!player.IsSubPlayer)
+                                        Sound.Play(water.SFX_Warning);
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                        else {
+                            player.UnderwaterAirTimer = 0;
+                        }
+                    }
+                }
+            }
+        }
+
+        global.CurrentWaterLevel = this.CurrentWaterLevel;
+    }
+    event Water_Status_Bubbler() {
+        var inWater = false;
+        if (this.Y >= global.CurrentWaterLevel) {
+            inWater = true;
+        }
+        else {
+            with ("Water") {
+                if (this.Type == 1 && Static.Entity_CollideWithObject(this, other)) {
+                    inWater = true;
+                    break;
+                }
+            }
+        }
+
+        if (!(this.Visible = inWater))
+            return;
+
+        if (Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH)) {
+            this.Timer--;
+            if (this.Timer <= 0) {
+                if (!this.Unk_0x6E) {
+                    this.Unk_0x6E = 1;
+                    var v4 = Math.RandomRange(0, 0x10000);
+                    this.Unk_0x6C = v4 % 6;
+                    this.Unk_0x6F = v4 & 12;
+                    if (this.DudCount-- <= 0) {
+                        var numduds = this.NumDuds;
+                        this.Unk_0x6E |= 2;
+                        this.DudCount = numduds;
+                    }
+                }
+                this.Timer = Number.AsInteger(Math.RandomMax(32));
+
+                var airBubble = Instance.Create("Water", this.X, this.Y - 2.0, 7);
+                // v8 = Water_ClassInfo->Unk_0x44[this.Unk_0x6C + this.Unk_0x6F];
+                // airBubble.AnimWaves.FrameToLoop = v8;
+                // airBubble.AnimWaves.FrameCount = v8 + 1;
+                if (this.Type == 4) {
+                    airBubble.Unk_0xA4 = 1;
+                    airBubble.Unk_0xA8 = 16;
+                }
+                airBubble.X += Math.RandomRange(-8.0, 8.0);
+
+                var initAngle = Number.AsInteger(Math.RandomRange(0, 256));
+                airBubble.YSpeed = -0.53125;
+                airBubble.Angle = 2 * initAngle;
+                airBubble.BubbleAttachedPlayer = null;
+                airBubble.BubbleBaseX = airBubble.X;
+                if (this.Unk_0x6E & 2 && (!Number.AsInteger(Math.RandomRange(0, 4)) || !this.Unk_0x6C) && !(this.Unk_0x6E & 4)) {
+                    airBubble.SetAnimation(3, 0);
+                    airBubble.HitboxW = airBubble.HitboxH = 16.0;
+                    // airBubble.Unk_0x3C = 1;
+                    this.Unk_0x6E |= 4;
+                }
+                if (this.Unk_0x6C-- <= 0) {
+                    this.Unk_0x6E = 0;
+                    this.Timer += Number.AsInteger(Math.RandomRange(0, 128)) + 128;
+                }
+            }
+        }
+
+        this.Animate();
+    }
+    event Water_Status_WaterSplash() {
+        this.Animate();
+        if (this.CurrentFrame == this.CurrentFrameCount - 1)
+            this.Active = false;
+    }
+    event Water_Status_AirBubble() {
+        var player = this.BubbleAttachedPlayer;
+        if (this.CurrentAnimation == 6 && this.CurrentFrame == this.CurrentFrameCount - 1) {
+            this.Active = false;
+            return;
+        }
+
+        this.Animate();
+
+        if (player && player.Status == null && this.CurrentFrame < 3)
+            this.BubbleBaseX += 4.0;
+
+        this.BubbleBaseX += this.XSpeed;
+        this.Y += this.YSpeed;
+
+        switch (this.CurrentAnimation) {
+            case 3:
+            case 4:
+            case 5:
+            case 7:
+                this.Angle = (this.Angle + 4) & 0x1FF;
+                this.X = this.BubbleBaseX + Static.HexSinMedPrec(this.Angle) * 4.0;
+                break;
+        }
+
+        var inWater = false;
+        if (this.Y >= global.CurrentWaterLevel) {
+            inWater = true;
+        }
+        else {
+            with ("Water") {
+                if (this.Type == 1 && Static.Entity_CollideWithObject(this, other)) {
+                    inWater = true;
+                    break;
+                }
+            }
+        }
+
+        if (this.CurrentAnimation == 3 && this.CurrentFrame >= 13) {
+            // Air Bubble Hitbox
+            this.HitboxW =
+            this.HitboxH = 2.0;
+
+            var player, bubble = this;
+            with ("Player") {
+                player = this;
+                if (Static.Entity_CollideWithObject(bubble, player)) {
+                    bubble.BubblerTimer = 0;
+                    bubble.YSpeed = 0;
+                    bubble.BubbleAttachedPlayer = player;
+
+                    var playerStatus = player.Status;
+                    if (true /*playerStatus != sub_28DCC0 &&
+                        playerStatus != sub_28DC40 &&
+                        playerStatus != sub_28DD40 &&
+                        playerStatus != sub_28DDC0*/) {
+                        player.XSpeed =
+                        player.YSpeed =
+                        player.GroundSpeed = 0.0;
+
+                        var changeAnim = true, v22, v23;
+                        var characterFlag = player.Character;
+                        if (characterFlag == Character_TAILS) {
+                            var animationInd = player.CurrentAnimation;
+                            v22 = animationInd != 49 && animationInd != 50 && animationInd != 52 && animationInd != 54;
+                            v23 = animationInd == 48;
+                            changeAnim = !v23 && v22;
+                        }
+                        if (characterFlag == Character_KNUCKLES) {
+                            var animationind = player.CurrentAnimation;
+                            v22 = animationind != 48 &&
+                                animationind != 51 &&
+                                animationind != 52 &&
+                                animationind != 53 &&
+                                animationind != 54;
+                            v23 = animationind == 16;
+                            changeAnim = !v23 && v22;
+                        }
+                        if (changeAnim && player.CurrentAnimation != 25 && player.CurrentAnimation != 43) {
+                            player.AnimationSpeedMult = 1.0;
+                            player.SetAnimation(41, 0);
+                            if (!player.IsSubPlayer) {
+                                bubble.Unk_0x78 = 1;
+                            }
+                        }
+                        if (playerStatus == player.Player_StatusHangingFromTails) {
+                            player.Status = player.Player_StatusJumping;
+                        }
+                        if (playerStatus == player.Player_StatusMighty_HammerDrop) {
+                            player.Status = player.Player_StatusJumping;
+                        }
+                    }
+                    player.UnderwaterAirTimer = 0;
+                    if (!player.IsSubPlayer)
+                        Music.Stop(player.BGM_Drowning);
+
+                    Sound.Play(bubble.SFX_Breathe);
+
+                    bubble.SetAnimation(6, 0);
+                    inWater = false;
+                    break;
+                }
+            }
+        }
+
+        if (!inWater) {
+            if (this.CurrentAnimation == 3)
+                this.SetAnimation(6, 0);
+            else
+                this.Active = false;
+        }
+    }
+    event Water_Status_CountdownAppear() {
+        var player = this.BubbleAttachedPlayer;
+        if (!player) return;
+
+        if (player.CurrentAnimation == 25) {
+            this.BubbleBaseX += player.XSpeed;
+            this.Y += player.YSpeed;
+        }
+        this.Animate();
+
+        var inWater = false;
+        if (this.Y >= global.CurrentWaterLevel) {
+            inWater = true;
+        }
+        else {
+            with ("Water") {
+                if (this.Type == 1 && Static.Entity_CollideWithObject(this, other)) {
+                    inWater = true;
+                    break;
+                }
+            }
+        }
+
+        if ((this.CurrentAnimation != 7 || this.CurrentFrame != this.CurrentFrameCount - 1) && inWater) {
+            var angle = this.Angle;
+
+            this.X = Static.HexSinMedPrec(angle) * 4.0 + this.BubbleBaseX;
+            this.Y += this.YSpeed;
+
+            this.Angle = (angle + 4) & 0x1FF;
+        }
+        else {
+            this.SetAnimation(8 + this.Number, 0);
+            this.Status = this.Water_Status_Countdown;
+
+            var pinnedY;
+            var camera = player.CameraPtr;
+            var posFloorX = Math.Floor(this.X);
+            if (camera) {
+                this.SizeX = posFloorX - Math.Floor(camera.X);
+                pinnedY = camera.Y;
+            }
+            else {
+                this.SizeX = posFloorX - Math.Floor(player.X);
+                pinnedY = player.Y;
+            }
+            var posFloorY = Math.Floor(this.Y);
+            this.SizeY = posFloorY - Math.Floor(pinnedY);
+        }
+    }
+    event Water_Status_Countdown() {
+        this.Animate();
+
+        var angle = this.Angle;
+        if (angle >= 640) {
+            this.ScaleX -= 0.015625;
+            this.ScaleY -= 0.015625;
+            if (this.ScaleX <= 0.0)
+                this.Active = false;
+        }
+        else {
+            this.ScaleX = Static.HexSin(angle) * 0.25 + 1.0;
+            this.ScaleY = Static.HexSin(angle + 0x80) * 0.25 + 1.0;
+            this.Angle = angle + 6;
+        }
+    }
+
+    event SpawnCountdownBubble(player, number) {
+        var countdown = Instance.Create("Water", player.X, player.Y, 8);
+        if (player.Flip) {
+            countdown.X -= 6.0;
+            countdown.Angle = 256;
+        }
+        else {
+            countdown.X += 6.0;
+        }
+        countdown.BubbleBaseX = countdown.X;
+        countdown.YSpeed = -0.53125;
+        countdown.BubbleAttachedPlayer = player;
+        countdown.Priority = DrawGroup_AboveTiles;
+        countdown.Number = number;
+    }
+    event Water_SpawnPlayerBreathingBubbles(player, playerIndex) {
+        var timer1 = Water_PlayerTimer1[playerIndex];
+        if (timer1 <= 0) {
+            if (Number.AsInteger(Math.RandomMax(3)) == 1)
+                Water_PlayerTimer2[playerIndex] = Number.AsInteger(Math.RandomMax(16)) + 8;
+            else
+                Water_PlayerTimer2[playerIndex] = 512;
+
+            Water_PlayerTimer1[playerIndex] = 60;
+
+            var bubble = Instance.Create("Water", player.X, player.Y, 7);
+            if (player.Flip) {
+                bubble.X -= 6.0;
+                bubble.Angle = 256;
+            }
+            else {
+                bubble.X += 6.0;
+            }
+            bubble.BubbleAttachedPlayer = player;
+            bubble.BubbleBaseX = bubble.X;
+            bubble.YSpeed = -0.53125;
+            bubble.Priority = player.Priority + 1;
+        }
+        else {
+            Water_PlayerTimer1[playerIndex] = timer1 - 1;
+
+            var timer2 = Water_PlayerTimer2[playerIndex];
+            if (timer2 <= 0) {
+                var bubble = Instance.Create("Water", player.X, player.Y, 7);
+                if (player.Flip) {
+                    bubble.X -= 6.0;
+                    bubble.Angle = 256;
+                }
+                else {
+                    bubble.X += 6.0;
+                }
+                bubble.BubbleAttachedPlayer = player;
+                bubble.BubbleBaseX = bubble.X;
+                bubble.YSpeed = -0.53125;
+                bubble.Priority = player.Priority + 1;
+
+                Water_PlayerTimer2[playerIndex] = 512;
+            }
+            else {
+                Water_PlayerTimer2[playerIndex] = timer2 - 1;
+            }
+        }
+    }
+
+    event Render() {
+        if (this.RenderStatus)
+            this.RenderStatus();
+    }
+
+    event Water_RenderStatus_GlobalWaterBlockController() {
+        var vx = View.GetX(0),
+            vy = View.GetY(0),
+            vw = View.GetWidth(0),
+            vh = View.GetHeight(0);
+        Draw.SetBlendMode(BlendMode_ADD);
+        Draw.SetBlendColor(this.R, this.G, this.B, this.A);
+        Draw.Rectangle(vx, Math.Max(vy, this.CurrentWaterLevel), vw, vh);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+    event Water_RenderStatus_WaterBlock() {
+        if (!Static.Entity_IsOnScreen(this, this.SizeX, this.SizeY))
+            return;
+
+        Draw.SetBlendMode(BlendMode_ADD);
+        Draw.SetBlendColor(this.R, this.G, this.B, this.A);
+        Draw.Rectangle(this.X - this.SizeX * 0.5, this.Y - this.SizeY * 0.5, this.SizeX, this.SizeY);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+    event Water_RenderStatus_WaterSplash() {
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendMode(BlendMode_ADD);
+        Draw.SetBlendColor(1.0, 1.0, 1.0, 0.5);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+        Draw.SetTextureBlend(false);
+    }
+    event Water_RenderStatus_Bubble() {
+        if (!this.Visible)
+            return;
+
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendMode(BlendMode_ADD);
+        Draw.SetBlendColor(1.0, 1.0, 1.0, 1.0);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+        Draw.SetTextureBlend(false);
+    }
+    event Water_RenderStatus_Countdown() {
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendMode(BlendMode_ADD);
+        Draw.SetBlendColor(1.0, 1.0, 1.0, 1.0);
+
+        if (this.Status == this.Water_Status_CountdownAppear) {
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false, this.ScaleX, this.ScaleY, 0.0);
+        }
+        else {
+            var player, sizeX = this.SizeX, sizeY = this.SizeY, camera;
+            player = this.BubbleAttachedPlayer;
+            if (player) {
+                camera = player.CameraPtr;
+                if (camera) {
+                    this.X = camera.X + sizeX;
+                    this.Y = camera.Y + sizeY;
+                }
+                else {
+                    this.X = player.X + sizeX;
+                    this.Y = player.Y + sizeY;
+                }
+            }
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false, this.ScaleX, this.ScaleY, 0.0);
+        }
+
+        Draw.SetBlendMode(BlendMode_NORMAL);
+        Draw.SetTextureBlend(false);
+    }
+}

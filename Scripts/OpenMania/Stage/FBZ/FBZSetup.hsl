@@ -1,0 +1,9 @@
+class FBZSetup {
+    event Create(flag) {
+        Palette.SetColor(0, 0xDF, 0x0098E0);
+    }
+
+    event Update() {
+
+    }
+}

@@ -1,0 +1,693 @@
+class Cylinder {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        
+        this.Type = 0;
+        this.Length = 0;
+        this.Radius = 0;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("length"))
+            this.Length = this.PropertyGet("length");
+        if (this.PropertyExists("radius"))
+            this.Radius = this.PropertyGet("radius");
+
+        // CUSTOM: Tiled support
+        if (this.PropertyExists("Width") && this.PropertyExists("Height")) {
+            switch (this.Type) {
+                case 0:
+                case 4:
+                    this.Length = Number.AsInteger(this.PropertyGet("Width")) >> 1;
+                    this.Radius = Number.AsInteger(this.PropertyGet("Height")) >> 1;
+                    this.X += this.Length;
+                    this.Y += this.Radius;
+                    break;
+                case 1:
+                case 2:
+                case 3:
+                case 7:
+                    this.Radius = Number.AsInteger(this.PropertyGet("Width")) >> 1;
+                    this.Length = Number.AsInteger(this.PropertyGet("Height")) >> 1;
+                    this.X += this.Radius;
+                    this.Y += this.Length;
+                    break;
+            }
+        }
+
+        this.Status = null;
+        this.UpdateRegionW =
+        this.UpdateRegionH = 256.0;
+        this.Priority = DrawGroup_AboveTiles;
+
+        this.PlayerCaptured = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.PlayerAngle = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+
+        switch (this.Type) {
+            case 0: {
+                var length = this.Length * 2.0;
+                var radius = this.Radius * 2.0;
+                this.UpdateRegionW = length;
+                this.UpdateRegionH = radius;
+                this.RenderRegionW = length;
+                this.RenderRegionH = radius;
+                this.HitboxW = length - 32.0;
+                this.HitboxH = radius + 2.0;
+
+                this.Status = this.Cylinder_Status_MeshTubeHorizontal;
+                break;
+            }
+            case 1:
+                this.Active = false;
+                break;
+            case 3:
+            case 2: {
+                var length = this.Length * 2.0;
+                var radius = this.Radius * 2.0;
+                this.UpdateRegionW = radius + 224;
+                this.UpdateRegionH = length;
+                this.RenderRegionW = radius;
+                this.RenderRegionH = length;
+                this.HitboxW = radius - 32.0;
+                this.HitboxH = length + 2.0;
+
+                this.DetectW = radius + 128.0;
+                this.DetectH = length;
+                this.DetectX = 0.0;
+                this.DetectY = 0.0;
+
+                length = this.Length;
+                radius = this.Radius;
+
+                this.TopDoorW = 112.0;
+                this.TopDoorH = 64.0;
+                this.TopDoorX = -radius - 56.0;
+                this.TopDoorY = -length + 32.0;
+
+                this.BottomDoorW = 112.0;
+                this.BottomDoorH = 64.0;
+                this.BottomDoorX = radius + 56.0;
+                this.BottomDoorY = length - 32.0;
+
+                this.Status = this.Cylinder_Status_MeshTubeExitSide;
+                break;
+            }
+            case 4: {
+                var length = this.Length * 2.0;
+                var radius = this.Radius * 2.0;
+                this.UpdateRegionW = length;
+                this.UpdateRegionH = radius;
+                this.RenderRegionW = length;
+                this.RenderRegionH = radius;
+                this.HitboxW = length - 32.0;
+                this.HitboxH = radius + 2.0;
+
+                this.Status = this.Cylinder_Status_OuterHorizontal;
+                break;
+            }
+            case 5:
+            case 6:
+                this.Active = false;
+                break;
+            case 7: {
+                var length = this.Length * 2.0;
+                var radius = this.Radius * 2.0;
+                this.UpdateRegionW = radius * 2.0;
+                this.UpdateRegionH = length * 2.0;
+                this.RenderRegionW = radius;
+                this.RenderRegionH = length;
+                this.HitboxW = radius + 32.0;
+                this.HitboxH = length;
+
+                this.Length = length;
+                this.Status = this.Cylinder_Status_OuterVertical;
+                break;
+            }
+        }
+    }
+
+    event Cylinder_Status_MeshTubeHorizontal() {
+        var player, cylinder = this, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+
+            var radiusMinusPlayerHalfHeight = cylinder.Radius - player.HitboxH * 0.5;
+            // Player getting on
+            if (!cylinder.PlayerCaptured[index]) {
+                if (!Static.GameObject_TestCollide(player, cylinder))
+                    continue;
+
+                var cylinderY = cylinder.Y;
+                if (player.Y - cylinderY > radiusMinusPlayerHalfHeight && player.YSpeed >= 0.0) {
+                    player.Y = cylinderY + radiusMinusPlayerHalfHeight;
+                    player.Ground = true;
+                    player.YSpeed = 0.0;
+                    cylinder.PlayerAngle[index] = 0;
+                    cylinder.PlayerCaptured[index] = 1;
+                }
+            }
+            else {
+                var gsp = player.GroundSpeed;
+
+                var playerY = player.Y;
+                var cylinderY = cylinder.Y;
+
+                // Player on
+                if (!Static.GameObject_TestCollide(player, cylinder) || player.YSpeed <= -4.0) {
+                    if (((cylinder.PlayerAngle[index] + 0x80) & 0x3FF) < 0x100)
+                        player.YSpeed *= 0.5;
+                    else
+                        player.YSpeed = 0.0;
+
+                    var playerStatus = player.Status;
+                    var playerGround = player.Ground;
+                    if (!playerGround &&
+                        player.YSpeed >= 0.0 &&
+                        playerStatus != player.Player_StatusHangingFromTails &&
+                        player.CurrentAnimation != 13) {
+                        player.ResetAnimation(23, ((24 * cylinder.PlayerAngle[index]) / 1024) % 24);
+                    }
+                    player.Ground = false;
+                    cylinder.PlayerCaptured[index] = 0;
+                }
+                // Player leaving
+                else {
+                    var angle = (cylinder.PlayerAngle[index] + 16) & 0x3FF;
+                    cylinder.PlayerAngle[index] = angle;
+
+                    var cos = Static.HexCosHighPrec(angle);
+                    player.Y = radiusMinusPlayerHalfHeight * cos + cylinder.Y;
+
+                    var playerStatus = player.Status;
+                    if (playerStatus == player.Player_StatusLookingUp || playerStatus == player.Player_StatusLookingDown)
+                        player.Status = player.Player_StatusStanding;
+
+                    playerStatus = player.Status;
+                    if (playerStatus != player.Player_StatusStanding ||
+                        player.Ground ||
+                        player.CurrentAnimation == 13) {
+                        if (playerStatus == player.Player_StatusRoll) {
+                            var xspeed = player.XSpeed;
+                            if (xspeed) {
+                                player.FlipFlag = player.Flip = xspeed > 0;
+                            }
+                        }
+                    }
+                    else {
+                        this.ResetAnimation(23, 24 * angle / 1024);
+                    }
+                    player.Ground = true;
+                }
+            }
+        }
+    }
+    event Cylinder_Status_MeshTubeExitTop() {
+
+    }
+    event Cylinder_Status_MeshTubeExitSide() {
+        var player, cylinder = this, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+
+            var radiusMinusPlayerHalfHeight = cylinder.Radius - player.HitboxH * 0.5;
+            var state = cylinder.PlayerCaptured[index];
+             // Uncaptured
+            if (state == 0) {
+                if (!player.Ground)
+                    continue;
+
+                var collTop = player.GroundSpeed > 3.0;
+                var collBot = player.GroundSpeed < -3.0;
+
+                cylinder.HitboxW = cylinder.TopDoorW;
+                cylinder.HitboxH = cylinder.TopDoorH;
+                cylinder.HitboxOffX = cylinder.TopDoorX;
+                cylinder.HitboxOffY = cylinder.TopDoorY;
+                collTop &= Static.GameObject_TestCollide(player, cylinder);
+
+                cylinder.HitboxW = cylinder.BottomDoorW;
+                cylinder.HitboxH = cylinder.BottomDoorH;
+                cylinder.HitboxOffX = cylinder.BottomDoorX;
+                cylinder.HitboxOffY = cylinder.BottomDoorY;
+                collBot &= Static.GameObject_TestCollide(player, cylinder);
+
+                if (!collTop && !collBot)
+                    continue;
+
+                cylinder.PlayerCaptured[index] = 1;
+                player.Status = player.Player_Status_Cylinder_MeshTubeExitSide;
+            }
+            // Entering mesh
+            else if (state == 1) {
+                var gsp = player.GroundSpeed;
+                if (Math.Abs(gsp) < 3.0) {
+                    player.Ground = false;
+                    cylinder.PlayerCaptured[index] = 0;
+                    continue;
+                }
+
+                if (gsp <= 0.0) {
+                    if (player.X <= cylinder.X) {
+                        cylinder.PlayerAngle[index] = 0x300;
+                        player.UseGroundSpeed = false;
+                        cylinder.PlayerCaptured[index] = 2;
+                    }
+                    var num = Number.AsInteger(player.X - cylinder.X);
+                    var den = Number.AsInteger(cylinder.BottomDoorX + cylinder.BottomDoorW * 0.5 - 48.0);
+                    if (num < den) {
+                        player.Rotation = Math_PI;
+                        player.FlipFlag = player.Flip = 0;
+                        player.ResetAnimation(23, (17 - 6 * num / den) % 24);
+                    }
+
+                    player.Ground = true;
+                    player.YSpeed = 0.0;
+                }
+                else {
+                    if (player.X >= cylinder.X) {
+                        cylinder.PlayerAngle[index] = 0x300;
+                        player.UseGroundSpeed = false;
+                        cylinder.PlayerCaptured[index] = 2;
+                    }
+                    var num = Number.AsInteger(cylinder.X - player.X);
+                    var den = Number.AsInteger(-cylinder.TopDoorX + cylinder.TopDoorW * 0.5 - 48.0);
+                    if (num < den) {
+                        player.Rotation = Math_PI;
+                        player.FlipFlag = player.Flip = 1;
+                        player.ResetAnimation(23, (17 - 6 * num / den) % 24);
+                    }
+
+                    player.Ground = true;
+                    player.YSpeed = 0.0;
+                }
+            }
+            // The world revolving
+            else if (state == 2) {
+                var newAngle = (cylinder.PlayerAngle[index] + Number.AsInteger(player.GroundSpeed * 2.0)) & 0x3FF;
+                cylinder.PlayerAngle[index] = newAngle;
+
+                var cos = Static.HexCosHighPrec(newAngle);
+                player.X = radiusMinusPlayerHalfHeight * cos + cylinder.X;
+
+                if (cylinder.TopDoorY >= cylinder.BottomDoorY)
+                    player.Y -= player.GroundSpeed * 0.25;
+                else
+                    player.Y += player.GroundSpeed * 0.25;
+
+                player.FlipFlag = player.Flip = 1;
+
+                var frame;
+                var gsp = player.GroundSpeed;
+                if (gsp <= 0.0) {
+                    player.Rotation = Math_PI * 0.5;
+                    frame = 35 - (24 * newAngle) / 1024;
+                }
+                else {
+                    player.Rotation = Math_PI * 1.5;
+                    frame = (24 * newAngle) / 1024;
+                }
+
+                if (Math.Abs(gsp) <= 3.0 || player.YSpeed < -4.0) {
+                    cylinder.PlayerCaptured[index] = 0;
+                    player.UseGroundSpeed = 1;
+                    continue;
+                }
+                player.ResetAnimation(23, frame % 24);
+                player.Ground = true;
+                player.YSpeed = 0.0;
+
+                if (cylinder.TopDoorY >= cylinder.BottomDoorY)
+                    gsp = -gsp;
+
+                if (gsp <= 0.0) {
+                    var maxY = cylinder.Y - cylinder.UpdateRegionH * 0.5 + 64.0 - player.HitboxH * 0.5;
+                    if (player.Y > maxY)
+                        continue;
+
+                    player.Y = maxY;
+                    cylinder.PlayerCaptured[index] = 3;
+                    player.UseGroundSpeed = 1;
+                    continue;
+                }
+                else {
+                    var maxY = cylinder.Y + cylinder.UpdateRegionH * 0.5 - player.HitboxH * 0.5;
+                    if (player.Y < maxY)
+                        continue;
+
+                    player.Y = maxY;
+                    cylinder.PlayerCaptured[index] = 3;
+                    player.UseGroundSpeed = 1;
+                    continue;
+                }
+            }
+            // Exiting mesh
+            else if (state == 3) {
+                cylinder.HitboxW = cylinder.DetectW;
+                cylinder.HitboxH = cylinder.DetectH;
+                cylinder.HitboxOffX = cylinder.DetectX;
+                cylinder.HitboxOffY = cylinder.DetectY;
+
+                var gsp = player.GroundSpeed;
+                var absGSP = Math.Abs(gsp);
+                if (!Static.GameObject_TestCollide(player, cylinder) || absGSP < 3.0) {
+                    cylinder.PlayerCaptured[index] = 0;
+                    player.Status = player.Player_StatusStanding;
+                    player.UseGroundSpeed = 1;
+                    if (player.GroundSpeed >= 0.0)
+                        player.FlipFlag = player.Flip = 0;
+                    else
+                        player.FlipFlag = player.Flip = 1;
+                }
+                else if (absGSP >= 3.0) {
+                    player.Rotation = 0.0;
+                    if (gsp >= 0.0) {
+                        var num = Number.AsInteger(player.X - cylinder.X);
+                        var den = Number.AsInteger(cylinder.BottomDoorX + cylinder.BottomDoorW * 0.5 - 48.0);
+                        if (num < den) {
+                            player.Rotation = Math_PI;
+                            player.FlipFlag = player.Flip = 1;
+                            player.ResetAnimation(23, (17 - 6 * num / den) % 24);
+                        }
+
+                        player.Ground = true;
+                        player.YSpeed = 0.0;
+                    }
+                    else {
+                        var num = Number.AsInteger(cylinder.X - player.X);
+                        var den = Number.AsInteger(-cylinder.TopDoorX + cylinder.TopDoorW * 0.5 - 48.0);
+                        if (num < den) {
+                            player.Rotation = Math_PI;
+                            player.FlipFlag = player.Flip = 0;
+                            player.ResetAnimation(23, (17 - 6 * num / den) % 24);
+                        }
+
+                        player.Ground = true;
+                        player.YSpeed = 0.0;
+                    }
+                }
+            }
+        }
+    }
+    event Cylinder_Status_OuterHorizontal() {
+        var player, cylinder = this, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+
+            var cylinderTopY = cylinder.Y - cylinder.HitboxH * 0.5;
+            var radiusMinusPlayerHalfHeight = cylinder.Radius + player.HitboxH * 0.5;
+            // Player getting on
+            if (!cylinder.PlayerCaptured[index]) {
+                if (!Static.GameObject_TestCollide(player, cylinder))
+                    continue;
+                if (player.Ground)
+                    continue;
+
+                var playerStatus = player.Status;
+                if (playerStatus == player.Player_StatusMighty_HammerDrop || playerStatus == player.Player_Status_BubbleShieldBounce) {
+                    player.Ground = true;
+                    continue;
+                }
+
+                var playerY = player.Y;
+                var cylinderY = cylinder.Y;
+                var canAttach = (playerY >= cylinderY && player.YSpeed <= 0.0) || (playerY < cylinderY && player.YSpeed >= 0.0);
+                if (!canAttach)
+                    continue;
+
+                if (playerY >= cylinderY) {
+                    player.Y = cylinderY + radiusMinusPlayerHalfHeight;
+                    cylinder.PlayerAngle[index] = 0;
+                }
+                else {
+                    player.Y = cylinderY - radiusMinusPlayerHalfHeight;
+                    cylinder.PlayerAngle[index] = 0x200;
+                }
+                player.Ground = true;
+                player.YSpeed = 0.0;
+                cylinder.PlayerCaptured[index] = 1;
+
+                var frame = (24 - 24 * ((cylinder.PlayerAngle[index] + 8) & 0x3FF) / 1024) % 24;
+                if (player.GroundSpeed)
+                    player.ResetAnimation(23, frame);
+                else
+                    player.ResetAnimation(24, frame);
+
+                player.Rotation = Math_PI;
+                player.FlipFlag = player.Flip ^= 1;
+
+                player.LateUpdateAirStatus =
+                player.LateUpdateGroundStatus = null;
+                player.Status = player.Player_Status_Cylinder_OuterHorizontal;
+            }
+            else {
+                var angle = (cylinder.PlayerAngle[index] + 8) & 0x3FF;
+                var gsp = player.GroundSpeed;
+
+                // Player on
+                var playerY = player.Y;
+                var cylinderY = cylinder.Y;
+                var canAttach = (playerY >= cylinderY && player.YSpeed <= 0.0) || (playerY < cylinderY && player.YSpeed >= 0.0);
+
+                if (!Static.GameObject_TestCollide(player, cylinder) ||
+                    !canAttach ||
+                    (player.Status != player.Player_Status_Cylinder_OuterHorizontal && player.Status != player.Player_Status_Cylinder_OuterHorizontal_Rolling)) {
+                    var playerStatus = player.Status;
+                    if (playerStatus != player.Player_StatusFlyingIn &&
+                        playerStatus != player.Player_StatusJumpingIn &&
+                        playerStatus != player.Player_StatusStartRespawn) {
+                        var playerGround = player.Ground;
+                        if (!playerGround &&
+                            player.YSpeed >= 0.0 &&
+                            playerStatus != player.Player_StatusHangingFromTails &&
+                            player.CurrentAnimation != 13) {
+                            player.Status = player.Player_StatusJumping;
+                        }
+                        else if (playerGround) {
+                            if (player.CurrentAnimation != 10) {
+                                player.FlipFlag = player.Flip ^= 1;
+                            }
+                            player.Status = player.Player_StatusStanding;
+                        }
+                        player.Ground = false;
+                    }
+                    cylinder.PlayerCaptured[index] = 0;
+                }
+                // Player leaving
+                else {
+                    var playerStatus = player.Status;
+                    if (playerStatus == player.Player_Status_Cylinder_OuterHorizontal) {
+                        var frame = (24 - (24 * angle) / 1024) % 24;
+                        if (player.GroundSpeed)
+                            player.ResetAnimation(23, frame);
+                        else
+                            player.ResetAnimation(24, frame);
+
+                        player.Rotation = Math_PI;
+
+                        if (player.XSpeed)
+                            player.FlipFlag = player.Flip = player.XSpeed > 0;
+                    }
+                    else {
+                        if (player.XSpeed)
+                            player.FlipFlag = player.Flip = player.XSpeed < 0;
+                    }
+
+                    var drawGroup = DrawGroup_FGLow_High;
+                    if (angle >= 0x200)
+                        drawGroup = DrawGroup_AboveTiles;
+                    player.Priority = drawGroup;
+
+                    var cos = Static.HexCosHighPrec(angle);
+                    player.Y = radiusMinusPlayerHalfHeight * cos + cylinder.Y;
+                    cylinder.PlayerAngle[index] = angle;
+
+                    var value = 128;
+                    if (player.Y < cylinder.Y)
+                        value = 0;
+                    player.RayGlideTurnValue = value;
+                    player.Ground = true;
+                }
+            }
+        }
+    }
+    event Cylinder_Status_OuterVertical() {
+        var player, cylinder = this, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+
+            var cylinderTopY = cylinder.Y - cylinder.HitboxH * 0.5;
+            var radiusMinusPlayerHalfHeight = cylinder.Radius + player.HitboxH * 0.5;
+            if (!cylinder.PlayerCaptured[index]) {
+                if (!Static.GameObject_TestCollide(player, cylinder))
+                    continue;
+                if (player.Y > cylinderTopY + 64.0 || !player.Ground)
+                    continue;
+
+                var angle = player.Angle;
+                if ((angle != 64 || player.GroundSpeed <= 0.0) && (angle != 192 || player.GroundSpeed >= 0.0))
+                    continue;
+
+                if (angle == 64 && player.Flip)
+                    player.FlipFlag = player.Flip = 0;
+                if (angle == 192 && !player.Flip)
+                    player.FlipFlag = player.Flip = 1;
+
+                var cylinderX = cylinder.X;
+                if (player.X >= cylinderX) {
+                    player.X = cylinderX + radiusMinusPlayerHalfHeight;
+                    cylinder.PlayerAngle[index] = 0;
+                }
+                else {
+                    player.X = cylinderX - radiusMinusPlayerHalfHeight;
+                    cylinder.PlayerAngle[index] = 0x200;
+                }
+                player.Ground = true;
+                player.XSpeed = 0.0;
+                cylinder.PlayerCaptured[index] = 1;
+                player.LateUpdateAirStatus =
+                player.LateUpdateGroundStatus = null;
+                player.Status = player.Player_Status_Cylinder_OuterVertical;
+                player.UseGroundSpeed = false;
+
+                var absGSP = Math.Abs(player.GroundSpeed);
+                player.YSpeed = Math.Clamp(absGSP, 1.5, 3.5);
+            }
+            else {
+                var gsp = player.GroundSpeed;
+                var requestingDirection = false;
+                if ((gsp > 0.0 && player.InputLeft) || (gsp < 0.0 && player.InputRight)) {
+                    requestingDirection = true;
+                }
+
+                if (!Static.GameObject_TestCollide(player, cylinder)) {
+                    if (!player.Ground) {
+                        if (player.Status != player.Player_StatusHangingFromTails) {
+                            player.Status = player.Player_StatusJumping;
+                            player.Ground = false;
+
+                            player.UseGroundSpeed = true;
+                        }
+                    }
+                    else {
+                        player.Status = player.Player_StatusStanding;
+                        if (player.X >= cylinder.X) {
+                            player.Angle = 64;
+                            player.FlipFlag = player.Flip = 0;
+                            var yspeed = player.YSpeed;
+                            if (requestingDirection || player.GroundSpeed < yspeed)
+                                player.GroundSpeed = yspeed;
+                        }
+                        else {
+                            player.Angle = 192;
+                            player.FlipFlag = player.Flip = 1;
+                            var yspeed = -player.YSpeed;
+                            if (requestingDirection || player.GroundSpeed > yspeed)
+                                player.GroundSpeed = yspeed;
+                        }
+
+                        if (player.CurrentAnimation == 23) {
+                            var gsp = Math.Abs(player.GroundSpeed);
+
+                            if (gsp >= 12.0)
+                                player.SetAnimation(9, 0);
+                            else if (gsp >= 6.0)
+                                player.SetAnimation(8, 0);
+                            else if (gsp >= 4.0)
+                                player.SetAnimation(7, 0);
+                            else
+                                player.SetAnimation(5, 0);
+                        }
+                        player.Ground = true;
+
+                        player.UseGroundSpeed = true;
+                    }
+                    cylinder.PlayerCaptured[index] = 0;
+                }
+                else {
+                    if (player.Ground) {
+                        var yspeed = player.YSpeed;
+                        if (requestingDirection) {
+                            if (yspeed > 1.5) {
+                                player.YSpeed = yspeed - 0.125;
+                            }
+                            else {
+                                player.YSpeed = 1.5;
+                            }
+                        }
+                        else {
+                            if (yspeed < 3.5) {
+                                player.YSpeed = yspeed + 0.125;
+                            }
+                            else {
+                                player.YSpeed = 3.5;
+                            }
+                        }
+
+                        player.Y += player.YSpeed;
+
+                        var distanceY = Math.Abs(player.Y - cylinderTopY);
+                        if (distanceY > cylinder.Length)
+                            distanceY = cylinder.Length;
+
+                        var angleValue, frame;
+                        if (gsp <= 0.0) {
+                            var v25 = distanceY / 6.0 * 32.0;
+                            angleValue = (Number.AsInteger(v25) + 0x200) & 0x3FF;
+                            frame = (24 - 24 * angleValue / 1024) % 24;
+                            player.FlipFlag = player.Flip = 0;
+                            player.Rotation = Math_PI * 0.5;
+                        }
+                        else {
+                            var v25 = distanceY / 6.0 * 32.0;
+                            angleValue = 0x3FF - (Number.AsInteger(v25) & 0x3FF);
+                            frame = (24 * angleValue / 1024 + 12) % 24;
+                            player.FlipFlag = player.Flip = 1;
+                            player.Rotation = Math_PI * 1.5;
+                        }
+
+                        var cos = Static.HexCosHighPrec(angleValue);
+                        player.X = radiusMinusPlayerHalfHeight * cos + cylinder.X;
+                        cylinder.PlayerAngle[index] = angleValue;
+
+                        var drawGroup = DrawGroup_FGLow_High;
+                        if (angleValue >= 512)
+                            drawGroup = DrawGroup_AboveTiles;
+                        player.Priority = drawGroup;
+                        player.ResetAnimation(23, frame);
+
+                        var value = 128;
+                        if (player.X < cylinder.X)
+                            value = 0;
+                        player.RayGlideTurnValue = value;
+                        player.Ground = true;
+
+                        if (player.InputJumpPressed) {
+                            Sound.Play(player.SFX_Jump);
+
+                            var xsp = 6.0;
+                            if (player.X < cylinder.X)
+                                xsp = -6.0;
+
+                            player.XSpeed = xsp;
+
+                            player.AnimationSpeedMult = 1.0;
+                            player.SetAnimation(10, 0);
+                            player.Ground = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+}

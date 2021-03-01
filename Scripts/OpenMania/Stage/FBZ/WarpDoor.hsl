@@ -1,0 +1,91 @@
+var WarpDoor_DoorArray = [];
+
+class WarpDoor {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        
+        this.Go = 0;
+        this.Width = 2;
+        this.Height = 4;
+        this.Tag = 0;
+        this.DestinationTag = 0;
+        this.DefinesBounds = 0;
+        this.XBoundaryPosL = 0;
+        this.XBoundaryPosR = 0;
+        this.XBoundaryPosT = 0;
+        this.XBoundaryPosB = 0;
+        this.Effect = 0;
+        this.WarpToCenter = 0;
+        this.ForcePlayerState = 0;
+        if (this.PropertyExists("go"))
+            this.Go = this.PropertyGet("go");
+        if (this.PropertyExists("width"))
+            this.Width = this.PropertyGet("width");
+        if (this.PropertyExists("height"))
+            this.Height = this.PropertyGet("height");
+        if (this.PropertyExists("tag"))
+            this.Tag = this.PropertyGet("tag");
+        if (this.PropertyExists("destinationTag"))
+            this.DestinationTag = this.PropertyGet("destinationTag");
+        if (this.PropertyExists("definesBounds"))
+            this.DefinesBounds = this.PropertyGet("definesBounds");
+        if (this.PropertyExists("xBoundaryPosL"))
+            this.XBoundaryPosL = this.PropertyGet("xBoundaryPosL");
+        if (this.PropertyExists("xBoundaryPosR"))
+            this.XBoundaryPosR = this.PropertyGet("xBoundaryPosR");
+        if (this.PropertyExists("yBoundaryPosT"))
+            this.XBoundaryPosT = this.PropertyGet("yBoundaryPosT");
+        if (this.PropertyExists("yBoundaryPosB"))
+            this.XBoundaryPosB = this.PropertyGet("yBoundaryPosB");
+        if (this.PropertyExists("effect"))
+            this.Effect = this.PropertyGet("effect");
+        if (this.PropertyExists("warpToCenter"))
+            this.WarpToCenter = this.PropertyGet("warpToCenter");
+        if (this.PropertyExists("forcePlayerState"))
+            this.ForcePlayerState = this.PropertyGet("forcePlayerState");
+
+        this.Sprite = Resources.LoadSprite("Sprites/Global/PlaneSwitch.bin", SCOPE_GAME);
+        this.SFX_WarpDoor = Resources.LoadSound("SoundFX/FBZ/WarpDoor.wav", SCOPE_SCENE);
+        this.SFX_Attack1_L = Resources.LoadSound("SoundFX/Ruby/Attack1_L.wav", SCOPE_SCENE);
+        this.SFX_Attack1_R = Resources.LoadSound("SoundFX/Ruby/Attack1_R.wav", SCOPE_SCENE);
+        this.SFX_Attack2_L = Resources.LoadSound("SoundFX/Ruby/Attack2_L.wav", SCOPE_SCENE);
+        this.SFX_Attack2_R = Resources.LoadSound("SoundFX/Ruby/Attack2_R.wav", SCOPE_SCENE);
+        this.SFX_Attack3_L = Resources.LoadSound("SoundFX/Ruby/Attack3_L.wav", SCOPE_SCENE);
+        this.SFX_Attack3_R = Resources.LoadSound("SoundFX/Ruby/Attack3_R.wav", SCOPE_SCENE);
+        this.SFX_Attack4_L = Resources.LoadSound("SoundFX/Ruby/Attack4_L.wav", SCOPE_SCENE);
+        this.SFX_Attack4_R = Resources.LoadSound("SoundFX/Ruby/Attack4_R.wav", SCOPE_SCENE);
+        this.SFX_Attack5_L = Resources.LoadSound("SoundFX/Ruby/Attack5_L.wav", SCOPE_SCENE);
+        this.SFX_Attack5_R = Resources.LoadSound("SoundFX/Ruby/Attack5_R.wav", SCOPE_SCENE);
+        this.SFX_Attack6_L = Resources.LoadSound("SoundFX/Ruby/Attack6_L.wav", SCOPE_SCENE);
+        this.SFX_Attack6_R = Resources.LoadSound("SoundFX/Ruby/Attack6_R.wav", SCOPE_SCENE);
+
+        this.WarpDoor_OnCreate_SetupHitboxes();
+
+        this.UpdateRegionW =
+        this.UpdateRegionH = 256.0;
+        this.Priority = DrawGroup_FGHigh_High;
+    }
+
+    event WarpDoor_OnLoad_SetupBounds() {
+
+    }
+
+    event WarpDoor_OnCreate_SetupHitboxes() {
+        this.HitboxW = this.Width * 16.0;
+        this.HitboxH = this.Height * 16.0;
+    }
+
+    event UpdateEarly() {
+
+    }
+    event Update() {
+        this.Animate();
+    }
+
+    event Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+    }
+}

@@ -1,0 +1,22 @@
+class SpeedGate {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        /*
+        Property: id    Type: int32
+        Property: timer    Type: int32
+        Property: prize    Type: int32
+        Property: direction    Type: uint8
+        */
+
+        this.UpdateRegionW = this.UpdateRegionH = 32.0;
+    }
+    event Update() {
+
+    }
+    event Render() {
+
+    }
+}

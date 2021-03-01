@@ -1,0 +1,32 @@
+class GHZSetup {
+    event Create(flag) {
+        // Palette.CopyColors(
+        //     // From
+        //     2, 0x80,
+        //     // To
+        //     0, 0x80,
+        //     // Count
+        //     128);
+        // Palette.CopyColors(
+        //     // From
+        //     2, 0x00,
+        //     // To
+        //     0, 0x60,
+        //     // Count
+        //     32);
+        this.WaterTimer = 0;
+    }
+
+    event Update() {
+        this.WaterTimer += 42;
+        if (this.WaterTimer >= 0x100) {
+            this.WaterTimer -= 0x100;
+            Palette.RotateColorsRight(1, 0xB5, 4);
+            Palette.RotateColorsRight(1, 0xC5, 4);
+            Palette.RotateColorsRight(2, 0xB5, 4);
+            Palette.RotateColorsRight(2, 0xC5, 4);
+        }
+        Palette.MixPalettes(0, 1, 2, this.WaterTimer / 255.0, 0xB5, 4);
+        Palette.MixPalettes(0, 1, 2, this.WaterTimer / 255.0, 0xC5, 4);
+    }
+}

@@ -1,0 +1,116 @@
+class LRZ2Setup {
+    event Create(flag) {
+        // Palette.CopyColors(
+        //     // From
+        //     2, 0x80,
+        //     // To
+        //     0, 0x80,
+        //     // Count
+        //     128);
+        // Palette.CopyColors(
+        //     // From
+        //     2, 0x00,
+        //     // To
+        //     0, 0x60,
+        //     // Count
+        //     32);
+        this.LavaTimer = 0;
+        this.LavaCooldownTimer = 0;
+        this.MixPalettePercent = 0;
+        this.MixPalette1 = 2;
+        this.MixPalette2 = 1;
+        this.ConveyorDirection = 1;
+
+        this.FG_Low_Index = Scene.GetLayerIndex("FG Low");
+        Scene.SetLayerVisible(2, true);
+    }
+
+    event UpdateEarly() {
+        this.LavaTimer += 24;
+        if (this.LavaTimer >= 0x100) {
+            this.LavaTimer -= 0x100;
+            Palette.RotateColorsRight(1, 0xE0, 4);
+            Palette.RotateColorsRight(2, 0xE0, 4);
+            Palette.RotateColorsRight(3, 0xE0, 4);
+            Palette.RotateColorsRight(4, 0xE0, 4);
+        }
+        // Palette.MixPalettes(0, 1, 2, this.LavaTimer / 255.0, 0xB5, 4);
+        // Palette.MixPalettes(0, 1, 2, this.LavaTimer / 255.0, 0xC5, 4);
+        // if (!(Scene_Frame & 1))
+        //     Palette.RotateColorsRight(0, 0xE4, 4);
+
+        var mixPP = this.MixPalettePercent++ + 1;
+        if (mixPP == 128) {
+            this.MixPalettePercent = 0;
+
+            this.MixPalette1++;
+            if (this.MixPalette1 > 3)
+                this.MixPalette1 = 1;
+
+            this.MixPalette2++;
+            if (this.MixPalette2 > 3)
+                this.MixPalette2 = 1;
+        }
+
+        var cos = Static.HexCos(this.MixPalettePercent);
+        Palette.MixPalettes(0, this.MixPalette1, this.MixPalette2, cos * 0.5 + 0.5, 0xA0, 8);
+
+        // Lava pulsating
+        cos = Static.HexCosHighPrec((Scene_Frame & 0x1FF) << 1);
+
+        if (cos >= 0.0)
+            Palette.MixPalettes(5, 1, 4, cos, 0xE0, 4);
+        else
+            Palette.MixPalettes(5, 1, 3, -cos, 0xE0, 4);
+        Palette.RotateColorsRight(3, 0xE0, 4);
+        Palette.RotateColorsRight(4, 0xE0, 4);
+
+        if (cos >= 0.0)
+            Palette.MixPalettes(6, 2, 4, cos, 0xE0, 4);
+        else
+            Palette.MixPalettes(6, 2, 3, -cos, 0xE0, 4);
+        Palette.RotateColorsLeft(3, 0xE0, 4);
+        Palette.RotateColorsLeft(4, 0xE0, 4);
+
+        Palette.MixPalettes(0, 5, 6, this.LavaTimer / 256.0, 0xE0, 4);
+
+        if (!(Scene_Frame & 1)) {
+            if (this.ConveyorDirection > 0)
+                Palette.RotateColorsRight(0, 0xE4, 4);
+            else
+                Palette.RotateColorsLeft(0, 0xE4, 4);
+        }
+
+
+
+        var player, setup = this, fgLowIndex = this.FG_Low_Index;
+        with ("Player") {
+            player = this;
+            if (player.Ground) {
+                var left = player.HitboxOffX - player.HitboxW * 0.5 + 1.0;
+                var right = player.HitboxOffX + player.HitboxW * 0.5 - 1.0;
+                var bottom = player.HitboxOffY + player.HitboxH * 0.5;
+                var speed = 4.0 * setup.ConveyorDirection;
+                for (var i = 0; i < 2; i++) {
+                    var midTile = Scene.GetTileID(fgLowIndex + i, Number.AsInteger(player.X) >> 4, Number.AsInteger(player.Y + bottom) >> 4);
+                    var leftTile = Scene.GetTileID(fgLowIndex + i, Number.AsInteger(player.X + left) >> 4, Number.AsInteger(player.Y + bottom) >> 4);
+                    var rightTile = Scene.GetTileID(fgLowIndex + i, Number.AsInteger(player.X + right) >> 4, Number.AsInteger(player.Y + bottom) >> 4);
+                    // Conveyors
+                    if (setup.IsConveyor(midTile) ||
+                        setup.IsConveyor(rightTile) ||
+                        setup.IsConveyor(leftTile)) {
+                        player.X += speed;
+                        player.Y += 1.0;
+                        break;
+                    }
+                }
+            }
+        }
+
+    }
+
+    IsConveyor(tileID) {
+        // TileInfo.GetBehaviorFlag(tileID);
+        return (tileID >= 974 && tileID <= 994);
+    }
+}

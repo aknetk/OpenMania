@@ -1,0 +1,95 @@
+class Announcer {
+    event Create() {
+        // Load
+        if (String.Contains(Scene.GetName(), "Menu")) {
+            this.SFX_Sonic = Resources.LoadSound("SoundFX/VO/Sonic.wav", SCOPE_SCENE);
+            this.SFX_Tails = Resources.LoadSound("SoundFX/VO/Tails.wav", SCOPE_SCENE);
+            this.SFX_Knuckles = Resources.LoadSound("SoundFX/VO/Knuckles.wav", SCOPE_SCENE);
+            this.SFX_Mighty = Resources.LoadSound("SoundFX/VO/Mighty.wav", SCOPE_SCENE);
+            this.SFX_Ray = Resources.LoadSound("SoundFX/VO/Ray.wav", SCOPE_SCENE);
+            this.SFX_TheWinnerIs = Resources.LoadSound("SoundFX/VO/TheWinnerIs.wav", SCOPE_SCENE);
+            this.SFX_Player1 = Resources.LoadSound("SoundFX/VO/Player1.wav", SCOPE_SCENE);
+            this.SFX_Player2 = Resources.LoadSound("SoundFX/VO/Player2.wav", SCOPE_SCENE);
+            this.SFX_Player3 = Resources.LoadSound("SoundFX/VO/Player3.wav", SCOPE_SCENE);
+            this.SFX_Player4 = Resources.LoadSound("SoundFX/VO/Player4.wav", SCOPE_SCENE);
+            this.SFX_SonicWins = Resources.LoadSound("SoundFX/VO/SonicWins.wav", SCOPE_SCENE);
+            this.SFX_TailsWins = Resources.LoadSound("SoundFX/VO/TailsWins.wav", SCOPE_SCENE);
+            this.SFX_KnuxWins = Resources.LoadSound("SoundFX/VO/KnuxWins.wav", SCOPE_SCENE);
+            this.SFX_MightyWins = Resources.LoadSound("SoundFX/VO/MightyWins.wav", SCOPE_SCENE);
+            this.SFX_RayWins = Resources.LoadSound("SoundFX/VO/RayWins.wav", SCOPE_SCENE);
+            this.SFX_ItsADraw = Resources.LoadSound("SoundFX/VO/ItsADraw.wav", SCOPE_SCENE);
+            this.SFX_ItsADraw_Set = Resources.LoadSound("SoundFX/VO/ItsADraw_Set.wav", SCOPE_SCENE);
+        }
+        else if (global.GameMode == GameModes_Competition) {
+            this.SPR_Announcer = Resources.LoadSprite("Sprites/Global/Announcer.bin", SCOPE_SCENE);
+            this.SFX_Three = Resources.LoadSound("SoundFX/VO/Three.wav", SCOPE_SCENE);
+            this.SFX_Two = Resources.LoadSound("SoundFX/VO/Two.wav", SCOPE_SCENE);
+            this.SFX_One = Resources.LoadSound("SoundFX/VO/One.wav", SCOPE_SCENE);
+            this.SFX_Go = Resources.LoadSound("SoundFX/VO/Go.wav", SCOPE_SCENE);
+            this.SFX_Goal = Resources.LoadSound("SoundFX/VO/Goal.wav", SCOPE_SCENE);
+        }
+        else if (global.GameMode == GameModes_TimeAttack) {
+            this.SFX_NewRecordTop = Resources.LoadSound("SoundFX/VO/NewRecordTop.wav", SCOPE_SCENE);
+            this.SFX_NewRecordMid = Resources.LoadSound("SoundFX/VO/NewRecordMid.wav", SCOPE_SCENE);
+            this.SPR_Announcer = Resources.LoadSprite("Sprites/Global/Announcer.bin", SCOPE_SCENE);
+            this.SFX_Goal = Resources.LoadSound("SoundFX/VO/Goal.wav", SCOPE_SCENE);
+        }
+
+        // Create
+        this.Priority = 13;
+        // this.UpdateRegionW = this.UpdateRegionH = 256.0;
+        this.Status = null;
+        this.RenderStatus = null;
+        this.Timer = 0;
+        this.ViewIndex = 0;
+        this.Sprite = this.SPR_Announcer;
+        this.EasePosX = this.EasePosY = 0.0;
+    }
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+    event Render() {
+        if (this.RenderStatus)
+            this.RenderStatus();
+    }
+
+    event Announcer_Status_Unk1() {
+        var vw = View.GetWidth(this.ViewIndex);
+        var timer = this.Timer;
+        if (timer < 16) {
+            if (timer > 0) {
+                this.EasePosX = -vw + timer / 16.0 * vw;
+                this.EasePosY = 0.0;
+            }
+            else {
+                this.EasePosX = -vw;
+                this.EasePosY = 0.0;
+            }
+            this.Timer++;
+        }
+        else if (timer < 76) {
+            this.EasePosX = this.EasePosY = 0.0;
+            this.Timer++;
+        }
+        else if (timer < 92) {
+            this.EasePosX = vw * (timer - 76) / 16.0;
+            this.EasePosY = 0.0;
+            this.Timer++;
+        }
+        else {
+            this.Active = false;
+        }
+    }
+    event Announcer_RenderStatus_Unk1() {
+        if (View.GetCurrent() == this.ViewIndex) {
+            var vw = View.GetWidth(this.ViewIndex);
+            var vh = View.GetHeight(this.ViewIndex);
+            var vx = View.GetX(this.ViewIndex);
+            var vy = View.GetY(this.ViewIndex);
+            var x = Math.Floor(vx + vw * 0.5 + this.EasePosX);
+            var y = Math.Floor(vy + vh * 0.5 + this.EasePosY - 32.0);
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, x, y, false, false);
+        }
+    }
+}

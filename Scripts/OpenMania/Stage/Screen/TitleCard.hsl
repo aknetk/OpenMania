@@ -1,0 +1,994 @@
+class TitleCard {
+    Setup() {
+        this.Status = null;
+        this.RenderStatus = null;
+        this.HoldTimer = 0;
+        this.MainTimer = 0;
+        this.DecorationPosX = 0.0;
+        this.DecorationPosY = 0.0;
+        this.RibbonStopX_Blue = 0.0;
+        this.RibbonStopX_Red = 0.0;
+        this.RibbonStopX_Orange = 0.0;
+        this.RibbonStopX_Seafoam = 0.0;
+        this.RibbonY_Blue = 0.0;
+        this.RibbonY_Red = 0.0;
+        this.RibbonY_Orange = 0.0;
+        this.RibbonY_Seafoam = 0.0;
+        this.RibbonEndY_Blue = 0.0;
+        this.RibbonEndY_Red = 0.0;
+        this.RibbonEndY_Orange = 0.0;
+        this.RibbonEndY_Seafoam = 0.0;
+        this.QuadZoneNameExtraLine = Array.Create(8, 0.0);
+        this.QuadZoneName = Array.Create(8, 0.0);
+        this.QuadZone = Array.Create(8, 0.0);
+        this.QuadRibbonBlue = Array.Create(8, 0.0);
+        this.QuadRibbonRed = Array.Create(8, 0.0);
+        this.QuadRibbonOrange = Array.Create(8, 0.0);
+        this.QuadRibbonSeafoam = Array.Create(8, 0.0);
+        this.QuadBGPieceLeft = Array.Create(8, 0.0);
+        this.QuadBGPieceRight = Array.Create(8, 0.0);
+        this.ZoneName = "Test Name";
+        this.ZoneYs = Array.Create(4, 0.0);
+        this.ZoneYSpeeds= Array.Create(4, 0.0);
+        this.ZoneLetterX = 0.0;
+        this.CharOffsetsX = Array.Create(20, 0.0);
+        this.CharOffsetsY = Array.Create(20, 0.0);
+        this.CharYSpeeds = Array.Create(20, 0.0);
+        this.LevelNameIndexSplit = 0;
+        this.LevelNameExtraWidth = 0.0;
+        this.LevelNameMainWidth = 0.0;
+        this.LevelNameOffXExtraLine = 0.0;
+        this.LevelNameOffX = 0.0;
+        this.ActID = 0;
+        this.DecorationSpinValue = 0;
+        this.ActPosX = 0.0;
+        this.ActPosY = 0.0;
+        this.IntroEnabled = false;
+        // AnimationData AnimDecoration;
+        // AnimationData AnimText;
+        // AnimationData AnimZone;
+        // AnimationData AnimAct;
+        this.ColorOrange = 0x000000;
+        this.ColorSeafoam = 0x000000;
+        this.ColorRed = 0x000000;
+        this.ColorBlue = 0x000000;
+        this.ColorBackground = 0x000000;
+
+        if (this.PropertyExists("zoneName"))
+            this.ZoneName = this.PropertyGet("zoneName");
+        if (this.PropertyExists("actID"))
+            this.ActID = this.PropertyGet("actID");
+    }
+    Load() {
+        this.Sprite = Resources.LoadSprite("Sprites/Global/TitleCard.bin", SCOPE_GAME);
+    }
+    Create(flag) {
+        this.Pauseable = false;
+
+        this.Setup();
+        this.Load();
+
+        // CUSTOM:
+        this.SpriteWidths = [
+            16, // A
+            16, // B
+            16, // C
+            16, // D
+            16, // E
+            16, // F
+            16, // G
+            16, // H
+            6,  // I
+            16, // J
+            16, // K
+            16, // L
+            24, // M
+            16, // N
+            24, // O
+            16, // P
+            24, // Q
+            16, // R
+            16, // S
+            16, // T
+            16, // U
+            20, // V
+            24, // W
+            16, // X
+            16, // Y
+            16, // Z
+            10, //
+        ];
+        this.ZoneNameFrames = null;
+
+        // Create()
+        this.UpdateRegionW = this.UpdateRegionH = 0.0;
+        this.Priority = DrawGroup_HUD + 1;
+        this.IntroEnabled = true;
+
+        if (!global.SuppressTitlecard || this.IntroEnabled || global.GameMode == GameModes_TimeAttack)
+            global.TimerActive = false;
+
+        this.TitleCard_SetColors();
+
+        if (global.SuppressTitlecard) {
+            // var status = global.SuppressTitlecardStatus;
+            // if (status) {
+            //     status();
+            //     global.SuppressTitlecardStatus = null;
+            // }
+            this.Status = this.TitleCard_Status_ImmediatelyShow;
+        }
+        else {
+            this.Status = this.TitleCard_Status_MoveZoneQuads;
+            this.RenderStatus = this.TitleCard_RenderStatus_MoveZoneQuads;
+        }
+
+        var vw = View.GetWidth(0);
+        var vh = View.GetHeight(0);
+        var vwHalf = vw * 0.5;
+
+        this.RibbonStopX_Blue = vwHalf - 152.0;
+        this.RibbonStopX_Red = vwHalf - 152.0;
+        this.RibbonStopX_Orange = vwHalf - 160.0;
+        this.RibbonStopX_Seafoam = vwHalf + 20.0;
+
+        this.TitleCard_InitZoneName();
+        this.TitleCard_InitQuads();
+
+        this.DecorationPosX = vw - 160.0;
+        this.DecorationPosY = -52.0;
+
+        if (this.ActID > 3)
+            this.ActID = 3;
+
+        this.ActPosX = vwHalf + 106.0;
+        this.ActPosY = 168.0;
+
+        var offPos = this.LevelNameOffX - this.LevelNameMainWidth;
+        if (offPos < 16.0) {
+            offPos -= 16.0;
+            this.LevelNameOffXExtraLine -= offPos;
+            this.ZoneLetterX -= offPos;
+            this.ActPosX -= offPos;
+            this.LevelNameOffX -= offPos;
+        }
+
+        // if
+
+        global.CanPause = false;
+
+        this.DecorationSpinValue = -0x300;
+    }
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+    Render() {
+        if (this.RenderStatus)
+            this.RenderStatus();
+    }
+
+    // CUSTOM
+    ConvertCharactersToSpriteFrames(frames, string) {
+        var char,
+            textLen = String.Length(string);
+        for (var l = 0; l < textLen; l++) {
+            char = String.CharAt(string, l);
+            if (char >= 65 && char <= 90)
+                frames[l] = char - 65;
+            else if (char >= 97 && char <= 122)
+                frames[l] = char - 97;
+            else if (char == 32)
+                frames[l] = 26;
+        }
+    }
+    MeasureCharactersWidth(frames, start, end, padding) {
+        var x = 0.0;
+        var char = 0;
+        var stringWidths = this.SpriteWidths;
+        var stringLen = Array.Length(frames);
+        if (stringLen == 0)
+            return 0.0;
+
+        if (start >= 0) {
+            if (start >= stringLen - 1)
+                start = stringLen - 1;
+        }
+        else start = 0;
+
+        if (end > 0) {
+            if (end > stringLen)
+                end = stringLen;
+        }
+        else end = stringLen;
+
+        var fr;
+        for (var i = start; i < end; i++) {
+            if ((fr = frames[i]) >= 0)
+                x += stringWidths[fr] + padding;
+        }
+        return x;
+    }
+
+    TitleCard_SetColors() {
+        if (global.GameMode == GameModes_Encore) {
+            this.ColorBackground = 0x68A898;
+            this.ColorOrange = 0x3850A0;
+            this.ColorSeafoam = 0xC85058;
+            this.ColorRed = 0x4090C0;
+            this.ColorBlue = 0xE0B040;
+        }
+        else {
+            this.ColorBackground = 0xF0C800;
+            this.ColorOrange = 0xF08C18;
+            this.ColorSeafoam = 0x60C0A0;
+            this.ColorRed = 0xF05030;
+            this.ColorBlue = 0x4060B0;
+        }
+    }
+    TitleCard_InitQuads() {
+        if (this.LevelNameIndexSplit > 0) {
+            var lntw = -this.LevelNameExtraWidth;
+            this.QuadZoneNameExtraLine[2] =
+            this.QuadZoneNameExtraLine[4] = 0.0;
+            this.QuadZoneNameExtraLine[0] =
+            this.QuadZoneNameExtraLine[6] = lntw;
+            this.QuadZoneNameExtraLine[1] =
+            this.QuadZoneNameExtraLine[3] = 82.0;
+            this.QuadZoneNameExtraLine[5] =
+            this.QuadZoneNameExtraLine[7] = 98.0;
+        }
+
+        var vw = View.GetWidth(0);
+        var vh = View.GetHeight(0);
+        var vwHalf = vw * 0.5;
+
+        var levelNameMainWidth = -this.LevelNameMainWidth;
+
+        this.QuadZoneName[2] =
+        this.QuadZoneName[4] = 0.0;
+        this.QuadZoneName[0] =
+        this.QuadZoneName[6] = levelNameMainWidth;
+        this.QuadZoneName[1] =
+        this.QuadZoneName[3] = 186.0;
+        this.QuadZoneName[5] =
+        this.QuadZoneName[7] = 202.0;
+
+        this.QuadZone[2] =
+        this.QuadZone[4] = vw + 120.0;
+        this.QuadZone[0] =
+        this.QuadZone[6] = vw;
+        this.QuadZone[1] =
+        this.QuadZone[3] = 154.0;
+        this.QuadZone[5] =
+        this.QuadZone[7] = 162.0;
+
+        this.RibbonEndY_Blue = 0.0;
+        this.RibbonEndY_Red = 138.0;
+        this.RibbonEndY_Orange = 74.0;
+        this.RibbonEndY_Seafoam = 112.0;
+
+        this.RibbonY_Blue = 240.0;
+        this.RibbonY_Red = 496.0;
+        this.RibbonY_Orange = 752.0;
+        this.RibbonY_Seafoam = 1008.0;
+
+        var ribbonStopXBlue = this.RibbonStopX_Blue;
+        this.QuadRibbonBlue[0] = ribbonStopXBlue;
+        this.QuadRibbonBlue[2] = ribbonStopXBlue + 64.0;
+        this.QuadRibbonBlue[4] = ribbonStopXBlue + 304.0;
+        this.QuadRibbonBlue[6] = ribbonStopXBlue + 240.0;
+        this.QuadRibbonBlue[1] =
+        this.QuadRibbonBlue[3] =
+        this.QuadRibbonBlue[5] =
+        this.QuadRibbonBlue[7] = 240.0;
+
+        var ribbonStopXRed = this.RibbonStopX_Red;
+        this.QuadRibbonRed[0] = ribbonStopXRed;
+        this.QuadRibbonRed[2] = ribbonStopXRed + 128.0;
+        this.QuadRibbonRed[4] = ribbonStopXRed + 230.0;
+        this.QuadRibbonRed[6] = ribbonStopXRed + 102.0;
+        this.QuadRibbonRed[1] =
+        this.QuadRibbonRed[3] =
+        this.QuadRibbonRed[5] =
+        this.QuadRibbonRed[7] = 240.0;
+
+        var ribbonStopXOrange = this.RibbonStopX_Orange;
+        this.QuadRibbonOrange[0] = ribbonStopXOrange;
+        this.QuadRibbonOrange[2] = ribbonStopXOrange + 96.0;
+        this.QuadRibbonOrange[4] = ribbonStopXOrange + 262.0;
+        this.QuadRibbonOrange[6] = ribbonStopXOrange + 166.0;
+        this.QuadRibbonOrange[1] =
+        this.QuadRibbonOrange[3] =
+        this.QuadRibbonOrange[5] =
+        this.QuadRibbonOrange[7] = 240.0;
+
+        var ribbonStopXSeafoam = this.RibbonStopX_Seafoam;
+        this.QuadRibbonSeafoam[0] = ribbonStopXSeafoam;
+        this.QuadRibbonSeafoam[2] = ribbonStopXSeafoam + 32.0;
+        this.QuadRibbonSeafoam[4] = ribbonStopXSeafoam + 160.0;
+        this.QuadRibbonSeafoam[6] = ribbonStopXSeafoam + 128.0;
+        this.QuadRibbonSeafoam[1] =
+        this.QuadRibbonSeafoam[3] =
+        this.QuadRibbonSeafoam[5] =
+        this.QuadRibbonSeafoam[7] = 240.0;
+
+        var bgMidpointTop = (this.QuadRibbonBlue[0] + this.QuadRibbonBlue[2]) * 0.5;
+        var bgMidpointBot = (this.QuadRibbonBlue[4] + this.QuadRibbonBlue[6]) * 0.5;
+        this.QuadBGPieceLeft[0] =
+        this.QuadBGPieceLeft[6] = 0.0;
+        this.QuadBGPieceLeft[2] = bgMidpointTop;
+        this.QuadBGPieceLeft[4] = bgMidpointBot;
+        this.QuadBGPieceLeft[1] =
+        this.QuadBGPieceLeft[3] = 0.0;
+        this.QuadBGPieceLeft[5] =
+        this.QuadBGPieceLeft[7] = 240.0;
+
+        this.QuadBGPieceRight[0] = bgMidpointTop;
+        this.QuadBGPieceRight[6] = bgMidpointBot;
+        this.QuadBGPieceRight[2] =
+        this.QuadBGPieceRight[4] = vw;
+        this.QuadBGPieceRight[1] =
+        this.QuadBGPieceRight[3] = 0.0;
+        this.QuadBGPieceRight[5] =
+        this.QuadBGPieceRight[7] = 240.0;
+    }
+    TitleCard_InitZoneName() {
+        var vid_width = View.GetWidth(0);
+        var vid_height = View.GetHeight(0);
+        var vid_width_half = vid_width * 0.5;
+        var vid_height_half = vid_height * 0.5;
+
+        if (this.ZoneName == "")
+            this.ZoneName = "UNTITLED";
+
+        var textLen = String.Length(this.ZoneName);
+        this.ZoneNameFrames = Array.Create(textLen, -1);
+        this.ConvertCharactersToSpriteFrames(this.ZoneNameFrames, this.ZoneName);
+
+        // Set Level Name text YSpeed and Offsets
+        for (var l = 0, lY = 0.0; l < textLen; l++) {
+            this.CharOffsetsY[l] = lY;
+            this.CharYSpeeds[l] = -8.0;
+            lY += 16.0;
+        }
+
+        // Set Zone text YSpeed and Offset Ys
+        for (var f = 0; f < 4; f++) {
+            this.ZoneYs[f] = (-textLen + 2.0) * 8.0 - f * 16.0;
+            this.ZoneYSpeeds[f] = 4.0;
+        }
+
+        // Find marked split point (#)
+        this.LevelNameIndexSplit = 0;
+        for (var l = 0; l < textLen; l++) {
+            if (this.ZoneNameFrames[l] == -1) {
+                this.LevelNameIndexSplit = l;
+                break;
+            }
+        }
+
+        var indexSplit = this.LevelNameIndexSplit;
+        if (indexSplit) {
+            this.LevelNameExtraWidth = this.MeasureCharactersWidth(this.ZoneNameFrames, 0, indexSplit, 1.0) + 24.0;
+
+        }
+        else {
+            // this.LevelNameMainWidth = this.MeasureCharactersWidth(this.ZoneNameFrames, 0, 0, 1.0) + 24.0;
+        }
+        this.LevelNameMainWidth = this.MeasureCharactersWidth(this.ZoneNameFrames, indexSplit, 0, 1.0) + 24.0;
+
+        this.ZoneLetterX = vid_width_half - ((vid_width_half - 160.0) / 8.0) + 72.0;
+        this.LevelNameOffX = vid_width_half - ((vid_width_half - 160.0) / 8.0) + 72.0;
+        if (this.LevelNameMainWidth < 128.0)
+            this.LevelNameOffX -= 40.0;
+
+        this.LevelNameOffXExtraLine = this.LevelNameExtraWidth - this.LevelNameMainWidth + this.LevelNameOffX - 32.0;
+    }
+
+    TitleCard_MoveZoneQuadsAndDecoration() {
+        var v1, v3;
+        if (this.LevelNameIndexSplit > 0) {
+            v1 = this.LevelNameOffXExtraLine - 16.0;
+            this.QuadZoneNameExtraLine[2] -= 32.0;
+            if (this.QuadZoneNameExtraLine[2] < v1)
+                this.QuadZoneNameExtraLine[2] = v1;
+            this.QuadZoneNameExtraLine[0] = this.QuadZoneNameExtraLine[2] - this.LevelNameExtraWidth;
+
+            v3 = this.LevelNameOffXExtraLine;
+            this.QuadZoneNameExtraLine[4] -= 32.0;
+            if (this.QuadZoneNameExtraLine[4] < v3)
+                this.QuadZoneNameExtraLine[4] = v3;
+            this.QuadZoneNameExtraLine[6] = this.QuadZoneNameExtraLine[4] - this.LevelNameExtraWidth;
+        }
+
+        // Zone name text quad
+        v1 = this.LevelNameOffX - 16.0;
+        this.QuadZoneName[2] -= 32.0;
+        if (this.QuadZoneName[2] < v1)
+            this.QuadZoneName[2] = v1;
+        this.QuadZoneName[0] = this.QuadZoneName[2] - this.LevelNameMainWidth;
+
+        v3 = this.LevelNameOffX;
+        this.QuadZoneName[4] -= 32.0;
+        if (this.QuadZoneName[4] < v3)
+            this.QuadZoneName[4] = v3;
+        this.QuadZoneName[6] = this.QuadZoneName[4] - this.LevelNameMainWidth;
+
+        // Zone text quad
+        v1 = this.ZoneLetterX - 8.0;
+        this.QuadZone[2] += 32.0;
+        if (this.QuadZone[2] > v1)
+            this.QuadZone[2] = v1;
+        this.QuadZone[0] = this.QuadZone[2] - 120.0;
+
+        v3 = this.ZoneLetterX;
+        this.QuadZone[4] += 32.0;
+        if (this.QuadZone[4] > v3)
+            this.QuadZone[4] = v3;
+        this.QuadZone[6] = this.QuadZone[4] - 120.0;
+
+        // Move decoration
+        if (this.DecorationPosY < 12.0) {
+            this.DecorationPosX += 2.0;
+            this.DecorationPosY += 2.0;
+        }
+    }
+    TitleCard_MoveLetters() {
+        var textLen = String.Length(this.ZoneName);
+        for (var l = 0; l < textLen; l++) {
+            var y = this.CharOffsetsY[l];
+            var ysp = this.CharYSpeeds[l];
+            if (y < 0.0)
+                ysp += 2.5;
+
+            y += ysp;
+            if (y > 0.0 && ysp > 0.0)
+                y = 0.0;
+
+            this.CharOffsetsY[l] = y;
+            this.CharYSpeeds[l] = ysp;
+        }
+
+        for (var f = 0; f < 4; f++) {
+            var y = this.ZoneYs[f];
+            var ysp = this.ZoneYSpeeds[f];
+
+            if (y > 0.0)
+                ysp -= 1.25;
+
+            y += ysp;
+            if (y < 0.0 && ysp < 0.0)
+                y = 0.0;
+
+            this.ZoneYs[f] = y;
+            this.ZoneYSpeeds[f] = ysp;
+        }
+    }
+    TitleCard_FreezePlayer() {
+        var bound;
+        with ("Player") {
+            var camera = this.CameraPtr;
+            if (camera) {
+                bound = camera.MinX + 10.0;
+                if (this.X <= bound) {
+                    this.X  = bound;
+                    if (this.Ground) {
+                        if (this.GroundSpeed < 0.0) {
+                            this.XSpeed = 0.0;
+                            this.GroundSpeed = 0.0;
+                            this.PushingTimer = 0;
+                        }
+                    }
+                    else if (this.XSpeed < 0.0) {
+                        this.XSpeed = 0.0;
+                        this.GroundSpeed = 0.0;
+                    }
+                }
+
+                bound = camera.MaxX - 10.0;
+                if (this.X >= bound) {
+                    this.X  = bound;
+                    if (this.Ground) {
+                        if (this.GroundSpeed > 0.0) {
+                            this.XSpeed = 0.0;
+                            this.GroundSpeed = 0.0;
+                            this.PushingTimer = 0;
+                        }
+                    }
+                    else if (this.XSpeed > 0.0) {
+                        this.XSpeed = 0.0;
+                        this.GroundSpeed = 0.0;
+                    }
+                }
+            }
+        }
+    }
+    TitleCard_FreezePlayerCamOffsetY() {
+        with ("Player") {
+            var camera = this.CameraPtr;
+            if (camera) {
+                camera.SetOnJump = 0.0;
+            }
+        }
+    }
+
+    TitleCard_Status_MoveZoneQuads() {
+        this.TitleCard_FreezePlayer();
+
+        if (!global.AtlEnabled && !global.SuppressTitlecard) {
+            Scene.SetPaused(true);
+        }
+
+        this.MainTimer += 24;
+        if (this.MainTimer >= 512) {
+            this.QuadZoneNameExtraLine[1] += 32.0;
+            this.QuadZoneNameExtraLine[3] += 32.0;
+            this.QuadZoneNameExtraLine[5] += 32.0;
+            this.QuadZoneNameExtraLine[7] += 32.0;
+            this.QuadZoneName[1] -= 32.0;
+            this.QuadZoneName[3] -= 32.0;
+            this.QuadZoneName[5] -= 32.0;
+            this.QuadZoneName[7] -= 32.0;
+            this.QuadZone[1] += 32.0;
+            this.QuadZone[3] += 32.0;
+            this.QuadZone[5] += 32.0;
+            this.QuadZone[7] += 32.0;
+            this.Status = this.TitleCard_Status_MoveDecoration;
+        }
+
+        this.QuadZoneNameExtraLine[0] += 40.0;
+        this.QuadZoneNameExtraLine[2] += 40.0;
+        this.QuadZoneNameExtraLine[4] += 40.0;
+        this.QuadZoneNameExtraLine[6] += 40.0;
+        this.QuadZoneName[0] += 40.0;
+        this.QuadZoneName[2] += 40.0;
+        this.QuadZoneName[4] += 40.0;
+        this.QuadZoneName[6] += 40.0;
+        this.QuadZone[0] -= 40.0;
+        this.QuadZone[2] -= 40.0;
+        this.QuadZone[4] -= 40.0;
+        this.QuadZone[6] -= 40.0;
+    }
+    TitleCard_Status_MoveDecoration() {
+        this.TitleCard_FreezePlayer();
+
+        if (this.MainTimer >= 1024) {
+            this.Status = this.TitleCard_Status_MoveRibbonsAndLetters;
+            this.RenderStatus = this.TitleCard_RenderStatus_MoveRibbonsAndLetters;
+        }
+        else {
+            this.MainTimer += 32;
+        }
+
+        this.TitleCard_MoveZoneQuadsAndDecoration();
+    }
+    TitleCard_Status_MoveRibbonsAndLetters() {
+        this.TitleCard_FreezePlayer();
+
+        var ribbonY, ribbonYend;
+
+        ribbonY = this.RibbonY_Blue + (this.RibbonEndY_Blue - this.RibbonY_Blue - 16.0) / 6.0;
+        if (ribbonY < this.RibbonEndY_Blue)
+            ribbonY = this.RibbonEndY_Blue;
+        ribbonYend = (this.RibbonY_Blue = ribbonY) - 240.0;
+        this.QuadRibbonBlue[0] = ribbonYend + this.QuadRibbonBlue[6];
+        this.QuadRibbonBlue[2] = ribbonYend + this.QuadRibbonBlue[4];
+        this.QuadRibbonBlue[1] = ribbonY;
+        this.QuadRibbonBlue[3] = ribbonY;
+
+        ribbonY = this.RibbonY_Red + (this.RibbonEndY_Red - this.RibbonY_Red - 16.0) / 6.0;
+        if (ribbonY < this.RibbonEndY_Red)
+            ribbonY = this.RibbonEndY_Red;
+        ribbonYend = (this.RibbonY_Red = ribbonY) - 240.0;
+        this.QuadRibbonRed[0] = ribbonYend + this.QuadRibbonRed[6];
+        this.QuadRibbonRed[2] = ribbonYend + this.QuadRibbonRed[4];
+        this.QuadRibbonRed[1] = ribbonY;
+        this.QuadRibbonRed[3] = ribbonY;
+
+        ribbonY = this.RibbonY_Orange + (this.RibbonEndY_Orange - this.RibbonY_Orange - 16.0) / 6.0;
+        if (ribbonY < this.RibbonEndY_Orange)
+            ribbonY = this.RibbonEndY_Orange;
+        ribbonYend = (this.RibbonY_Orange = ribbonY) - 240.0;
+        this.QuadRibbonOrange[0] = ribbonYend + this.QuadRibbonOrange[6];
+        this.QuadRibbonOrange[2] = ribbonYend + this.QuadRibbonOrange[4];
+        this.QuadRibbonOrange[1] = ribbonY;
+        this.QuadRibbonOrange[3] = ribbonY;
+
+        ribbonY = this.RibbonY_Seafoam + (this.RibbonEndY_Seafoam - this.RibbonY_Seafoam - 16.0) / 6.0;
+        if (ribbonY < this.RibbonEndY_Seafoam)
+            ribbonY = this.RibbonEndY_Seafoam;
+        ribbonYend = (this.RibbonY_Seafoam = ribbonY) - 240.0;
+        this.QuadRibbonSeafoam[0] = ribbonYend + this.QuadRibbonSeafoam[6];
+        this.QuadRibbonSeafoam[2] = ribbonYend + this.QuadRibbonSeafoam[4];
+        this.QuadRibbonSeafoam[1] = ribbonY;
+        this.QuadRibbonSeafoam[3] = ribbonY;
+
+        this.TitleCard_MoveZoneQuadsAndDecoration();
+        this.TitleCard_MoveLetters();
+
+        var decoSpinValue = this.DecorationSpinValue;
+        if (decoSpinValue < 0x300)
+            this.DecorationSpinValue = decoSpinValue + 64;
+
+        if (!this.ZoneYs[3] && this.ZoneYSpeeds[3] < 0.0)
+            this.Status = this.TitleCard_Status_Hold;
+    }
+    TitleCard_Status_Hold() {
+        this.TitleCard_FreezePlayer();
+        this.TitleCard_FreezePlayerCamOffsetY();
+
+        var holdTimer = this.HoldTimer;
+        if (holdTimer >= 60) {
+            this.HoldTimer = 0;
+            this.Status = this.TitleCard_Status_MoveShapesOut;
+            this.RenderStatus = this.TitleCard_RenderStatus_MoveShapesOut;
+
+            Scene.SetPaused(false);
+
+            // if onlevelshowstatus
+        }
+        else {
+            holdTimer++;
+            this.HoldTimer = holdTimer;
+
+            if (holdTimer == 16) {
+                // if ( Zone_ClassInfo->FreezePlayer == 1 )
+                //   {
+                //     v5 = GetEntityFromSlotIndex_Ptr(0x3Cu);
+                //     v6 = v5;
+                //     *v5->Data = Camera_StatusNormal;
+                //     v7 = GetEntityFromSlotIndex_Ptr(0);
+                //     *&v7->Data[12] = v6;
+                //     *&v6->Data[4] = v7;
+                //     Camera_ClassInfo->MaxCameraSpeedX = 0x20000;
+                //     Camera_ClassInfo->MaxCameraSpeedY = 0x20000;
+                //     v4 = Zone_ClassInfo;
+                //   }
+                //   Zone_ClassInfo->FreezePlayer = 0;
+            }
+        }
+    }
+    TitleCard_Status_MoveShapesOut() {
+        this.TitleCard_FreezePlayer();
+
+        var holdTimer;
+        this.HoldTimer++;
+
+        holdTimer = this.HoldTimer * 4.0;
+        this.QuadRibbonSeafoam[0] -= holdTimer;
+        this.QuadRibbonSeafoam[1] -= holdTimer;
+        this.QuadRibbonSeafoam[2] -= holdTimer;
+        this.QuadRibbonSeafoam[3] -= holdTimer;
+        this.QuadRibbonSeafoam[4] -= holdTimer;
+        this.QuadRibbonSeafoam[5] -= holdTimer;
+        this.QuadRibbonSeafoam[6] -= holdTimer;
+        this.QuadRibbonSeafoam[7] -= holdTimer;
+
+        holdTimer = this.HoldTimer;
+        if (holdTimer > 6) {
+            holdTimer = (holdTimer - 6) * 4.0;
+            this.QuadRibbonOrange[0] -= holdTimer;
+            this.QuadRibbonOrange[1] -= holdTimer;
+            this.QuadRibbonOrange[2] -= holdTimer;
+            this.QuadRibbonOrange[3] -= holdTimer;
+            this.QuadRibbonOrange[4] -= holdTimer;
+            this.QuadRibbonOrange[5] -= holdTimer;
+            this.QuadRibbonOrange[6] -= holdTimer;
+            this.QuadRibbonOrange[7] -= holdTimer;
+            this.DecorationPosX += holdTimer;
+            this.DecorationPosY += holdTimer;
+        }
+
+        holdTimer = this.HoldTimer;
+        if (holdTimer > 12) {
+            holdTimer = (holdTimer - 12) * 4.0;
+            this.QuadRibbonRed[0] -= holdTimer;
+            this.QuadRibbonRed[1] -= holdTimer;
+            this.QuadRibbonRed[2] -= holdTimer;
+            this.QuadRibbonRed[3] -= holdTimer;
+            this.QuadRibbonRed[4] -= holdTimer;
+            this.QuadRibbonRed[5] -= holdTimer;
+            this.QuadRibbonRed[6] -= holdTimer;
+            this.QuadRibbonRed[7] -= holdTimer;
+        }
+
+        holdTimer = this.HoldTimer;
+        if (holdTimer > 18) {
+            holdTimer = (holdTimer - 18) * 4.0;
+            this.QuadRibbonBlue[0] -= holdTimer;
+            this.QuadRibbonBlue[1] -= holdTimer;
+            this.QuadRibbonBlue[2] -= holdTimer;
+            this.QuadRibbonBlue[3] -= holdTimer;
+            this.QuadRibbonBlue[4] -= holdTimer;
+            this.QuadRibbonBlue[5] -= holdTimer;
+            this.QuadRibbonBlue[6] -= holdTimer;
+            this.QuadRibbonBlue[7] -= holdTimer;
+        }
+
+        holdTimer = this.HoldTimer;
+        if (holdTimer > 4) {
+            holdTimer = (holdTimer - 4) * 2.0;
+            this.QuadBGPieceLeft[0] -= holdTimer;
+            this.QuadBGPieceLeft[2] -= holdTimer;
+            this.QuadBGPieceLeft[4] -= holdTimer;
+            this.QuadBGPieceLeft[6] -= holdTimer;
+            this.QuadBGPieceRight[0] += holdTimer;
+            this.QuadBGPieceRight[2] += holdTimer;
+            this.QuadBGPieceRight[4] += holdTimer;
+            this.QuadBGPieceRight[6] += holdTimer;
+        }
+
+        if (this.HoldTimer == 60 && global.GameMode < GameModes_TimeAttack) {
+            global.TimerActive = true;
+        }
+
+        if (this.HoldTimer > 60) {
+            this.ZoneLetterX -= 32.0;
+            this.LevelNameOffXExtraLine -= 32.0;
+            this.LevelNameOffX += 32.0;
+            this.ActPosX += 32.0;
+            this.ActPosY += 32.0;
+            this.QuadZoneNameExtraLine[0] -= 32.0;
+            this.QuadZoneNameExtraLine[2] -= 32.0;
+            this.QuadZoneNameExtraLine[4] -= 32.0;
+            this.QuadZoneNameExtraLine[6] -= 32.0;
+            this.QuadZoneName[0] += 32.0;
+            this.QuadZoneName[2] += 32.0;
+            this.QuadZoneName[4] += 32.0;
+            this.QuadZoneName[6] += 32.0;
+            this.QuadZone[0] -= 32.0;
+            this.QuadZone[2] -= 32.0;
+            this.QuadZone[4] -= 32.0;
+            this.QuadZone[6] -= 32.0;
+        }
+
+        if (this.HoldTimer > 80) {
+            global.AtlEnabled = false;
+            global.EnableIntro = false;
+            if (global.GameMode >= GameModes_TimeAttack) {
+                if (global.GameMode == GameModes_Competition) {
+
+                }
+                global.CanPause = true;
+                this.Active = false;
+            }
+            else {
+                global.SuppressTitlecard = false;
+                global.SuppressAutoMusic = false;
+                global.CanPause = true;
+                this.Active = false;
+            }
+        }
+    }
+    TitleCard_Status_ImmediatelyShow() {
+        this.TitleCard_FreezePlayerCamOffsetY();
+
+        global.AtlEnabled = 0;
+        // if (global.GameMode == GameModes_TimeAttack || global.EnableIntro)
+        //     global.Unk_0x30 = 0;
+
+        this.UpdateRegionW =
+        this.UpdateRegionH = 0.0;
+
+        if (global.SuppressTitlecard && !this.IntroEnabled || global.GameMode == GameModes_TimeAttack) {
+            this.Active = false;
+            global.SuppressTitlecard = false;
+        }
+    }
+
+    TitleCard_RenderStatus_MoveZoneQuads() {
+        var vid_width = View.GetWidth(0);
+        var vid_height = View.GetHeight(0);
+        var vid_width_half = vid_width * 0.5;
+        var vid_height_half = vid_height * 0.5;
+
+        Draw.Save();
+        Draw.Translate(Math.Floor(CameraX), Math.Floor(CameraY), 0.0);
+            if (!global.AtlEnabled && !global.SuppressTitlecard) {
+                var rectHeight = this.MainTimer * 1.0;
+                if (rectHeight < 256.0) {
+                    Draw.SetBlendColor(0x000000, 1.0);
+                    Draw.Rectangle(0.0, 0.0, vid_width, vid_height);
+                }
+
+                if (rectHeight < 512.0) {
+                    Draw.SetBlendColor(this.ColorBlue, 1.0);
+                    Draw.Rectangle(0.0, vid_height_half - rectHeight * 0.5, vid_width, rectHeight);
+                }
+
+                rectHeight -= 128.0;
+                if (rectHeight > 0.0 && rectHeight < 512.0) {
+                    Draw.SetBlendColor(this.ColorRed, 1.0);
+                    Draw.Rectangle(0.0, vid_height_half - rectHeight * 0.5, vid_width, rectHeight);
+                }
+
+                rectHeight -= 128.0;
+                if (rectHeight > 0.0 && rectHeight < 512.0) {
+                    Draw.SetBlendColor(this.ColorOrange, 1.0);
+                    Draw.Rectangle(0.0, vid_height_half - rectHeight * 0.5, vid_width, rectHeight);
+                }
+
+                rectHeight -= 128.0;
+                if (rectHeight > 0.0 && rectHeight < 512.0) {
+                    Draw.SetBlendColor(this.ColorSeafoam, 1.0);
+                    Draw.Rectangle(0.0, vid_height_half - rectHeight * 0.5, vid_width, rectHeight);
+                }
+
+                rectHeight -= 128.0;
+                if (rectHeight > 0.0) {
+                    Draw.SetBlendColor(this.ColorBackground, 1.0);
+                    Draw.Rectangle(0.0, vid_height_half - rectHeight * 0.5, vid_width, rectHeight);
+                }
+            }
+
+            // Black
+            Draw.SetBlendColor(0x000000, 1.0);
+            if (this.LevelNameIndexSplit > 0)
+                this.DrawQuad(this.QuadZoneNameExtraLine);
+            this.DrawQuad(this.QuadZoneName);
+
+            // White
+            Draw.SetBlendColor(0xF0F0F0, 1.0);
+            this.DrawQuad(this.QuadZone);
+
+            // Decorations
+            Draw.Sprite(this.Sprite, 0, ((global.GameMode == GameModes_Encore) << 1) + 1, this.DecorationPosX, this.DecorationPosY, false, false);
+        Draw.Restore();
+    }
+    TitleCard_RenderStatus_MoveRibbonsAndLetters() {
+        var vid_width = View.GetWidth(0);
+        var vid_height = View.GetHeight(0);
+        var vid_width_half = vid_width * 0.5;
+        var vid_height_half = vid_height * 0.5;
+        var encoreShift = ((global.GameMode == GameModes_Encore) << 1);
+
+        Draw.Save();
+        Draw.Translate(Math.Floor(CameraX), Math.Floor(CameraY), 0.0);
+            if (!global.AtlEnabled && !global.SuppressTitlecard) {
+                Draw.SetBlendColor(this.ColorBackground, 1.0);
+                Draw.Rectangle(0.0, 0.0, vid_width, vid_height);
+            }
+
+            if (this.RibbonY_Orange < 240.0) {
+                Draw.SetBlendColor(this.ColorOrange, 1.0);
+                this.DrawQuad(this.QuadRibbonOrange);
+            }
+            if (this.RibbonY_Seafoam < 240.0) {
+                Draw.SetBlendColor(this.ColorSeafoam, 1.0);
+                this.DrawQuad(this.QuadRibbonSeafoam);
+            }
+            if (this.RibbonY_Red < 240.0) {
+                Draw.SetBlendColor(this.ColorRed, 1.0);
+                this.DrawQuad(this.QuadRibbonRed);
+            }
+            if (this.RibbonY_Blue < 240.0) {
+                Draw.SetBlendColor(this.ColorBlue, 1.0);
+                this.DrawQuad(this.QuadRibbonBlue);
+            }
+
+            // Game name
+            if (!global.AtlEnabled && !global.SuppressTitlecard)
+                Draw.Sprite(this.Sprite, 0, encoreShift + 1, this.DecorationPosX, this.DecorationPosY, false, false);
+
+            // Black
+            Draw.SetBlendColor(0x000000, 1.0);
+            if (this.LevelNameIndexSplit > 0)
+                this.DrawQuad(this.QuadZoneNameExtraLine);
+            this.DrawQuad(this.QuadZoneName);
+
+            // White
+            Draw.SetBlendColor(0xF0F0F0, 1.0);
+            this.DrawQuad(this.QuadZone);
+
+            // Zone
+            Draw.SetClip(0.0, 170.0, vid_width, 240.0);
+            for (var f = 0; f < 4; f++) {
+                Draw.Sprite(this.Sprite, 2, f, this.ZoneLetterX, this.ZoneYs[f] + 186.0, false, false);
+            }
+
+            // Zone name
+            var zoneNameLength = Array.Length(this.ZoneNameFrames);
+            if (this.LevelNameIndexSplit > 0) {
+                Draw.SetClip(0.0, 0.0, vid_width, 130.0);
+                this.DrawZoneNameText(this.LevelNameOffXExtraLine - 20.0, 114.0, 0, this.LevelNameIndexSplit);
+            }
+            Draw.SetClip(0.0, 0.0, vid_width, 170.0);
+            this.DrawZoneNameText(this.LevelNameOffX - 20.0, 154.0, this.LevelNameIndexSplit, zoneNameLength - 1);
+            Draw.ClearClip();
+
+            // Act decoration
+            Draw.Sprite(this.Sprite, 0, encoreShift, this.ActPosX, this.ActPosY, false, false, 1.0, 1.0, 0.0);
+            Draw.Sprite(this.Sprite, 3, this.ActID, this.ActPosX, this.ActPosY, false, false);
+        Draw.Restore();
+    }
+    TitleCard_RenderStatus_MoveShapesOut() {
+        var vid_width = View.GetWidth(0);
+        var vid_height = View.GetHeight(0);
+        var vid_width_half = vid_width * 0.5;
+        var vid_height_half = vid_height * 0.5;
+        var encoreShift = ((global.GameMode == GameModes_Encore) << 1);
+
+        Draw.Save();
+        Draw.Translate(Math.Floor(CameraX), Math.Floor(CameraY), 0.0);
+            if (!global.AtlEnabled && !global.SuppressTitlecard) {
+                Draw.SetBlendColor(this.ColorBackground, 1.0);
+                this.DrawQuad(this.QuadBGPieceLeft);
+                this.DrawQuad(this.QuadBGPieceRight);
+            }
+
+            if (this.RibbonY_Orange < 240.0) {
+                Draw.SetBlendColor(this.ColorOrange, 1.0);
+                this.DrawQuad(this.QuadRibbonOrange);
+            }
+            if (this.RibbonY_Seafoam < 240.0) {
+                Draw.SetBlendColor(this.ColorSeafoam, 1.0);
+                this.DrawQuad(this.QuadRibbonSeafoam);
+            }
+            if (this.RibbonY_Red < 240.0) {
+                Draw.SetBlendColor(this.ColorRed, 1.0);
+                this.DrawQuad(this.QuadRibbonRed);
+            }
+            if (this.RibbonY_Blue < 240.0) {
+                Draw.SetBlendColor(this.ColorBlue, 1.0);
+                this.DrawQuad(this.QuadRibbonBlue);
+            }
+
+            // Game name
+            if (!global.AtlEnabled && !global.SuppressTitlecard)
+                Draw.Sprite(this.Sprite, 0, encoreShift + 1, this.DecorationPosX, this.DecorationPosY, false, false);
+
+            // Black
+            Draw.SetBlendColor(0x000000, 1.0);
+            if (this.LevelNameIndexSplit > 0)
+                this.DrawQuad(this.QuadZoneNameExtraLine);
+            this.DrawQuad(this.QuadZoneName);
+
+            // White
+            Draw.SetBlendColor(0xF0F0F0, 1.0);
+            this.DrawQuad(this.QuadZone);
+
+            // Zone
+            for (var f = 0; f < 4; f++) {
+                Draw.Sprite(this.Sprite, 2, f, this.ZoneLetterX, this.ZoneYs[f] + 186.0, false, false);
+            }
+
+            // Zone name
+            var zoneNameLength = Array.Length(this.ZoneNameFrames);
+            if (this.LevelNameIndexSplit > 0)
+                this.DrawZoneNameText(this.LevelNameOffXExtraLine - 20.0, 114.0, 0, this.LevelNameIndexSplit);
+            this.DrawZoneNameText(this.LevelNameOffX - 20.0, 154.0, this.LevelNameIndexSplit, zoneNameLength - 1);
+
+            // Act decoration
+            Draw.Sprite(this.Sprite, 0, encoreShift, this.ActPosX, this.ActPosY, false, false);
+            Draw.Sprite(this.Sprite, 3, this.ActID, this.ActPosX, this.ActPosY, false, false);
+        Draw.Restore();
+    }
+
+    DrawZoneNameText(x, y, start, end) {
+        var frames = this.ZoneNameFrames,
+            widths = this.SpriteWidths,
+            sprite = this.Sprite,
+            offxs = this.CharOffsetsX,
+            offys = this.CharOffsetsY,
+            f, w;
+        for (var i = end; i >= start; i--) {
+            f = frames[i];
+            if (f >= 0) {
+                w = widths[f];
+                Draw.Sprite(sprite, 1, f, x + offxs[i] - w * 0.5, y + offys[i], false, false);
+                x -= w + 1.0;
+            }
+        }
+    }
+    DrawQuad(quad) {
+        Draw.Triangle(
+            quad[0], quad[1],
+            quad[2], quad[3],
+            quad[4], quad[5]);
+        Draw.Triangle(
+            quad[0], quad[1],
+            quad[4], quad[5],
+            quad[6], quad[7]);
+    }
+}

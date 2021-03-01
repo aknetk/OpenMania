@@ -1,0 +1,175 @@
+class Motobug {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/GHZ/Motobug.bin", SCOPE_SCENE);
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.Timer = 0;
+        this.PuffTimer = 0;
+        this.Status = null;
+        this.CurrentFrameCount = 9;
+
+        this.HitboxW = 28.0;
+        this.HitboxH = 20.0;
+
+        this.CreateFlag(0);
+    }
+    event CreateFlag(flag) {
+        // this.VisibilityFlag = 1;
+        this.Priority = DrawGroup_FGLow_Low;
+        this.StartX = this.X;
+        this.StartY = this.Y;
+        this.StartFlip = this.FlipFlag;
+        this.UpdateRegionW = this.UpdateRegionH = 0x100;
+        this.RenderRegionW = this.RenderRegionH = 0x80;
+        this.Unk_0x70 = 1;
+        if (flag) {
+            this.SetAnimation(3, 0);
+            this.Status = this.Motobug_Status_Puff;
+            this.AutoAnimate = false;
+        }
+        else {
+            this.PuffTimer = 16;
+            this.SetAnimation(0, 0);
+            this.Status = this.Motobug_Status_StartMoving;
+        }
+    }
+
+    event Motobug_Status_Puff() {
+        this.Animate();
+        if (this.CurrentFrame == this.CurrentFrameCount - 1)
+            this.Active = false;
+    }
+    event Motobug_Status_StartMoving() {
+        this.XSpeed = -1.0;
+        this.YSpeed = 0.0;
+        this.Status = this.Motobug_Status_Moving;
+        this.Motobug_Status_Moving();
+    }
+    event Motobug_Status_Moving() {
+        this.X += this.XSpeed;
+        if (!Static.Entity_MoveToTileCollision(this, 0x0000, 0, 0, 0.0, 15.0, 8.0)) {
+            this.SetAnimation(1, 0);
+            this.Timer = 0;
+
+            var floorBehind = Static.Entity_MoveToTileCollision(this, 0x0000, 0, 0, this.FlipFlag ? -1.0 : 1.0, 15.0, 8.0);
+            if (floorBehind) {
+                this.Status = this.Motobug_Status_StartTurning;
+            }
+            else {
+                this.Status = this.Motobug_Status_Falling;
+            }
+            return;
+        }
+
+        if (this.PuffTimer-- == 1) {
+            this.PuffTimer = 16;
+            var puff = Instance.Create("Motobug", this.X + (this.FlipFlag == 1 ? -20.0 : 20.0), this.Y);
+            puff.CreateFlag(1);
+        }
+        this.Animate();
+        this.Motobug_HandlePlayerBreak();
+        this.Motobug_CheckForOffscreen();
+    }
+    event Motobug_Status_StartTurning() {
+        this.Animate();
+
+        var floorBehind = Static.Entity_MoveToTileCollision(this, 0x0000, 0, 0, this.FlipFlag ? -1.0 : 1.0, 15.0, 8.0);
+        if (floorBehind) {
+            this.Timer++;
+            if (this.Timer == 48) {
+                this.SetAnimation(2, 1);
+                this.Status = this.Motobug_Status_Turning;
+            }
+        }
+        else {
+            this.Unk_0x70 = 0;
+            this.Status = this.Motobug_Status_Falling;
+        }
+
+        this.Motobug_HandlePlayerBreak();
+        this.Motobug_CheckForOffscreen();
+    }
+    event Motobug_Status_Turning() {
+        this.Animate();
+
+        var floorBehind = Static.Entity_MoveToTileCollision(this, 0x0000, 0, 0, this.FlipFlag ? -1.0 : 1.0, 15.0, 8.0);
+        if (floorBehind) {
+            if (this.CurrentFrame == this.CurrentFrameCount - 1) {
+                this.SetAnimation(0, 1);
+                this.FlipFlag ^= 1;
+                this.XSpeed = -this.XSpeed;
+                this.Status = this.Motobug_Status_Moving;
+                this.Motobug_Status_Moving();
+            }
+            else {
+                this.Motobug_HandlePlayerBreak();
+                this.Motobug_CheckForOffscreen();
+            }
+        }
+        else {
+            this.Unk_0x70 = 0;
+            this.SetAnimation(0, 1);
+            this.FlipFlag ^= 1;
+            this.XSpeed = -this.XSpeed;
+            this.Status = this.Motobug_Status_Falling;
+        }
+    }
+    event Motobug_Status_Falling() {
+        this.Animate();
+        if (this.Unk_0x70 == 1)
+            this.X += this.XSpeed;
+
+        var yspeed = this.YSpeed;
+        this.Y += yspeed;
+        this.YSpeed = yspeed + 0.21875;
+
+        if (Static.Entity_MoveToTileCollision(this, 0x0000, 0, 0, 0.0, 15.0, 8.0)) {
+            this.Unk_0x70 = 1;
+            this.YSpeed = 0.0;
+            this.SetAnimation(0, 0);
+
+            this.Status = this.Motobug_Status_Moving;
+            this.Motobug_Status_Moving();
+        }
+        else {
+            this.Motobug_HandlePlayerBreak();
+            this.Motobug_CheckForOffscreen();
+        }
+    }
+
+    event Motobug_HandlePlayerBreak() {
+        var player, enemy = this;
+        with ("Player") {
+            player = this;
+            if (player.Player_BreakableCollide(enemy))
+                player.Player_BreakEnemy(enemy, 1);
+        }
+    }
+    event Motobug_CheckForOffscreen() {
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH) &&
+            !Static.Position_IsOnScreen(this.StartX, this.StartY, this.RenderRegionW, this.RenderRegionH)) {
+            this.X = this.StartX;
+            this.Y = this.StartY;
+            this.FlipFlag = this.StartFlip;
+            this.Create();
+        }
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+    event Render() {
+        var xx = Math.Floor(this.X);
+        var yy = Math.Floor(this.Y);
+        var fX = (this.FlipFlag & 1);
+        var fY = (this.FlipFlag & 2);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, xx, yy, fX, fY);
+    }
+}

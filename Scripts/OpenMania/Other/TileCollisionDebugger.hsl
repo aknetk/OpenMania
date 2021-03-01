@@ -1,0 +1,63 @@
+class TileCollisionDebugger {
+    Create(flag) {
+        this.Priority = 15;
+        this.PlaneIndex = 0;
+
+        // Add this to the Create() of your choice
+        // Instance.Create("TileCollisionDebugger", 0, 0);
+    }
+    DrawCross(x, y, size) {
+        Draw.Rectangle(x - size, y, 1 + size * 2, 1);
+        Draw.Rectangle(x, y - size, 1, 1 + size * 2);
+    }
+    DrawArrow(x, y, angle, size) {
+        var c = Static.HexCos(angle);
+        var s = Static.HexSin(angle);
+        var ahms = size - 4;
+        var ahx = x + c * ahms;
+        var ahy = y + s * ahms;
+        var cos = c * size;
+        var sin = s * size;
+        Draw.Line(x - cos, y - sin, x + cos, y + sin);
+        Draw.Triangle(x + cos, y + sin,
+            ahx - s * -4, ahy + c * -4,
+            ahx - s *  4, ahy + c *  4);
+    }
+    Update() {
+        if (Input.IsKeyPressed(Key_SPACE))
+            this.PlaneIndex = !this.PlaneIndex;
+    }
+    Render() {
+        var mouseX = Math.Floor(CameraX + (Input.GetMouseX() * 424 / Window.GetWidth()));
+        var mouseY = Math.Floor(CameraY + (Input.GetMouseY() * 240 / Window.GetHeight()));
+
+        Draw.SetBlendColor(0xFFFFFF, 1.0);
+        this.DrawCross(mouseX, mouseY, 64);
+
+        var sensor;
+        if (sensor = TileCollision.Line(mouseX, mouseY, SensorDirection_Up, 64, this.PlaneIndex, -1)) {
+            if (sensor["Collided"]) {
+                Draw.SetBlendColor(0x0000FF, 1.0);
+                this.DrawArrow(sensor["X"], sensor["Y"], sensor["Angle"], 8);
+            }
+        }
+        if (sensor = TileCollision.Line(mouseX, mouseY, SensorDirection_Left, 64, this.PlaneIndex, -1)) {
+            if (sensor["Collided"]) {
+                Draw.SetBlendColor(0xFF00FF, 1.0);
+                this.DrawArrow(sensor["X"], sensor["Y"], sensor["Angle"], 8);
+            }
+        }
+        if (sensor = TileCollision.Line(mouseX, mouseY, SensorDirection_Down, 64, this.PlaneIndex, -1)) {
+            if (sensor["Collided"]) {
+                Draw.SetBlendColor(0xFF0000, 1.0);
+                this.DrawArrow(sensor["X"], sensor["Y"], sensor["Angle"], 8);
+            }
+        }
+        if (sensor = TileCollision.Line(mouseX, mouseY, SensorDirection_Right, 64, this.PlaneIndex, -1)) {
+            if (sensor["Collided"]) {
+                Draw.SetBlendColor(0x00FF00, 1.0);
+                this.DrawArrow(sensor["X"], sensor["Y"], sensor["Angle"], 8);
+            }
+        }
+    }
+}

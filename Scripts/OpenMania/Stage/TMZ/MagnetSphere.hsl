@@ -1,0 +1,162 @@
+class MagnetSphere {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Sprite = Resources.LoadSprite("Sprites/TMZ1/MagnetSphere.bin", SCOPE_SCENE);
+        this.SFX_Bumper3 = Resources.LoadSound("SoundFX/Stage/Bumper3.wav", SCOPE_SCENE);
+        this.SFX_PlasmaBall = Resources.LoadSound("SoundFX/TMZ1/PlasmaBall.wav", SCOPE_SCENE);
+
+        this.Priority = DrawGroup_FGHigh_High;
+
+        this.FlipFlag = 0;
+        this.Type = 0;
+        this.Size = 0;
+        this.Reverse = false;
+        this.Destructible = false;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("size"))
+            this.Size = this.PropertyGet("size");
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+        if (this.PropertyExists("reverse"))
+            this.Reverse = this.PropertyGet("reverse");
+        if (this.PropertyExists("destructible"))
+            this.Destructible = this.PropertyGet("destructible");
+
+        this.HitboxW = 56.0;
+        this.HitboxH = 56.0;
+
+        this.UpdateRegionW = 64.0 * 2.0;
+        this.UpdateRegionH = 64.0 * 2.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+
+        this.PlayersGrabbed = 0;
+        this.PlayerTimer = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.PlayerZAngle = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.PlayerOrbitAngle = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+
+        this.SetAnimation(2, 0);
+    }
+    event Update() {
+        var magnetSphere = this, player, indexFlag, index = -1;
+        with ("Player") {
+            player = this;
+            indexFlag = 1 << (index + 1);
+            index++;
+
+            if (magnetSphere.PlayersGrabbed & indexFlag) {
+                if (player.Status != player.Player_StatusNone) {
+                    magnetSphere.PlayerTimer[index] = 30;
+                    magnetSphere.PlayersGrabbed &= ~indexFlag;
+                    if (player.Status != player.Player_StatusDead)
+                        player.UseGroundSpeed = true;
+                }
+                else {
+                    var zangle = magnetSphere.PlayerZAngle[index];
+                    if (player.InputJumpPressed) {
+                        var orbitAngle = magnetSphere.PlayerOrbitAngle[index];
+                        var angle = (magnetSphere.PlayerZAngle[index] + 0x8) & 0xF0;
+
+                        var angle1 = Static.HexSin(orbitAngle & 0xE0) * 12.0;
+
+                        player.XSpeed =  (angle1 * Static.HexSin(angle));
+                        player.YSpeed = -(angle1 * Static.HexCos(angle));
+                        player.JumpAbility = 0;
+                        player.MidAirFlag = 1;
+                        player.UseGroundSpeed = true;
+                        player.Status = player.Player_StatusJumping;
+                        magnetSphere.PlayerTimer[index] = 30;
+                        magnetSphere.PlayersGrabbed &= ~indexFlag;
+                        Sound.Play(player.SFX_Jump);
+                    }
+                    else {
+                        if (player.InputLeft) {
+                            magnetSphere.PlayerZAngle[index] = ((zangle + 0x100 - 1) & 0xFF);
+                        }
+                        else if (player.InputRight) {
+                            magnetSphere.PlayerZAngle[index] = ((zangle + 0x100 + 1) & 0xFF);
+                        }
+
+                        magnetSphere.MagnetSphere_MovePlayer(player, index);
+                    }
+                }
+            }
+            else {
+                if (magnetSphere.PlayerTimer[index] > 0) {
+                    magnetSphere.PlayerTimer[index]--;
+                }
+                else if (player.Status != player.Player_StatusNone && Static.GameObject_TestCollide(player, magnetSphere)) {
+                    var entryAngle = Number.AsInteger(((-Math.Direction(player.X, player.Y, magnetSphere.X, magnetSphere.Y) * 128.0 / Math_PI) + 0x100) & 0xFF);
+                    if (entryAngle >= 0x80) {
+                        magnetSphere.PlayerOrbitAngle[index] = 0x80;
+                        entryAngle = (entryAngle + 0x80) & 0xFF;
+                    }
+                    else {
+                        magnetSphere.PlayerOrbitAngle[index] = 0;
+                    }
+                    magnetSphere.PlayerZAngle[index] = entryAngle + 64;
+
+                    player.XSpeed = 0.0;
+                    player.YSpeed = 0.0;
+                    player.GroundSpeed = 0.0;
+                    player.SetAnimation(10, 0);
+
+                    player.Ground = false;
+                    player.UseGroundSpeed = false;
+                    player.Status = player.Player_StatusNone;
+                    player.LateUpdateAirStatus = null;
+                    player.LateUpdateGroundStatus = null;
+
+                    magnetSphere.PlayersGrabbed |= indexFlag;
+                }
+            }
+        }
+    }
+
+    event MagnetSphere_MovePlayer(player, index) {
+        var magnetSphere = this;
+        var orbitAngle = magnetSphere.PlayerOrbitAngle[index];
+
+        var angle = this.PlayerZAngle[index];
+
+        var angle1 = Static.HexCos(orbitAngle) * 56;
+        player.XSpeed = -Static.HexSin(angle);
+        player.YSpeed =  Static.HexCos(angle);
+        player.X = magnetSphere.X - (angle1 * Static.HexSin(angle));
+        player.Y = magnetSphere.Y + (angle1 * Static.HexCos(angle));
+        if (orbitAngle >= 0x80) {
+            player.Priority = DrawGroup_AboveTiles;
+        }
+        else {
+            player.Priority = DrawGroup_FGLow_High;
+            player.XSpeed = -player.XSpeed;
+            player.YSpeed = -player.YSpeed;
+        }
+
+        magnetSphere.PlayerOrbitAngle[index] = (orbitAngle + 4) & 0xFF;
+        if ( ((magnetSphere.PlayerOrbitAngle[index] + 64) & 0x80) != ((orbitAngle + 64) & 0x80) && !player.IsSubPlayer)
+            Sound.Play(magnetSphere.SFX_PlasmaBall);
+    }
+
+    event Render() {
+        var sprite = this.Sprite;
+        var x = Math.Floor(this.X),
+            y = Math.Floor(this.Y);
+
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendMode(BlendMode_SUBTRACT);
+        Draw.Sprite(sprite, 0, 0, x, y, false, false);
+        Draw.SetBlendMode(BlendMode_ADD);
+        Draw.Sprite(sprite, 1, (Scene_Frame >> 1) & 15, x, y, false, false);
+        Draw.Sprite(sprite, 1, ((Scene_Frame >> 1) + 8) & 15, x, y, true, true);
+        Draw.Sprite(sprite, 0, 1, x, y, false, false);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+        Draw.Sprite(sprite, this.CurrentAnimation, this.CurrentFrame, x, y, false, false);
+        Draw.SetTextureBlend(false);
+    }
+}

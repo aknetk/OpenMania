@@ -1,0 +1,138 @@
+class LightBulb {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/MSZ/LightBulb.bin", SCOPE_GAME);
+        this.ItemBoxSprite = Resources.LoadSprite("Sprites/Global/ItemBox.bin", SCOPE_GAME);
+        this.SFX_BulbPop = Resources.LoadSound("SoundFX/Stage/BulbPop.wav", SCOPE_GAME);
+        this.Status = null;
+
+        // Setup
+        this.Visible = true;
+        this.Respawn = 0;
+        this.PriorityFlag = 0;
+        this.Status = this.Pinata_Status_Normal;
+        if (this.PropertyExists("respawn"))
+            this.Respawn = this.PropertyGet("respawn");
+        if (this.PropertyExists("priority"))
+            this.PriorityFlag = this.PropertyGet("priority");
+
+        if (this.PriorityFlag)
+            this.Priority = DrawGroup_FGLow_Low;
+        else
+            this.Priority = DrawGroup_FGHigh_High;
+
+        // Initial Status
+        this.SetAnimation(0, 0);
+        this.HitboxW = this.HitboxH = 24.0; // Might be 24.0 for LightBulb
+
+        this.UpdateRegionW = this.UpdateRegionH = 48.0;
+
+        this.RenderRegionW =
+        this.RenderRegionH = 48.0;
+    }
+
+    event Pinata_Status_Normal() {
+        var enti;
+        if (this.CollidedWithObject("Player")) {
+            // Hurt
+            if (other.CurrentAnimation == 18)
+                return;
+
+            Sound.Play(this.SFX_BulbPop);
+
+            var playerStatus = other.Status;
+            if (playerStatus != other.Player_StatusMighty_HammerDrop) {
+                if (playerStatus == other.Player_StatusHangingFromTails && other.TailsPtr) {
+                    other.TailsPtr.TailsGrabTimer = 30;
+                }
+
+                var playerAnim = other.CurrentAnimation;
+                if (playerAnim != 48 && playerAnim != 51) {
+                    if (playerStatus != other.Player_StatusTails_Flying) {
+                        if (playerStatus != other.Player_StatusSonic_DropDash) {
+                            other.Status = other.Player_StatusJumping;
+                        }
+                        if (playerAnim != 10 && playerAnim != 7 && playerAnim != 8 && playerAnim != 9) {
+                            other.SetAnimation(5, 0);
+                        }
+                    }
+                }
+
+                if (other.CurrentAnimation != 48)
+                    other.JumpAbility = 0;
+
+                if (other.YSpeed > -8.0)
+                    other.YSpeed = -8.0;
+
+                other.Ground = false;
+                other.UseGroundSpeed = true;
+            }
+
+            // Spawn ScoreBonus
+            enti = Instance.Create("ScoreBonus", this.X, this.Y);
+            enti.Priority = this.Priority + 1;
+            enti.ResetAnimation(0, 16);
+            other.GainScore(10); // This needs to spawn a Score thing too
+
+            // Spawn Explosion
+            enti = Instance.Create("Explosion", this.X, this.Y - 16.0);
+            enti.Priority = this.Priority;
+            enti.ResetAnimation(3, 0);
+
+            // Spawn Debris
+            for (var i = 0; i < 6 * 2; i++) {
+                enti = Instance.Create("Debris", this.X + Math.RandomRange(-8.0, 8.0), this.Y + Math.RandomRange(-8.0, 8.0));
+                // enti.Status = null;
+                enti.Gravity = 0.25;
+                enti.XSpeed = Math.RandomMax(2.0);
+                if (enti.X < this.X)
+                    enti.XSpeed = -enti.XSpeed;
+                enti.YSpeed = Math.RandomRange(-4.0, -1.0);
+                enti.Priority = this.Priority;
+                enti.Sprite = this.ItemBoxSprite;
+                // NOTE: Mania just uses the first confetti, the orange one
+                enti.ResetAnimation(6, Number.AsInteger(Math.RandomMax(4) * 2));
+            }
+
+            this.Status = this.Pinata_Status_WaitingForOffscreen;
+            this.Visible = false;
+            this.UpdateRegionW = this.UpdateRegionH = 0.0;
+        }
+    }
+    event Pinata_Status_WaitingForOffscreen() {
+        if (!this.InView(0, this.X - 128.0, this.Y - 128.0, 256.0, 256.0)) {
+            this.Status = this.Pinata_Status_Normal;
+            this.Visible = true;
+            this.UpdateRegionW = this.UpdateRegionH = 48.0;
+        }
+    }
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+
+    event Render() {
+        if (!this.Visible)
+            return;
+
+        var x = Math.Floor(this.X), y = Math.Floor(this.Y);
+
+        Draw.Sprite(this.Sprite, 0, 0, x, y, false, false);
+        Draw.Sprite(this.Sprite, 0, 1, x, y, false, false);
+        Draw.SetBlendMode(BlendMode_ADD);
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendColor(1.0, 1.0, 1.0, Static.HexSin(Scene_Frame << 2) * 0.25 + 0.75);
+        Draw.Sprite(this.Sprite, 0, 2, x, y, false, false);
+        Draw.SetBlendColor(1.0, 1.0, 1.0, 1.0);
+        Draw.SetTextureBlend(false);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+
+        // LightBulb is layered as:
+        // 0, then 1, then 2 as an additive blended sin wave alpha
+    }
+}

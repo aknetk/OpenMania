@@ -1,0 +1,180 @@
+class ForceSpin {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Priority = DrawGroup_FGLow_Low;
+
+        this.Angle = 0;
+        this.Direction = 0;
+        this.Size = 0;
+        if (this.PropertyExists("angle"))
+            this.Angle = this.PropertyGet("angle");
+        if (this.PropertyExists("direction"))
+            this.Direction = this.PropertyGet("direction");
+        if (this.PropertyExists("size"))
+            this.Size = 16.0 * this.PropertyGet("size");
+
+        // NOTE: Tiled Support
+        if (this.PropertyExists("Height")) {
+            this.Size = this.PropertyGet("Height");
+        }
+        if (this.PropertyExists("Rotation")) {
+            this.Angle = (this.Angle + 0x100 - Number.AsInteger(this.PropertyGet("Rotation") * 128 / 180)) & 0xFF;
+        }
+
+        this.PlaneSprite = Resources.LoadSprite("Sprites/Global/PlaneSwitch.bin", SCOPE_SCENE);
+
+        // Set hitbox
+        if (this.Angle == 0) {
+            this.HitboxW = 32.0;
+            this.HitboxH = this.Size;
+        }
+        else {
+            var anX;
+            var anY;
+            var minX = 0.0;
+            var maxX = 0.0;
+            var minY = 0.0;
+            var maxY = 0.0;
+            var sizeMult = this.Size / -8.0;
+            var sinVal = Static.HexSin(this.Angle) * 16.0;
+            var cosVal = Static.HexCos(this.Angle) * 16.0;
+            anX = sizeMult * sinVal - cosVal;
+            anY = sizeMult * cosVal + sinVal;
+            minX = Math.Min(minX, anX); minY = Math.Min(minY, anY);
+            maxX = Math.Max(maxX, anX); maxY = Math.Max(maxY, anY);
+            minX = Math.Min(minX, -anX); minY = Math.Min(minY, -anY);
+            maxX = Math.Max(maxX, -anX); maxY = Math.Max(maxY, -anY);
+            anX = sizeMult * sinVal + cosVal;
+            anY = sizeMult * cosVal - sinVal;
+            minX = Math.Min(minX, anX); minY = Math.Min(minY, anY);
+            maxX = Math.Max(maxX, anX); maxY = Math.Max(maxY, anY);
+            minX = Math.Min(minX, -anX); minY = Math.Min(minY, -anY);
+            maxX = Math.Max(maxX, -anX); maxY = Math.Max(maxY, -anY);
+
+            this.HitboxW = maxX - minX;
+            this.HitboxH = maxY - minY;
+        }
+
+        this.HitboxHalfW = this.HitboxW / 2.0;
+        this.HitboxHalfH = this.HitboxH / 2.0;
+
+        this.UpdateRegionW = this.HitboxW;
+        this.UpdateRegionH = this.HitboxH;
+
+        this.CosVal = Static.HexCos(this.Angle);
+        this.SinVal = Static.HexSin(this.Angle);
+        this.RCosVal = Static.HexCos(-this.Angle + 0x100);
+        this.RSinVal = Static.HexSin(-this.Angle + 0x100);
+
+        this.Visible = false;
+    }
+    event Update() {
+        var direction = this.Direction;
+
+        var spinLock = this, player;
+        with ("Player") {
+            player = this;
+            if (player.KillFlag)
+                continue;
+
+            var playerStatus = player.Status;
+            // TODO:
+            if (playerStatus == player.Player_StatusDead ||
+                playerStatus == player.Player_StatusDrown ||
+                playerStatus == player.Player_StatusFlyingIn ||
+                playerStatus == player.Player_StatusJumpingIn ||
+                playerStatus == player.Player_StatusTransforming) {
+                continue;
+            }
+
+            var relX = player.X - spinLock.X;
+            var relY = player.Y - spinLock.Y;
+
+            if (Math.Abs(relX) > spinLock.HitboxHalfW)
+                continue;
+            if (Math.Abs(relY) > spinLock.HitboxHalfH)
+                continue;
+
+            var cos = spinLock.RCosVal;
+            var sin = spinLock.RSinVal;
+
+            var projectedX = relY * sin + relX * cos;
+            var projectedY = relY * cos - relX * sin;
+
+            if (Math.Abs(projectedX) >= 24.0)
+                continue;
+            if (Math.Abs(projectedY) >= spinLock.Size * 0.5)
+                continue;
+
+            if (projectedX >= 0.0) {
+                if (direction) {
+                    if (playerStatus == player.Player_StatusRoll_WithInputLock ||
+                        playerStatus == player.Player_StatusJumping_WithInputLock) {
+                        if (player.Ground)
+                            player.Status = player.Player_StatusRoll;
+                        else
+                            player.Status = player.Player_StatusJumping;
+                        player.LateUpdateGroundStatus = null;
+                        player.LateUpdateAirStatus = null;
+                    }
+                    continue;
+                }
+                else {
+                    if (playerStatus != player.Player_StatusRoll_WithInputLock &&
+                        playerStatus != player.Player_StatusJumping_WithInputLock) {
+                        player.Player_DoRollWithInputLock();
+                    }
+                }
+            }
+            else {
+                if (!direction) {
+                    if (playerStatus == player.Player_StatusRoll_WithInputLock ||
+                        playerStatus == player.Player_StatusJumping_WithInputLock) {
+                        if (player.Ground)
+                            player.Status = player.Player_StatusRoll;
+                        else
+                            player.Status = player.Player_StatusJumping;
+                        player.LateUpdateGroundStatus = null;
+                        player.LateUpdateAirStatus = null;
+                    }
+                    continue;
+                }
+                else {
+                    player.Player_DoRollWithInputLock();
+                }
+            }
+        }
+    }
+    event Render() {
+        if (!this.Visible)
+            return;
+        if (!this.OnScreen)
+            return;
+
+        var cos = this.CosVal;
+        var sin = this.SinVal;
+        var cos16 = cos * 16.0;
+        var sin16 = sin * 16.0;
+
+        var sx = Math.Floor(this.X), sy = Math.Floor(this.Y);
+        var x, y, frame, tempX, tempY;
+
+        // Path
+        x = sx;
+        y = sy - this.Size / 2.0;
+
+        tempX = y * sin + x * cos;
+        tempY = y * cos - x * sin;
+        x = tempX; y = tempY;
+
+        for (var i = 0.0; i < this.Size; i += 16.0) {
+            Draw.Sprite(this.PlaneSprite, 0, 4, x, y, false, false);
+            x += sin16;
+            y += cos16;
+        }
+    }
+}

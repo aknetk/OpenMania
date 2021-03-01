@@ -1,0 +1,8 @@
+class PlatformNode {
+    Create(flag) {
+        // Setup
+        this.NodeFlag = 0;
+        if (this.PropertyExists("nodeFlag"))
+            this.NodeFlag = this.PropertyGet("nodeFlag");
+    }
+}

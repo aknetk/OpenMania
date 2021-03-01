@@ -1,0 +1,129 @@
+var LavaFall_AnyLavaOnScreen = false;
+var LavaFall_SoundActive = false;
+class LavaFall {
+    Load() {
+        this.Status = null;
+        this.Interval = 0;
+        this.IntervalOffset = 0;
+        this.Duration = 0;
+        this.Timer = 0;
+        this.DumpTimer = 0;
+
+        if (this.FirstInstance = (Instance.GetNth("LavaFall", 0) == this)) {
+            LavaFall_AnyLavaOnScreen = false;
+            LavaFall_SoundActive = false;
+        }
+
+        this.HitboxW = this.HitboxH = 64.0;
+        this.Sprite = Resources.LoadSprite("Sprites/LRZ1/LavaFall.bin", SCOPE_SCENE);
+        this.SFX_Pulley = Resources.LoadSound("SoundFX/Stage/Pulley.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        if (this.PropertyExists("interval"))
+            this.Interval = this.PropertyGet("interval");
+        if (this.PropertyExists("intervalOffset"))
+            this.IntervalOffset = this.PropertyGet("intervalOffset");
+        if (this.PropertyExists("duration"))
+            this.Duration = this.PropertyGet("duration");
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        
+        this.Priority = DrawGroup_FGLow_Low;
+        this.UpdateRegionW = 256.0;
+        this.UpdateRegionH = 512.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+        if (flag) {
+            this.UpdateRegionW = this.UpdateRegionH = 0.0;
+
+            this.ResetAnimation(0, 0);
+
+            this.Status = this.LavaFall_Status_Falling;
+        }
+        else {
+            this.Status = this.LavaFall_Status_Wait;
+
+            this.Sprite = -1;
+        }
+    }
+    UpdateEarly() {
+        if (!this.FirstInstance)
+            return;
+
+        if (LavaFall_AnyLavaOnScreen) {
+            if (!LavaFall_SoundActive) {
+                Sound.Loop(this.SFX_Lava); // 81870 sample loop point
+                LavaFall_SoundActive = true;
+            }
+            LavaFall_AnyLavaOnScreen = false;
+        }
+        else if (LavaFall_SoundActive) {
+            Sound.Stop(this.SFX_Lava);
+            LavaFall_SoundActive = false;
+        }
+    }
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+
+    LavaFall_Status_Wait() {
+        if ((Scene_Frame + this.IntervalOffset) % this.Interval == 0) {
+            this.UpdateRegionW = this.UpdateRegionH = 0.0;
+            this.Timer = this.Duration;
+            this.Status = this.LavaFall_Status_Dumping;
+        }
+    }
+    LavaFall_Status_Dumping() {
+        if (this.Timer-- <= 1) {
+            if (this.Interval == 0) {
+                this.Active = false;
+                return;
+            }
+            this.UpdateRegionW = 256.0;
+            this.UpdateRegionH = 512.0;
+            this.Status = this.LavaFall_Status_Wait;
+        }
+
+        LavaFall_AnyLavaOnScreen = true;
+        if (this.DumpTimer++ == 7) {
+            this.DumpTimer = 0;
+            Instance.Create("LavaFall", this.X, this.Y, 1);
+        }
+    }
+    LavaFall_Status_Falling() {
+        this.Y += 7.0;
+
+        var player, lavaFall = this;
+        with ("Player") {
+            player = this;
+
+            if (Static.GameObject_TestCollide(player, lavaFall)) {
+                if (player.Shield != 3) {
+                    var playerStatus = player.Status;
+                    if (playerStatus != player.Player_StatusHurt &&
+                        playerStatus != player.Player_StatusDead &&
+                        playerStatus != player.Player_StatusDrown &&
+                        player.Invincibility == 0 &&
+                        player.InvincibilityTimer == 0) {
+                        player.GetHurt(lavaFall.X);
+                    }
+                }
+            }
+        }
+
+        if (Static.Entity_IsOnScreen(this, 64.0, 64.0))
+            LavaFall_AnyLavaOnScreen = true;
+
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH))
+            this.Active = false;
+    }
+    Render() {
+        if (this.Sprite > -1)
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+    }
+}

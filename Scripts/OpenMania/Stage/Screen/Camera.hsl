@@ -1,0 +1,296 @@
+class Camera {
+    event Create() {
+        this.LastX = this.X;
+        this.LastY = this.Y;
+        this.PlayerInAir = false;
+        this.SetOnJump = 0.0;
+        this.Status = null;
+        this.PlayerPtr = null;
+        this.DestinationOffsetX = 0.0;
+        this.DestinationOffsetY = 0.0;
+        this.MinFollowDistanceX = 8.0;
+        this.OffsetX = 0.0;
+        this.OffsetY = 0.0;
+        this.ShakeX = 0; // These need to be integers
+        this.ShakeY = 0; // These need to be integers
+        this.ClampedShakenX = this.X;
+        this.ClampedShakenY = this.Y;
+        this.ViewIndex = 0;
+
+        this.CustomViewHeightHalf = 104.0; // 0x68
+
+        this.LevelWidth = Scene.GetWidth() * 16.0;
+        this.LevelHeight = Scene.GetHeight() * 16.0;
+
+        this.Status = this.Camera_StatusNormal;
+
+        this.BoundPanningSpeedX = 2.0;
+        this.BoundPanningSpeedY = 2.0;
+
+        this.MaxCameraXSpeed = 16.0;
+        this.MaxCameraYSpeed = 24.0;
+
+        this.MinX = 0.0;
+        this.MinY = 0.0;
+        this.MaxX = this.LevelWidth;
+        this.MaxY = this.LevelHeight;
+        this.ToMinX = 0.0;
+        this.ToMinY = 0.0;
+        this.ToMaxX = this.LevelWidth;
+        this.ToMaxY = this.LevelHeight;
+
+        this.Camera_Unk_0x9C = 0.0;
+    }
+
+    event UpdateLate() {
+        this.LastX = this.X;
+        this.LastY = this.Y;
+
+        if (this.Status)
+            this.Status();
+
+        this.XSpeed = this.X - this.LastX;
+        this.YSpeed = this.Y - this.LastY;
+
+        this.MoveViewPosition();
+
+        var shake = this.ShakeX;
+        if (shake) {
+            if (shake <= 0)
+                this.ShakeX = -shake - 1;
+            else
+                this.ShakeX = -shake;
+        }
+
+        shake = this.ShakeY;
+        if (shake) {
+            if (shake <= 0)
+                this.ShakeY = -shake - 1;
+            else
+                this.ShakeY = -shake;
+        }
+
+        if (!this.PlayerInAir) {
+            var v4 = this.SetOnJump - this.SetOnJump / 8.0;
+            if (v4 < 0.0)
+                v4 = 0.0;
+            this.SetOnJump = v4;
+        }
+    }
+
+    event Camera_MoveBoundsX() {
+        var minX, maxX, toMinX, toMaxX;
+        var xspeed = this.XSpeed;
+        var viewIndex = this.ViewIndex;
+        var zone = Instance.GetNth("Zone", 0);
+        if (!zone) return;
+
+        toMinX = zone.CameraMinX[viewIndex];
+        toMaxX = zone.CameraMaxX[viewIndex];
+
+        minX = this.MinX;
+        if (toMinX > minX) {
+            var viewX = CameraX;
+            if (viewX > toMinX)
+                viewX = toMinX;
+            this.MinX = viewX;
+        }
+
+        minX = this.MinX;
+        if (toMinX < minX) {
+            if (CameraX <= minX) {
+                this.MinX = minX - this.BoundPanningSpeedX;
+                if (xspeed < 0.0) {
+                    this.MinX += xspeed;
+                    if (this.MinX < toMinX)
+                        this.MinX = toMinX;
+                }
+            }
+            else {
+                this.MinX = toMinX;
+            }
+        }
+
+        maxX = this.MaxX;
+        if (toMaxX < maxX) {
+            var viewX = CameraX + View.GetWidth(0);
+            if (viewX < toMaxX)
+                viewX = toMaxX;
+            this.MaxX = viewX;
+        }
+
+        maxX = this.MaxX;
+        if (toMaxX > maxX) {
+            if (CameraX + View.GetWidth(0) >= maxX) {
+                this.MaxX = maxX + this.BoundPanningSpeedX;
+                if (xspeed > 0.0) {
+                    this.MaxX += xspeed;
+                    if (this.MaxX > toMaxX)
+                        this.MaxX = toMaxX;
+                }
+            }
+            else {
+                this.MaxX = toMaxX;
+            }
+        }
+
+        zone.MinPlayerX[viewIndex] = this.MinX;
+        zone.MaxPlayerX[viewIndex] = this.MaxX;
+    }
+    event Camera_MoveBoundsY() {
+        var minY, maxY, toMinY, toMaxY;
+        var yspeed = this.YSpeed;
+        var viewIndex = this.ViewIndex;
+        var zone = Instance.GetNth("Zone", 0);
+        if (!zone) return;
+
+        toMinY = zone.CameraMinY[viewIndex];
+        toMaxY = zone.CameraMaxY[viewIndex];
+
+        minY = this.MinY;
+        if (toMinY > minY) {
+            var viewY = CameraY;
+            if (viewY <= minY)
+                viewY = minY + this.BoundPanningSpeedY;
+            this.MinY = viewY;
+        }
+
+        minY = this.MinY;
+        if (toMinY < minY) {
+            if (CameraY <= minY) {
+                this.MinY = minY - this.BoundPanningSpeedY;
+                if (yspeed < 0.0) {
+                    this.MaxY += yspeed;
+                    if (this.MaxY < toMaxY)
+                        this.MaxY = toMaxY;
+                }
+            }
+            else {
+                this.MinY = toMinY;
+            }
+        }
+
+        maxY = this.MaxY;
+        if (toMaxY < maxY) {
+            var viewY = CameraY + View.GetHeight(0);
+            if (viewY >= maxY)
+                viewY = maxY - 2; // - this.BoundPanningSpeedY;
+            this.MaxY = viewY;
+        }
+
+        maxY = this.MaxY;
+        if (toMaxY > maxY) {
+            if (CameraY + View.GetHeight(0) >= maxY) {
+                this.MaxY = maxY + 2; // + this.BoundPanningSpeedY;
+                if (yspeed > 0.0) {
+                    this.MaxY += yspeed;
+                    if (this.MaxY > toMaxY)
+                        this.MaxY = toMaxY;
+                }
+            }
+            else {
+                this.MaxY = toMaxY;
+            }
+        }
+
+        zone.MinPlayerY[viewIndex] = this.MinY;
+        zone.MaxPlayerY[viewIndex] = this.MaxY;
+    }
+    event MoveViewPosition() {
+        var viewIndex = 0;
+        var width = View.GetWidth(viewIndex);
+        var height = View.GetHeight(viewIndex);
+        var widthHalf = width * 0.5;
+        var heightHalf = height * 0.5;
+        var finalX = this.X + this.OffsetX - widthHalf;
+        var finalY = this.Y + this.OffsetY - this.CustomViewHeightHalf;
+
+        finalX = Math.Clamp(finalX, this.MinX, this.MaxX - width);
+        finalY = Math.Clamp(finalY, this.MinY, this.MaxY - height);
+
+        // In Mania, shake position is incorrectly added here, not clamping it afterwards.
+        // Let's at least clamp it.
+
+        finalX += this.ShakeX;
+        finalY += this.ShakeY;
+        finalX = Math.Clamp(finalX, 0.0, this.LevelWidth - width);
+        finalY = Math.Clamp(finalY, 0.0, this.LevelHeight - height);
+        this.ClampedShakenX = finalX + widthHalf;
+        this.ClampedShakenY = finalY + heightHalf;
+
+        CameraX = finalX;
+        CameraY = finalY;
+    }
+
+    event HandleHoriMove() {
+        var player = this.PlayerPtr;
+        if (!player)
+            return;
+
+        this.Camera_MoveBoundsX();
+
+        var offsetX;
+        var initialX = this.X;
+        var playerX = player.X + this.DestinationOffsetX;
+        var minFollowDistanceX = this.MinFollowDistanceX;
+        var maxCameraXSpeed = this.MaxCameraXSpeed;
+
+        if (playerX <= initialX + minFollowDistanceX) {
+            if (playerX < initialX - minFollowDistanceX) {
+                offsetX = playerX + minFollowDistanceX - initialX;
+                if (offsetX < -maxCameraXSpeed)
+                    offsetX = -maxCameraXSpeed;
+                this.X = initialX + offsetX;
+            }
+        }
+        else {
+            offsetX = playerX - minFollowDistanceX - initialX;
+            if (offsetX > maxCameraXSpeed)
+                offsetX = maxCameraXSpeed;
+            this.X = initialX + offsetX;
+        }
+    }
+    event HandleVertMove() {
+        var player = this.PlayerPtr;
+        if (!player)
+            return;
+
+        this.Camera_MoveBoundsY();
+
+        var offsetY = this.SetOnJump;
+        var initialY = this.Y;
+        var playerY = player.Y + this.DestinationOffsetY - 0.0 - this.Camera_Unk_0x9C;
+        var maxCameraYSpeed = this.MaxCameraYSpeed;
+
+        if (playerY <= initialY + offsetY) {
+            if (playerY < initialY - offsetY) {
+                offsetY = playerY + offsetY - initialY;
+                if (offsetY < -maxCameraYSpeed)
+                    offsetY = -maxCameraYSpeed;
+                this.Y = initialY + offsetY;
+            }
+        }
+        else {
+            offsetY = playerY - offsetY - initialY;
+            if (offsetY > maxCameraYSpeed)
+                offsetY = maxCameraYSpeed;
+            this.Y = initialY + offsetY;
+        }
+    }
+
+    event SetShake(x, y) {
+        this.ShakeX = x;
+        this.ShakeY = y;
+    }
+
+    event Camera_StatusNormal() {
+        this.HandleHoriMove();
+        this.HandleVertMove();
+    }
+    event Camera_StatusVerticalMove() {
+        this.HandleVertMove();
+    }
+    event Camera_StatusHorizontalMove() {
+        this.HandleHoriMove();
+    }
+}

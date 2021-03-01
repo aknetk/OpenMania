@@ -1,0 +1,324 @@
+// NOTE: I don't know the speeds for each animal type so I'm just putting something here
+var Animals_XSpeeds = [
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+];
+var Animals_YSpeeds = [
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+    -4.0,
+];
+var Animals_Gravities = [
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+    0.21875,
+];
+
+class Animals {
+    event Create(flag) {
+        /*
+        Property: type    Type: int32
+        Property: behaviour    Type: int32
+        */
+
+        // ZeroInit
+        this.Status = null;
+        this.Type = 0;
+        this.Behavior = 0;
+        this.FlipFlag = 0;
+        this.Timer = 0;
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.HitboxW = 8.0;
+        this.HitboxH = 16.0;
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Animals.bin", SCOPE_GAME);
+
+        // Setup
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("behaviour"))
+            this.Behavior = this.PropertyGet("behaviour");
+
+        // Behavior Values:
+        // 0: Run to off-screen and despawn
+        // 1: Frolic around player
+        // 2: Frolic randomly
+
+        // Create
+        if (this.Behavior == 2)
+            this.UpdateRegionW = this.UpdateRegionH = 64.0 * 2.0;
+        else
+            this.UpdateRegionW = this.UpdateRegionH = 0.0;
+
+        this.Priority = DrawGroup_FGLow_Low;
+
+        var typeFlag = flag;
+        if (typeFlag || !this.Type && Number.AsInteger(Math.RandomRange(0, 256)) == 21) {
+            if (!typeFlag)
+                typeFlag = 2;
+            this.YSpeed = -4.0;
+            this.Type = typeFlag - 1;
+            this.Status = this.Animals_Status_Falling;
+            this.HitboxW = 8.0;
+            this.HitboxH = 16.0;
+            this.SetAnimation(2 * this.Type, 0);
+            return;
+        }
+
+        if (this.Behavior == 1) {
+            this.UpdateRegionW = this.UpdateRegionH = 64.0 * 2.0;
+            this.DoFirstJumpAndSetStatuses();
+        }
+        else {
+            this.Status = this.Animals_Status_Timered;
+        }
+        this.RenderRegionW = this.RenderRegionH = 64.0;
+    }
+
+    // CUSTOM: Repetitive code placed into a function
+    event DoFirstJumpAndSetStatuses() {
+        switch (this.Type) {
+            case 0:  // Flicky
+            case 5:  // Cucky
+            case 8:  // Locky
+                this.Status = this.Animals_Status_TypeBird;
+                break;
+            case 1:  // Ricky
+            case 2:  // Pocky
+            case 3:  // Pecky
+            case 4:  // Picky
+            case 6:  // Rocky
+            case 7:  // Becky
+            case 9:  // Tocky
+            case 10: // Wocky
+            case 11: // Micky
+                this.Status = this.Animals_Status_TypeNonBird;
+                break;
+            default:
+                break;
+        }
+
+        this.Animals_DetermineDirection();
+
+        this.YSpeed = Animals_YSpeeds[this.Type];
+        this.SetAnimation(2 * this.Type + 1, 0);
+    }
+
+    event Animals_DetermineDirection() {
+        // Find first player
+        var player = null;
+        with ("Player") {
+            player = this;
+            if (!player.IsSubPlayer)
+                break;
+        }
+
+
+        switch (this.Behavior) {
+            // Face player
+            case 1:
+                if (!player)
+                    this.FlipFlag = 0;
+                else if (this.X < player.X)
+                    this.FlipFlag = 0;
+                else
+                    this.FlipFlag = 1;
+                break;
+            // Random Facing
+            case 2:
+                this.FlipFlag = Math.RandomRange(0, 2);
+                break;
+            default:
+                this.FlipFlag = 1;
+                break;
+        }
+
+        var speed = Animals_XSpeeds[this.Type];
+        if (!this.FlipFlag)
+            speed = -speed;
+        this.XSpeed = speed;
+    }
+    event Animals_Status_TypeBird() {
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+        this.YSpeed += Animals_Gravities[this.Type];
+
+        if (this.Animals_IsTouchingGround()) {
+            this.Animals_DetermineDirection();
+            this.YSpeed = Animals_YSpeeds[this.Type];
+        }
+        this.Animate();
+    }
+    event Animals_Status_TypeNonBird() {
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+        this.YSpeed += Animals_Gravities[this.Type];
+
+        if (this.Animals_IsTouchingGround()) {
+            this.Animals_DetermineDirection();
+            this.YSpeed = Animals_YSpeeds[this.Type];
+        }
+        this.CurrentFrame = this.YSpeed < 0.0;
+    }
+    event Animals_Status_Falling() {
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+        this.YSpeed += 0.21875;
+        this.Animate();
+
+        if (this.Animals_IsTouchingGround()) {
+            this.DoFirstJumpAndSetStatuses();
+        }
+    }
+    event Animals_Status_Timered() {
+        var timer = this.Timer;
+        if (timer <= 0)
+            this.Status = this.Animals_Status_Falling;
+        else
+            this.Timer = timer - 1;
+    }
+    event Animals_IsTouchingGround() {
+        if (this.YSpeed < 0.0)
+            return false;
+        if (Static.Entity_CheckTileCollision(this, 0x0000, 0, 0, 0.0, this.HitboxH * 0.5, false))
+            return true;
+
+        var animal = this,
+            platform,
+            collided = false;
+        with ("Platform") {
+            platform = this;
+            if (collided = animal.Animals_CheckPlatformCollide(platform))
+                break;
+        }
+        if (collided)
+            return true;
+
+        collided = false;
+
+        var bridge;
+        with ("Bridge") {
+            bridge = this;
+            var animalX = animal.X;
+            var animalY = animal.Y;
+            var bridgeMinX = bridge.MinX;
+            var bridgeMaxX = bridge.MaxX;
+            if (animal.YSpeed >= 0.0 && animalX >= bridgeMinX && animalX < bridgeMaxX) {
+                var len;
+                var playerRelX = Number.AsInteger(bridge.PlayerRelativeX);
+                var animalRelX = Number.AsInteger(animalX - bridgeMinX);
+                if (animalRelX <= playerRelX) {
+                    len = animalRelX << 7;
+                }
+                else {
+                    len = Number.AsInteger(bridgeMaxX - animalX) << 7;
+                    playerRelX = Number.AsInteger(bridgeMaxX - bridgeMinX - bridge.PlayerRelativeX);
+                }
+
+                if (playerRelX == 0)
+                    playerRelX++;
+
+                var animalTop = animalY - animal.HitboxH * 0.5 + animal.HitboxOffY;
+                var animalBottom = animalY + animal.HitboxH * 0.5 + animal.HitboxOffY;
+
+                var bridgeTop = bridge.Y + this.MaxDepression * Static.HexSinMedPrec(len / playerRelX);
+                var bridgeBottom = bridgeTop + 8.0;
+                if (animal.YSpeed < 0.5)
+
+                if (collided = (animalBottom >= bridgeTop && animalTop < bridgeBottom)) {
+                    animal.Y += bridgeTop - animalBottom;
+                    break;
+                }
+            }
+        }
+
+        return collided;
+    }
+    event Animals_CheckPlatformCollide(platform) {
+        var animal = this;
+        var collided = false;
+        var platformStatus = platform.Status;
+        if (platformStatus != platform.Platform_Status_TimedFalling_WaitForOffscreen &&
+            platformStatus != platform.Platform_Status_TimedFalling_Resetting) {
+            platform.X = platform.FinalX - platform.DeltaX;
+            platform.Y = platform.FinalY - platform.DeltaY;
+            switch (platform.Collision) {
+                case 0:
+                    if (platform.FrameID >= 0)
+                        platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 0);
+                    collided = Static.Entity_TopSolidCollideWithObject(platform, this, 1);
+                    break;
+                case 1:
+                    if (platform.FrameID >= 0)
+                        platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 1);
+                    collided = Static.Entity_SolidCollideWithObject(platform, this, 1);
+                    break;
+                default:
+                    if (Static.Entity_CollideWithObject(platform, this)) {
+                        /*
+                        if ( animal->Obj.LayerCollisionFlag & HIWORD(Zone_ClassInfo->dword170) )
+                        {
+                          v5 = SceneLayer_Get_Ptr(Zone_ClassInfo->LayerIndex_Move);
+                          v5->CollisionOffsetX = (signed int)-(Platform->FinalX + Platform->TileOrigin.X) >> 16;
+                          v5->CollisionOffsetY = (signed int)-(Platform->FinalY + Platform->TileOrigin.Y) >> 16;
+                        }
+                        */
+                        if (this.YSpeed >= 0.21875) {
+                            collided = true;
+                        }
+                    }
+                    break;
+            }
+            platform.X = platform.StartX;
+            platform.Y = platform.StartY;
+        }
+        return collided;
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+
+        if (!this.Behavior && !Static.Entity_IsOnScreen(this, 64.0, 64.0))
+            this.Active = false;
+    }
+    event Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), this.FlipFlag & 1, this.FlipFlag & 2);
+    }
+}

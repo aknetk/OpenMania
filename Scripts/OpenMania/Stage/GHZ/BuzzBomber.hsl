@@ -1,0 +1,236 @@
+class BuzzBomber {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load()
+        this.Sprite = Resources.LoadSprite("Sprites/GHZ/BuzzBomber.bin", SCOPE_SCENE);
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.Timer = 0;
+        this.DoShot = 0;
+        this.Status = null;
+        this.BlendFlag = BlendMode_NORMAL;
+        this.TransparencyValue = 1.0;
+        this.CurrentFrameCount = 8;
+        this.DrawThrust = true;
+        this.ShotRange = 0;
+        this.FlipFlag = 0;
+
+        // Setup()
+        if (this.PropertyExists("shotRange"))
+            this.ShotRange = this.PropertyGet("shotRange");
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+
+        // Create()
+        // this.VisibilityFlag = 1;
+        this.Priority = DrawGroup_FGLow_Low;
+        this.Timer = 128;
+        this.Triggered = false;
+        if (this.ShotRange == 0)
+            this.ShotRange = 96;
+
+        this.HitboxTrigger = [ this.ShotRange * 2.0, 512.0 ];
+        this.HitboxShot = [ 12.0, 12.0 ];
+        this.HitboxEnemy = [ 48.0, 24.0 ];
+
+        if (flag) {
+            this.BlendFlag = BlendMode_ADD;
+            this.TransparencyValue = 0.75;
+            // this.UpdatePriority = UpdatePriority_Normal;
+            this.UpdateRegionW = this.UpdateRegionH = 0x80;
+            this.SetAnimation(4, 0);
+            this.Status = this.BuzzBomber_Status_ShotCharge;
+
+            // Custom:
+            this.HitboxW = this.HitboxShot[0];
+            this.HitboxH = this.HitboxShot[1];
+        }
+        else {
+            this.StartX = this.X;
+            this.StartY = this.Y;
+            this.StartFlip = this.FlipFlag;
+            this.UpdateRegionW = this.UpdateRegionH = 0x100;
+            this.RenderRegionW = this.RenderRegionH = 0x80;
+            this.SetAnimation(0, 0);
+            this.Status = this.BuzzBomber_Status_StartMoving;
+
+            // Custom:
+            this.HitboxW = this.HitboxEnemy[0];
+            this.HitboxH = this.HitboxEnemy[1];
+        }
+    }
+
+    // States
+    event BuzzBomber_Status_ShotCharge() {
+        this.Animate();
+        if (this.CurrentFrame == 6) {
+            this.Status = this.BuzzBomber_Status_Shot;
+        }
+    }
+    event BuzzBomber_Status_Shot() {
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+
+        if (Static.Entity_IsOnScreen(this, 0x40, 0x40)) {
+            this.Animate();
+
+            var player, shot = this;
+            with ("Player") {
+                player = this;
+                if (Static.GameObject_TestCollide(player, shot))
+                    player.Player_EnemyDeflectOrHurtPlayer(shot);
+            }
+        }
+        else {
+            this.Active = false;
+        }
+    }
+    event BuzzBomber_Status_StartMoving() {
+        this.XSpeed = -4.0;
+        if (this.FlipFlag & 1)
+            this.XSpeed = 4.0;
+
+        this.Status = this.BuzzBomber_Status_Moving;
+        this.BuzzBomber_Status_Moving();
+    }
+    event BuzzBomber_Status_Moving() {
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+
+        var timerDone = this.Timer-- == 1;
+        if (timerDone) {
+            this.FlipFlag ^= 1;
+            this.Timer = 60;
+            this.XSpeed = -this.XSpeed;
+            this.Triggered = false;
+            // Hide Thrust
+            this.DrawThrust = false;
+            this.Status = this.BuzzBomber_Status_Wait;
+        }
+
+        this.Animate();
+        this.BuzzBomber_HandlePlayers();
+        this.BuzzBomber_CheckForOffscreen();
+    }
+    event BuzzBomber_Status_Wait() {
+        var timerDone = this.Timer-- == 1;
+        if (timerDone) {
+            this.Timer = 128;
+            this.DrawThrust = true;
+            this.Status = this.BuzzBomber_Status_Moving;
+        }
+
+        this.Animate();
+        this.BuzzBomber_HandlePlayers();
+        this.BuzzBomber_CheckForOffscreen();
+    }
+    event BuzzBomber_Status_Shooting() {
+        this.Animate();
+        this.BuzzBomber_HandlePlayers();
+        this.BuzzBomber_CheckForOffscreen();
+
+        var timer = this.Timer - 1;
+        this.Timer = timer;
+
+        var shot;
+        switch (timer) {
+            case 82:
+                this.SetAnimation(1, 0);
+                break;
+            case 45:
+                shot = Instance.Create("BuzzBomber", this.X, this.Y + 28.0, 1);
+                if (this.FlipFlag) {
+                    shot.X += 24.0;
+                    shot.XSpeed = 2.0;
+                }
+                else {
+                    shot.X -= 24.0;
+                    shot.XSpeed = -2.0;
+                }
+                shot.YSpeed = 2.0;
+                break;
+            case 0:
+                this.SetAnimation(0, 0);
+                this.Timer = 128;
+                this.DrawThrust = true;
+                this.Status = this.BuzzBomber_Status_Moving;
+                break;
+        }
+    }
+
+    event BuzzBomber_HandlePlayers() {
+        var player, enemy = this;
+        with ("Player") {
+            player = this;
+
+            enemy.HitboxW = enemy.HitboxEnemy[0];
+            enemy.HitboxH = enemy.HitboxEnemy[1];
+            if (player.Player_BreakableCollide(enemy)) {
+                player.Player_BreakEnemy(enemy, 1);
+            }
+            else if (enemy.Status == enemy.BuzzBomber_Status_Moving && !enemy.Triggered) {
+                enemy.HitboxW = enemy.HitboxTrigger[0];
+                enemy.HitboxH = enemy.HitboxTrigger[1];
+                if (Static.GameObject_TestCollide(player, enemy)) {
+                    enemy.Triggered = true;
+                    enemy.Timer = 90;
+                    enemy.DrawThrust = false;
+                    enemy.Status = enemy.BuzzBomber_Status_Shooting;
+                }
+                enemy.HitboxW = enemy.HitboxEnemy[0];
+                enemy.HitboxH = enemy.HitboxEnemy[1];
+            }
+        }
+    }
+    event BuzzBomber_CheckForOffscreen() {
+        // this.UseGroundSpeed
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH) &&
+            !Static.Position_IsOnScreen(this.StartX, this.StartY, this.RenderRegionW, this.RenderRegionH)) {
+            this.X = this.StartX;
+            this.Y = this.StartY;
+            this.FlipFlag = this.StartFlip;
+            this.Create(0);
+        }
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+    event Render() {
+        if (!this.OnScreen)
+            return;
+
+        var xx = Math.Floor(this.X);
+        var yy = Math.Floor(this.Y);
+        var fX = (this.FlipFlag & 1);
+        var fY = (this.FlipFlag & 2);
+        // Shot
+        if (this.BlendFlag == BlendMode_ADD) {
+            Draw.SetBlendMode(this.BlendFlag);
+            Draw.SetTextureBlend(true);
+            Draw.SetBlendColor(1.0, 1.0, 1.0, this.TransparencyValue);
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, xx, yy, fX, fY);
+            Draw.SetTextureBlend(false);
+            Draw.SetBlendMode(BlendMode_NORMAL);
+        }
+        // Main Body
+        else {
+            // Wings
+            Draw.SetTextureBlend(true);
+            Draw.SetBlendColor(1.0, 1.0, 1.0, 0.75);
+                Draw.Sprite(this.Sprite, 2, Scene_Frame & 3, xx, yy, fX, fY);
+            Draw.SetTextureBlend(false);
+            // Thrust
+            if (this.DrawThrust)
+                Draw.Sprite(this.Sprite, 3, (Scene_Frame >> 1) & 3, xx, yy, fX, fY);
+
+            // Body
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, xx, yy, fX, fY);
+        }
+    }
+}

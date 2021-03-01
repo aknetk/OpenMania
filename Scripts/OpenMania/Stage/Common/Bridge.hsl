@@ -1,0 +1,272 @@
+class Bridge {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Pre
+        this.Priority = DrawGroup_FGLow_Low;
+
+        // Load
+
+        // Custom: Loading sprites without using a big set of if statements
+        var sceneName = Scene.GetName();
+        var customExists = false;
+        if (String.Contains(sceneName, "Stages/")) {
+            var sceneFolder = String.Substring(sceneName, 7, String.Length(sceneName) - 7);
+            var sceneFolderSlashIndex = String.IndexOf(sceneFolder, "/");
+            if (sceneFolderSlashIndex > -1) {
+                sceneFolder = String.Substring(sceneFolder, 0, sceneFolderSlashIndex);
+                customExists = Resources.FileExists("Sprites/" + sceneFolder + "/Bridge.bin");
+                if (customExists) {
+                    this.Sprite = Resources.LoadSprite("Sprites/" + sceneFolder + "/Bridge.bin", SCOPE_SCENE);
+                }
+            }
+        }
+        if (!customExists) {
+            if (String.Contains(sceneName, "GHZ"))
+                this.Sprite = Resources.LoadSprite("Sprites/GHZ/Bridge.bin", SCOPE_SCENE);
+            else if (String.Contains(sceneName, "HCZ"))
+                this.Sprite = Resources.LoadSprite("Sprites/HCZ/Bridge.bin", SCOPE_SCENE);
+            else if (String.Contains(sceneName, "LRZ1"))
+                this.Sprite = Resources.LoadSprite("Sprites/LRZ1/Bridge.bin", SCOPE_SCENE);
+        }
+        this.AutoPhysics = false;
+        this.Status = null;
+
+        // Setup
+        this.Length = 0;
+        this.Burnable = false;
+        this.Pressure = 0;
+        this.IsPlayerOnTop = false;
+        this.PlayerStandingAtop = -1;
+        this.BurnStartIndex = -1;
+        this.LogSine = 0.0;
+        this.MaxDepression = 0.0;
+        this.MinX = 0.0;
+        this.MaxX = 0.0;
+        this.PlayerRelativeX = 0.0;
+        if (this.PropertyExists("length"))
+            this.Length = this.PropertyGet("length");
+        if (this.PropertyExists("burnable"))
+            this.Burnable = this.PropertyGet("burnable");
+
+        if (this.Burnable) {
+            print "this.Burnable: " + this.X + " " + this.Y;
+        }
+
+        // Create
+        this.Length++;
+
+        var len = this.Length * 8.0;
+        this.MinX = this.X - len;
+        this.MaxX = this.X + len;
+
+        this.UpdateRegionW = this.Length * 16 + 64.0;
+        this.UpdateRegionH = 128.0;
+
+        this.SetAnimation(0, 0);
+
+        this.HitboxW = this.Length * 16;
+        this.HitboxH = 8.0;
+        this.HitboxOffX = 0.0;
+        this.HitboxOffY = -4.0;
+        this.FlipFlag = 0;
+
+        // Initial Status
+        this.UpdateRegionHalfW = this.UpdateRegionW;
+        this.UpdateRegionHalfH = this.UpdateRegionH;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+    }
+
+    event Update() {
+        var pressure = this.Pressure;
+        if (this.IsPlayerOnTop) {
+            if (pressure < 0x80)
+                this.Pressure = pressure + 8;
+        }
+        else if (pressure) {
+            this.PlayerStandingAtop = -1;
+            this.Pressure = pressure - 8;
+        }
+        else {
+            this.LogSine = 0.0;
+        }
+
+        this.IsPlayerOnTop = false;
+        this.MaxDepression = this.LogSine * this.Pressure / 128.0;
+
+        var player, bridge = this;
+        with ("Player") {
+            player = this;
+            player.UpdateHitbox(0);
+            if (player.Status == player.Player_StatusKnuckles_GettingUp)
+                continue;
+
+            var playerX = player.X;
+            var bridgeMinX = bridge.MinX;
+            var bridgeMaxX = bridge.MaxX;
+
+            if (playerX <= bridgeMinX || playerX >= bridgeMaxX) {
+                if (bridge.PlayerStandingAtop == player) {
+                    bridge.Pressure = 0x20;
+                    // LABEL_52:
+                    bridge.PlayerStandingAtop = -2;
+                    continue;
+                }
+            }
+            else {
+                if (bridge.PlayerStandingAtop != player) {
+                    if (!bridge.IsPlayerOnTop) {
+                        bridge.PlayerRelativeX = playerX - bridgeMinX;
+                    }
+                    if (player.YSpeed < 0.0)
+                        continue;
+
+                    var playerRelativeX = bridge.PlayerRelativeX;
+                    var playerBridgeX = playerX - bridgeMinX;
+                    if (playerBridgeX > playerRelativeX) {
+                        // Reverse them
+                        playerBridgeX = bridgeMaxX - playerX;
+                        playerRelativeX = bridgeMaxX - bridgeMinX - bridge.PlayerRelativeX;
+                    }
+                    var len = Number.AsInteger(playerBridgeX) << 7;
+                    playerRelativeX = Number.AsInteger(playerRelativeX);
+                    if (playerRelativeX == 0)
+                        playerRelativeX = 1;
+
+                    var logOffY = bridge.MaxDepression * Static.HexSinMedPrec(len / playerRelativeX);
+                    if (player.YSpeed >= 0.5)
+                        bridge.HitboxOffY = -4.0 + logOffY;
+                    else
+                        bridge.HitboxOffY = -4.0 + logOffY - 8.0;
+
+                    if (player.IsGhost || !Static.Entity_CollideWithObject(bridge, player))
+                        continue;
+
+                    bridge.IsPlayerOnTop = true;
+                    player.Y = logOffY + bridge.Y - 8.0 - (player.HitboxH * 0.5 + player.HitboxOffY);
+
+                    if (!player.Ground) {
+                        player.Ground = true;
+                        player.GroundSpeed = player.XSpeed;
+                    }
+                    player.GroundSensorMask = 0;
+
+                    var firstPlayer = player;
+                    if (player == firstPlayer) {
+                        var playerStandingAtop = bridge.PlayerStandingAtop;
+                        if (playerStandingAtop != -1 && playerStandingAtop != -2) {
+                            var playerRelativeX = playerX - bridgeMinX;
+                            bridge.PlayerRelativeX = playerRelativeX;
+                            playerRelativeX = Number.AsInteger(playerRelativeX);
+                            var bridgeSize = Number.AsInteger(bridgeMaxX - bridgeMinX);
+                            bridge.LogSine = bridge.Length * Static.HexSinMedPrec((playerRelativeX << 8) / bridgeSize);
+                            bridge.MaxDepression = bridge.LogSine * bridge.Pressure / 128.0;
+                        }
+                        bridge.PlayerStandingAtop = player;
+                        if (player.YSpeed < 1.0) {
+                            bridge.Pressure = 0x80;
+                        }
+                    }
+                    else {
+                        if (bridge.PlayerStandingAtop == -1) {
+                            bridge.PlayerStandingAtop = player;
+                            if (player.YSpeed < 1.0) {
+                                bridge.Pressure = 0x80;
+                            }
+                        }
+                        if (bridge.PlayerStandingAtop == -2) {
+                            bridge.PlayerStandingAtop = player;
+                        }
+                    }
+
+                    if (!player.Ground) {
+                        player.Ground = true;
+                        player.GroundSpeed = player.XSpeed;
+                    }
+                    player.YSpeed = 0.0;
+                    if (player.Shield == ShieldType_FIRE && bridge.Burnable)
+                        bridge.Bridge_StartBurn((player.X - bridge.MinX) / 16.0);
+                    continue;
+                }
+
+                var playerRelativeX = playerX - bridgeMinX;
+                bridge.PlayerRelativeX = playerRelativeX;
+                playerRelativeX = Number.AsInteger(playerRelativeX);
+                var bridgeSize = Number.AsInteger(bridgeMaxX - bridgeMinX);
+                bridge.LogSine = bridge.Length * Static.HexSinMedPrec((playerRelativeX << 8) / bridgeSize);
+
+                if (player.Y > bridge.Y - 48.0) {
+                    if (player.YSpeed >= 0.0) {
+                        bridge.IsPlayerOnTop = true;
+                        player.Y = bridge.MaxDepression + bridge.Y - 8.0 - (player.HitboxH * 0.5 + player.HitboxOffY);
+
+                        if (!player.Ground) {
+                            player.Ground = true;
+                            player.GroundSpeed = player.XSpeed;
+                        }
+                        player.GroundSensorMask = 0;
+                        player.YSpeed = 0.0;
+                        if (player.Shield == ShieldType_FIRE && bridge.Burnable)
+                            bridge.Bridge_StartBurn((player.X - bridge.MinX) / 16.0);
+                        continue;
+                    }
+
+                    bridge.PlayerStandingAtop = -2;
+                    continue;
+                }
+            }
+        }
+    }
+
+    event Bridge_StartBurn(burnStartIndex) {
+        burnStartIndex = Number.AsInteger(burnStartIndex);
+    }
+
+    event Render() {
+        var x = this.MinX + 8.0;
+        var y;
+        var bridgeY = this.Y;
+        var bridgeLength = this.Length;
+        var playerRelX = Number.AsInteger(this.PlayerRelativeX);
+        var playerRelXReverse = Number.AsInteger(this.MaxX - this.MinX - this.PlayerRelativeX);
+        var playerRelXToIndex = playerRelX / 16;
+
+        var logWidthInUnits = 16 << 7;
+        var index = 0;
+        var len;
+
+        var sprite = this.Sprite, anim = this.CurrentAnimation, frame = this.CurrentFrame;
+
+        // Draw left side
+        for (len = logWidthInUnits >> 1; index < playerRelXToIndex; index++) {
+            y = this.MaxDepression * Static.HexSinMedPrec(len / playerRelX) + bridgeY;
+
+            Draw.Sprite(sprite, anim, frame, x, y, false, false);
+
+            x += 16.0;
+            len += logWidthInUnits;
+        }
+
+        y = this.MaxDepression + bridgeY;
+        Draw.Sprite(sprite, anim, frame, x, y, false, false);
+        x += 16.0;
+        index++;
+
+        x = this.MaxX - 8.0;
+        playerRelXToIndex = playerRelXReverse / 16;
+        for (len = logWidthInUnits >> 1; index < bridgeLength; index++) {
+            y = this.MaxDepression * Static.HexSinMedPrec(len / playerRelXReverse) + bridgeY;
+
+            Draw.Sprite(sprite, anim, frame, x, y, false, false);
+
+            x -= 16.0;
+            len += logWidthInUnits;
+        }
+
+        //
+    }
+}

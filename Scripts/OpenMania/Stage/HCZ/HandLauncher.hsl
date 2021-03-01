@@ -1,0 +1,337 @@
+class HandLauncher {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Status = null;
+        this.Speed = 0;
+        this.PlayersGrabbed = 0;
+        this.StartX = 0.0;
+        this.StartY = 0.0;
+        this.DestinationX = 0.0;
+        this.DestinationY = 0.0;
+        this.CurrentX = 0.0;
+        this.CurrentY = 0.0;
+        this.MoveYSpeed = 0.0;
+        this.Timer = 0;
+        this.AnimationBase = [ 0, 0, 0, 0, 0, 0, 0 ];
+        this.AnimationHand = [ 0, 0, 0, 0, 0, 0, 0 ];
+
+        this.DetectHitbox = [ -24.0, -240.0, 24.0, 0.0 ];
+        this.GrabHitbox = [ -4.0, -54.0, 4.0, 0.0 ];
+        this.Hitbox3 = [ -32.0, 0.0, 32.0, 24.0 ];
+
+        if (this.PropertyExists("speed"))
+            this.Speed = this.PropertyGet("speed");
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+
+        this.LauncherSprite = Resources.LoadSprite("Sprites/HCZ/HandLauncher.bin", SCOPE_SCENE);
+        // this.SFX_Dunkey = Resources.LoadSound("SoundFX/HCZ/Dunkey.wav", SCOPE_SCENE);
+        this.SFX_Grab = Resources.LoadSound("SoundFX/Global/Grab.wav", SCOPE_SCENE);
+        this.SFX_Roll = Resources.LoadSound("SoundFX/Global/Roll.wav", SCOPE_SCENE);
+        this.SFX_Release = Resources.LoadSound("SoundFX/Global/Release.wav", SCOPE_SCENE);
+        this.DoDunkeySound = false;
+
+        this.Priority = DrawGroup_FGLow_Low;
+        if (this.Speed == 0)
+            this.Speed = 16.0;
+        this.StartX = this.X;
+        this.StartY = this.Y;
+        this.UpdateRegionW =
+        this.UpdateRegionH = 256.0;
+        this.Status = this.HandLauncher_Status_Init;
+    }
+
+    event ResetAnimationARR(array, sprite, animationIndex, frameIndex) {
+        array[0] = sprite;
+        array[1] = animationIndex;
+        array[2] = frameIndex;
+        array[3] = Sprite.GetFrameLoopIndex(sprite, animationIndex);
+        array[4] = Sprite.GetFrameCount(sprite, animationIndex);
+        array[5] = Sprite.GetFrameDuration(sprite, animationIndex, frameIndex);
+        array[6] = Sprite.GetFrameSpeed(sprite, animationIndex);
+    }
+    event SetAnimationARR(array, sprite, animationIndex, frameIndex) {
+        if (array[0] != animationIndex)
+            this.ResetAnimationARR(array, sprite, animationIndex, frameIndex);
+    }
+    event AnimateARR(array) {
+        var currentFrame = array[2];
+        var currentFrameTimeLeft = array[5];
+
+        if (currentFrameTimeLeft > 0) {
+            currentFrameTimeLeft -= array[6];
+            if (currentFrameTimeLeft <= 0) {
+                currentFrame++;
+                if (currentFrame >= array[4]) {
+                    currentFrame  = array[3];
+                }
+                array[2] = currentFrame;
+                currentFrameTimeLeft = Sprite.GetFrameDuration(array[0], array[1], currentFrame);
+            }
+
+        }
+        else {
+            currentFrameTimeLeft = Sprite.GetFrameDuration(array[0], array[1], currentFrame);
+        }
+
+        array[5] = currentFrameTimeLeft;
+    }
+    event SetHitboxARR(array) {
+        this.HitboxW = array[2] - array[0];
+        this.HitboxH = array[3] - array[1];
+        this.HitboxOffX = (array[2] + array[0]) * 0.5;
+        this.HitboxOffY = (array[3] + array[1]) * 0.5;
+    }
+
+    event UpdateEarly() {
+
+    }
+    event Update() {
+        var animHand = this.AnimationHand;
+
+        var sprite = this.LauncherSprite;
+        var animation = animHand[1];
+        var frameIndx = animHand[2];
+        var frameCont = animHand[4];
+        if (frameIndx == frameCont - 1) {
+            if (animation == 2)
+                this.ResetAnimationARR(animHand, sprite, 3, 0);
+            else if (animation == 4)
+                this.ResetAnimationARR(animHand, sprite, 1, 0);
+        }
+
+        if (this.Status)
+            this.Status();
+
+        var timer = this.Timer;
+        if (timer > 0)
+            this.Timer = timer - 1;
+
+        this.AnimateARR(this.AnimationBase);
+        this.AnimateARR(this.AnimationHand);
+    }
+
+    event HandLauncher_Status_Init() {
+        this.CurrentX = this.StartX;
+        this.CurrentY = this.StartY + 78.0;
+        this.DestinationX = this.CurrentX;
+        this.DestinationY = this.CurrentY - 54.0;
+        this.X = this.CurrentX;
+        this.Y = this.CurrentY;
+
+        this.ResetAnimationARR(this.AnimationBase, this.LauncherSprite, 0, 0);
+        this.AnimationBase[5] = 0;
+
+        this.ResetAnimationARR(this.AnimationHand, this.LauncherSprite, 1, 0);
+
+        this.Status = this.HandLauncher_Status_WaitForPlayer;
+    }
+    event HandLauncher_Status_WaitForPlayer() {
+        var distance = (this.CurrentY - this.DestinationY) / 8.0;
+        var moveYSpd = this.MoveYSpeed;
+
+        this.X = this.CurrentX;
+        this.Y = this.CurrentY;
+
+        this.Y -= distance * Math.Min(moveYSpd, 8.0);
+
+        if (moveYSpd > 0.0)
+            this.MoveYSpeed = Math.Max(moveYSpd - 1.0, 0.0);
+
+        if (this.HandLauncher_DetectPlayer())
+            this.Status = this.HandLauncher_Status_RaiseHand;
+    }
+    event HandLauncher_Status_RaiseHand() {
+        var distance = (this.CurrentY - this.DestinationY) / 8.0;
+        var moveYSpd = this.MoveYSpeed;
+
+        this.X = this.CurrentX;
+        this.Y = this.CurrentY;
+
+        this.Y -= distance * Math.Min(moveYSpd, 8.0);
+
+        if (moveYSpd < 8.0)
+            this.MoveYSpeed = Math.Min(moveYSpd + 1.0, 8.0);
+
+        this.HandLauncher_GrabPlayers();
+        if (this.PlayersGrabbed) {
+            this.ResetAnimationARR(this.AnimationHand, this.LauncherSprite, 2, 0);
+            this.MoveYSpeed = 0.0;
+            this.AnimationBase[6] = 1; // AnimationSpeed
+            this.Status = this.HandLauncher_Status_GrabbedPlayer;
+        }
+        this.HandLauncher_HoldPlayers();
+
+        if (!this.HandLauncher_DetectPlayer())
+            this.Status = this.HandLauncher_Status_WaitForPlayer;
+    }
+    event HandLauncher_Status_GrabbedPlayer() {
+        var distance = this.DestinationY - this.StartY;
+        var moveYSpd = this.MoveYSpeed;
+
+        if (moveYSpd < 3.0) {
+            this.X = this.DestinationX;
+            this.Y = this.DestinationY;
+            this.Y -= distance * Math.Min(moveYSpd, 3.0) * 1.0 / 3.0;
+            this.MoveYSpeed = moveYSpd + 1.0;
+            this.HandLauncher_GrabPlayers();
+            this.HandLauncher_HoldPlayers();
+            return;
+        }
+        if (moveYSpd < 63.0) {
+            this.X = this.StartX;
+            this.Y = this.StartY;
+            this.MoveYSpeed = moveYSpd + 1.0;
+            this.HandLauncher_GrabPlayers();
+            this.HandLauncher_HoldPlayers();
+            return;
+        }
+        if (moveYSpd < 66.0) {
+            this.X = this.DestinationX;
+            this.Y = this.DestinationY;
+            this.Y -= distance * Math.Min(66.0 - moveYSpd - 1.0, 3.0) * 1.0 / 3.0;
+            this.MoveYSpeed = moveYSpd + 1.0;
+            this.HandLauncher_GrabPlayers();
+            this.HandLauncher_HoldPlayers();
+            return;
+        }
+
+        this.HandLauncher_ReleasePlayers();
+        if (!this.DoDunkeySound) {
+            Sound.Play(this.SFX_Release);
+        }
+
+        this.ResetAnimationARR(this.AnimationHand, this.LauncherSprite, 4, 0);
+
+        this.X = this.DestinationX;
+        this.Y = this.DestinationY;
+        this.Timer = 30;
+        this.MoveYSpeed = 0.0;
+        this.AnimationBase[6] = 0; // AnimationSpeed
+        this.Status = this.HandLauncher_Status_WaitForPlayer;
+        this.HandLauncher_GrabPlayers();
+        this.HandLauncher_HoldPlayers();
+    }
+
+    event HandLauncher_DetectPlayer() {
+        if (this.PlayersGrabbed)
+            return true;
+
+        var x = this.X;
+        var y = this.Y;
+        this.X = this.DestinationX;
+        this.Y = this.DestinationY;
+
+        this.SetHitboxARR(this.DetectHitbox);
+
+        var player, handLauncher = this, detectedPlayer = false;
+        with ("Player") {
+            player = this;
+            if (Static.GameObject_TestCollide(player, handLauncher)) {
+                detectedPlayer = true;
+                // dword_D17744();
+                continue;
+            }
+        }
+        this.X = x;
+        this.Y = y;
+        return detectedPlayer;
+    }
+    event HandLauncher_GrabPlayers() {
+        if (this.Timer > 0)
+            return;
+
+        this.SetHitboxARR(this.GrabHitbox);
+
+        var player, handLauncher = this;
+        var playerIndex = -1;
+        with ("Player") {
+            player = this;
+            playerIndex++;
+            if ((handLauncher.Status == handLauncher.HandLauncher_Status_GrabbedPlayer || !player.IsSubPlayer) &&
+                !((1 << playerIndex) & handLauncher.PlayersGrabbed)) {
+                if (player.Ground) {
+                    if (Static.GameObject_TestCollide(player, handLauncher)) {
+                        handLauncher.PlayersGrabbed |= 1 << playerIndex;
+
+                        player.GroundSpeed = 0.0;
+                        if (handLauncher.Status != handLauncher.HandLauncher_Status_GrabbedPlayer) {
+                            if (handLauncher.DoDunkeySound)
+                                Sound.Play(handLauncher.SFX_Dunkey);
+                            else
+                                Sound.Play(handLauncher.SFX_Roll);
+                        }
+
+                        if (!handLauncher.DoDunkeySound)
+                            Sound.Play(handLauncher.SFX_Grab);
+
+                        player.SetAnimation(8, 0);
+                        player.LateUpdateGroundStatus = null;
+                        player.LateUpdateAirStatus = null;
+                        player.Rotation = 0.0;
+                        player.Status = player.Player_StatusNone;
+                    }
+                }
+            }
+        }
+    }
+    event HandLauncher_HoldPlayers() {
+        var player, handLauncher = this;
+        var playerIndex = -1;
+        with ("Player") {
+            player = this;
+            playerIndex++;
+            if ((1 << playerIndex) & handLauncher.PlayersGrabbed) {
+                player.XSpeed = 0.0;
+                player.YSpeed = 0.0;
+                player.FlipFlag = player.Flip = handLauncher.FlipFlag != 0;
+                player.X = handLauncher.X;
+                player.Y = handLauncher.Y - 20.0;
+                if (player.Y > handLauncher.DestinationY - 20.0)
+                    player.Y = handLauncher.DestinationY - 20.0;
+            }
+        }
+    }
+    event HandLauncher_ReleasePlayers() {
+        var speed = this.FlipFlag == 0 ? this.Speed : -this.Speed;
+        var player, handLauncher = this;
+        var playerIndex = -1;
+        with ("Player") {
+            player = this;
+            playerIndex++;
+            if ((1 << playerIndex) & handLauncher.PlayersGrabbed) {
+                handLauncher.PlayersGrabbed &= ~(1 << playerIndex);
+                player.Ground = true;
+                player.GroundSpeed = speed;
+                player.Status = player.Player_StatusStanding;
+            }
+        }
+    }
+
+    event Render() {
+        if (!this.OnScreen)
+            return;
+
+        var animBase = this.AnimationBase;
+        var animHand = this.AnimationHand;
+        var flipX = this.FlipFlag & 1;
+        var flipY = this.FlipFlag & 2;
+        var x = Math.Floor(this.X), y = Math.Floor(this.Y);
+        // if (this.Priority == DrawGroup_AboveTiles) {
+        //     if (this.Status != this.HandLauncher_Status_GrabbedPlayer)
+        //         return;
+        // }
+        // else {
+        //     Draw.Sprite(animBase[0], animBase[1], animBase[2], x, y, flipX, flipY);
+        //     if (this.Status == this.HandLauncher_Status_GrabbedPlayer)
+        //         return;
+        // }
+
+        Draw.Sprite(animBase[0], animBase[1], animBase[2], x, y, flipX, flipY);
+        Draw.Sprite(animHand[0], animHand[1], animHand[2], x, y, flipX, flipY);
+    }
+}

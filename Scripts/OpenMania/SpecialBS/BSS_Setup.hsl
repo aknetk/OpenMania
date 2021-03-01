@@ -1,0 +1,169 @@
+class BSS_Setup {
+    // NOTE: This is just called in Create()
+    Load() {
+        this.Sprite = Resources.LoadSprite("Sprites/SpecialBS/Globe.bin", SCOPE_SCENE);
+
+        // BSS_Player
+        this.PlayerSprite = Resources.LoadSprite("Sprites/SpecialBS/Sonic.bin", SCOPE_SCENE);
+    }
+    Create(flag) {
+        this.Load();
+
+        this.BGM_SpecialStage = Resources.LoadMusic("Music/BlueSpheres.ogg", SCOPE_SCENE);
+        Music.Loop(this.BGM_SpecialStage, 0, true);
+
+        this.ColorFlip = false;
+
+        this.PlayerZ = 0;
+        this.Direction = 0;
+        this.DirectionStep = 0;
+        this.PlayerAngle = 0;
+        this.PlayerSteps = 0;
+        this.PlayerWaitMovementTimer = 0;
+
+        // Create
+        this.Priority = 2;
+        this.X = 256.0;
+        this.SpeedupTimerMax = 1800;
+        this.SpeedupTimer = 0;
+        this.PlayerTopSpeed = 0;
+        this.Status = this.BSS_Setup_Status_Init;
+    }
+    Update() {
+        var input = Instance.GetNth("InputManager", 0);
+        if (!input)
+            return;
+
+        // hack
+        if (this.PlayerTopSpeed == 0) {
+            this.SpeedupTimer = 0;
+            if (input.UpPressed)
+                this.PlayerTopSpeed = 16;
+        }
+
+        if (this.Status)
+            this.Status();
+
+        // Scene.SetLayerOffsetPosition(0, 0.0, this.AAAAA & 0xFF);
+        if ((this.PlayerAngle & 0x3FFF) == 0 && this.PlayerWaitMovementTimer == 0) {
+    		this.PlayerSteps = this.PlayerSteps + this.PlayerTopSpeed;
+
+    		if (this.PlayerSteps >= 0x100) {
+    			this.PlayerSteps -= 0x100;
+    			// if (Direction != 0)
+    			// 	this.PlayerSteps = 0;
+    			// PlayerLastX = PlayerX;
+    			// PlayerLastY = PlayerY;
+    			// PlayerX = (PlayerX + (IMath::sign(-IMath::sinHex(PlayerAngle >> 8) * PlayerSpeed)) + 0x20) & 0x1F;
+    			// PlayerY = (PlayerY + (IMath::sign(-IMath::cosHex(PlayerAngle >> 8) * PlayerSpeed)) + 0x20) & 0x1F;
+    			this.ColorFlip = !this.ColorFlip;
+    		}
+    		if (this.PlayerSteps <  0x0) {
+    			this.PlayerSteps += 0x100;
+    			// PlayerLastX = PlayerX;
+    			// PlayerLastY = PlayerY;
+    			// PlayerX = (PlayerX + (IMath::sign(-IMath::sinHex(PlayerAngle >> 8) * PlayerSpeed)) + 0x20) & 0x1F;
+    			// PlayerY = (PlayerY + (IMath::sign(-IMath::cosHex(PlayerAngle >> 8) * PlayerSpeed)) + 0x20) & 0x1F;
+    			this.ColorFlip = !this.ColorFlip;
+    		}
+    	}
+
+        // Turning
+        if (this.Direction == 0) {
+            if (input.Left)
+                this.Direction =  1;
+            if (input.Right)
+                this.Direction = -1;
+        }
+        if ((this.PlayerSteps & 0xF0) == 0 && this.Direction != 0 && this.PlayerZ == 0) {
+            if (this.DirectionStep == 0) {
+                // StoredAngle = PlayerAngle >> 12;
+
+    			if (this.Direction < 0)
+    				this.ColorFlip = !this.ColorFlip;
+
+    			this.PlayerSteps = 0;
+            }
+
+            if (this.Direction > 0) {
+                this.PlayerAngle = (this.PlayerAngle + 0x400) & 0xFFFF;
+                this.DirectionStep++;
+            }
+            else {
+                this.PlayerAngle = (this.PlayerAngle + 0xFC00) & 0xFFFF;
+                this.DirectionStep++;
+            }
+
+            if ((this.PlayerAngle & 0x3FFF) == 0) {
+    			if (this.Direction > 0)
+    				this.ColorFlip = !this.ColorFlip;
+                this.Direction = 0;
+                this.DirectionStep = 0;
+            }
+        }
+
+        Palette.SetColor(0, 0xA0, this.BgColor1);
+        Palette.SetColor(0, 0xA1, this.BgColor2);
+        Palette.SetColor(0, 0xA2, this.BgColor3);
+
+        var colourFlip = this.ColorFlip;
+        var playFieldColourA = this.PlayfieldA;
+        var playFieldColourB = this.PlayfieldB;
+        if (this.DirectionStep == 0) {
+    		var t = this.PlayerSteps >> 4;
+            for (var i = 0; i < 16; i++) {
+                Palette.SetColor(0, i + 0x80, (t > i) ^ colourFlip ? playFieldColourA : playFieldColourB);
+                Palette.SetColor(0, i + 0x90, (t > i) ^ colourFlip ? playFieldColourB : playFieldColourA);
+            }
+            Scene.SetLayerVisible(3, true);
+        }
+        else {
+            Palette.SetColor(0, 0x80, colourFlip ? playFieldColourA : playFieldColourB);
+            Palette.SetColor(0, 0x90, colourFlip ? playFieldColourB : playFieldColourA);
+            Scene.SetLayerVisible(3, false);
+        }
+    }
+    Render() {
+        var x = Math.Floor(this.X),
+            y = Math.Floor(this.Y);
+
+        // Globe (Turning)
+        if (this.DirectionStep != 0) {
+            var aa = Number.AsInteger(this.DirectionStep) & 15;
+                aa = 15 - aa;
+            var aaaaa = aa;
+            if (aaaaa >= 8) {
+                aaaaa = 14 - aaaaa;
+            }
+            Draw.Sprite(this.Sprite, 0, aaaaa, x, y, (aa >= 8) ^ (this.Direction > 0), false);
+        }
+
+        // Shadow
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendColor(1.0, 1.0, 1.0, 0.5);
+        Draw.Sprite(this.Sprite, 1, 0, x, 158.0, false, false);
+        Draw.SetTextureBlend(false);
+
+
+        // BSS_Player
+        if (this.PlayerZ == 0) {
+            if (this.PlayerTopSpeed == 0)
+                Draw.Sprite(this.PlayerSprite, 0, 0, x, 168.0, false, false);
+            else
+                Draw.Sprite(this.PlayerSprite, 1, Number.AsInteger(((Scene_Frame * this.PlayerTopSpeed) / 32) % 12), x, 168.0, false, false);
+        }
+    }
+
+    BSS_Setup_SetStartAngleAndBGAngleAndSpheresRemaining() {
+
+    }
+    BSS_Setup_Status_Init() {
+        this.SpeedupTimer++;
+
+        var speed = this.PlayerTopSpeed;
+        if (speed < 32 && this.SpeedupTimer >= this.SpeedupTimerMax) {
+            this.SpeedupTimer = 0;
+            this.PlayerTopSpeed = speed + 4;
+        }
+    }
+}

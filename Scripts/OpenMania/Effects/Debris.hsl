@@ -1,0 +1,116 @@
+class Debris {
+    event Create() {
+        this.AutoPhysics = false;
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Explosions.bin", SCOPE_SCENE);
+        this.SetAnimation(0, 0);
+
+        this.Gravity = 0.0;
+        this.Life = 0;
+        this.Wait = 0;
+        this.Rotation = 0.0;
+        this.RotationSpeed = 0.0;
+        this.ScaleXSpeed = 0.0;
+        this.ScaleYSpeed = 0.0;
+        this.ScaleX = 1.0;
+        this.ScaleY = 1.0;
+
+        this.Status = this.Debris_Status_FallGravity_SpannedLife;
+        this.Visible = true;
+    }
+    event Update() {
+        var wait = this.Wait;
+        if (wait <= 0) {
+            if (this.Status)
+                this.Status();
+
+            // Rotate if needed
+            var rspeed = this.RotationSpeed;
+            if (rspeed != 0.0) {
+                this.Rotation = (this.Rotation + rspeed * Math_PI / 256.0) % Math_PI;
+            }
+
+            // Scale if needed
+            var xspeed = this.ScaleXSpeed;
+            var yspeed = this.ScaleYSpeed;
+            if (xspeed != 0.0 || yspeed != 0.0) {
+                this.ScaleX = Math.Max(this.ScaleX + xspeed, 0.0);
+                this.ScaleY = Math.Max(this.ScaleY + yspeed, 0.0);
+            }
+        }
+        else {
+            this.Wait = wait - 1;
+        }
+    }
+    event Debris_Status_FallGravity_SpannedLife() {
+        var yspeed = this.YSpeed;
+
+        this.X += this.XSpeed;
+        this.Y += yspeed;
+        this.YSpeed = yspeed + this.Gravity;
+
+        var life = this.Life;
+        if (life <= 0) {
+            // If Offscreen
+            if (!this.InView(0, this.X - 8.0, this.Y - 8.0, 16.0, 16.0)) {
+                this.Active = false;
+                return;
+            }
+        }
+        else {
+            this.Life = life - 1;
+            if (life == 1)
+                this.Active = false;
+        }
+    }
+    event Debris_Status_FallGravity_SpannedLife_Blinking() {
+        var yspeed = this.YSpeed;
+
+        this.X += this.XSpeed;
+        this.Y += yspeed;
+        this.YSpeed = yspeed + this.Gravity;
+
+        var life = this.Life;
+        if (life <= 0) {
+            // If Offscreen
+            if (!this.InView(0, this.X - 8.0, this.Y - 8.0, 16.0, 16.0)) {
+                this.Active = false;
+                return;
+            }
+        }
+        else {
+            this.Life = life - 1;
+            if (life == 1)
+                this.Active = false;
+        }
+        this.Visible = Scene_Frame & 1;
+    }
+    event Debris_Status_FallConstant_SpannedLife() {
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+
+        var life = this.Life;
+        if (life <= 0) {
+            // If Offscreen
+            if (!this.InView(0, this.X - 8.0, this.Y - 8.0, 16.0, 16.0)) {
+                this.Active = false;
+                return;
+            }
+        }
+        else {
+            this.Life = life - 1;
+            if (life == 1)
+                this.Active = false;
+        }
+    }
+    event Render() {
+        if (!this.Visible)
+            return;
+
+        // Draw.SetBlendMode(BlendMode_ADD);
+        // Draw.SetTextureBlend(true);
+        // Draw.SetBlendColor(1.0, 1.0, 1.0, 0.5);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false, this.ScaleX, this.ScaleY, this.Rotation);
+        // Draw.SetTextureBlend(false);
+        // Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+}

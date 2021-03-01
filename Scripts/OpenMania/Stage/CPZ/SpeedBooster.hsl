@@ -1,0 +1,152 @@
+class SpeedBooster {
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.FlipFlag = 0;
+        this.Speed = 0;
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+        if (this.PropertyExists("speed"))
+            this.Speed = this.PropertyGet("speed");
+
+        this.LoadResources();
+
+        var sceneName = Scene.GetName();
+        if (String.Contains(sceneName, "CPZ")) {
+            this.HitboxW = 32.0;
+            this.HitboxH = 32.0;
+        }
+        else if (String.Contains(sceneName, "SSZ1") || String.Contains(sceneName, "SSZ2")) {
+            this.HitboxW = 64.0;
+            this.HitboxH = 16.0;
+            this.HitboxOffY = -8.0;
+        }
+
+        if (String.Contains(sceneName, "SSZ1") || String.Contains(sceneName, "SSZ2"))
+            this.Priority = DrawGroup_FGLow_High;
+        else
+            this.Priority = DrawGroup_FGHigh_High;
+
+        if (flag) {
+
+        }
+        else {
+            this.Timers = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+            this.StoredX = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        }
+    }
+
+    LoadResources() {
+        var sceneName = Scene.GetName();
+
+        this.Sprite = -1;
+        if (String.Contains(sceneName, "CPZ")) {
+            this.Sprite = Resources.LoadSprite("Sprites/CPZ/SpeedBooster.bin", SCOPE_SCENE);
+            this.SFX_SpeedBooster = Resources.LoadSound("SoundFX/Global/Spring.wav", SCOPE_SCENE);
+        }
+        else if (String.Contains(sceneName, "SSZ1")) {
+            this.Sprite = Resources.LoadSprite("Sprites/SSZ1/SpeedBooster.bin", SCOPE_SCENE);
+            this.SFX_SpeedBooster = Resources.LoadSound("SoundFX/Stage/SpeedBooster.wav", SCOPE_SCENE);
+        }
+        else if (String.Contains(sceneName, "SSZ2")) {
+            this.Sprite = Resources.LoadSprite("Sprites/SSZ2/SpeedBooster.bin", SCOPE_SCENE);
+            this.SFX_SpeedBooster = Resources.LoadSound("SoundFX/Stage/SpeedBooster.wav", SCOPE_SCENE);
+        }
+
+        // Custom: Loading sprites without using a big set of if statements
+        var customExists = false;
+        if (this.Sprite == -1 && String.Contains(sceneName, "Stages/")) {
+            var sceneFolder = String.Substring(sceneName, 7, String.Length(sceneName) - 7);
+            var sceneFolderSlashIndex = String.IndexOf(sceneFolder, "/");
+            if (sceneFolderSlashIndex > -1) {
+                sceneFolder = String.Substring(sceneFolder, 0, sceneFolderSlashIndex);
+                customExists = Resources.FileExists("Sprites/" + sceneFolder + "/SpeedBooster.bin");
+                if (customExists) {
+                    this.Sprite = Resources.LoadSprite("Sprites/" + sceneFolder + "/SpeedBooster.bin", SCOPE_SCENE);
+                    this.SFX_SpeedBooster = Resources.LoadSound("SoundFX/Stage/SpeedBooster.wav", SCOPE_SCENE);
+                }
+            }
+        }
+
+        if (customExists)
+            return true;
+
+        return false;
+    }
+
+    Update() {
+        if (this.Sprite > -1)
+            this.Animate();
+
+        var sceneName = Scene.GetName();
+        var sszType = String.Contains(sceneName, "SSZ1") || String.Contains(sceneName, "SSZ2");
+
+        var player, speedBooster = this, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+            if (speedBooster.Timers[index] == 0) {
+                if (Static.GameObject_TestCollide(player, speedBooster)) {
+                    if (player.Ground) {
+                        Sound.Play(speedBooster.SFX_SpeedBooster);
+
+                        if (sszType) {
+                            if (speedBooster.StoredX[index] > speedBooster.X) {
+                                if (player.GroundSpeed > -speedBooster.Speed)
+                                    player.GroundSpeed = -speedBooster.Speed;
+                                player.Flip = true;
+                            }
+                            else {
+                                if (player.GroundSpeed < speedBooster.Speed)
+                                    player.GroundSpeed = speedBooster.Speed;
+                                player.Flip = false;
+                            }
+                        }
+                        else {
+                            if (speedBooster.FlipFlag) {
+                                if (player.GroundSpeed > -speedBooster.Speed)
+                                    player.GroundSpeed = -speedBooster.Speed;
+                                player.Flip = true;
+                            }
+                            else {
+                                if (player.GroundSpeed < speedBooster.Speed)
+                                    player.GroundSpeed = speedBooster.Speed;
+                                player.Flip = false;
+                            }
+                        }
+                        speedBooster.Timers[index] = 30;
+
+                        player.InputLock = 16;
+                        player.PushingTimer = 0;
+                        player.UseGroundSpeed = true;
+
+                        if (player.Status != player.Player_StatusRoll)
+                            player.Status = player.Player_StatusStanding;
+                    }
+                }
+            }
+            speedBooster.StoredX[index] = player.X;
+        }
+
+        var timer;
+        for (var i = 0; i < 8; i++) {
+            timer = this.Timers[i];
+            if (timer > 0)
+                this.Timers[i] = timer - 1;
+        }
+    }
+    Render() {
+        if (this.Sprite > -1) {
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+        }
+        else {
+            var rw = this.HitboxW * 0.5;
+            var rh = this.HitboxH * 0.5;
+            Draw.SetBlendColor(0.5, 0.9, 0.9, 1.0);
+            Draw.Rectangle(Math.Floor(this.X) - rw, Math.Floor(this.Y) - rh, this.HitboxW, this.HitboxH);
+        }
+    }
+}

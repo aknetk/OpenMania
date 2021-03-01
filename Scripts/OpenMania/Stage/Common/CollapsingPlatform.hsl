@@ -1,0 +1,264 @@
+class CollapsingPlatform {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Pre
+        this.Priority = DrawGroup_FGLow_Low;
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/Global/TicMark.bin", SCOPE_GAME);
+        this.SFX_LedgeBreak = Resources.LoadSound("SoundFX/Stage/LedgeBreak.wav", SCOPE_GAME);
+        this.AutoPhysics = false;
+        this.Status = null;
+
+        // Setup
+        this.Respawn = false;
+        this.TargetLayer = 0;
+        this.Type = 0;
+        this.Delay = 0;
+        this.EventOnly = false;
+        this.MightyOnly = false;
+        this.SizeX = 0.0;
+        this.SizeY = 0.0;
+        this.TileW = 0;
+        this.TileH = 0;
+        this.BreakTimer = 0;
+        this.PlayerX = 0.0;
+        if (this.PropertyExists("size")) {
+            var size = this.PropertyGet("size");
+            this.SizeX = size[0];
+            this.SizeY = size[1];
+        }
+        if (this.PropertyExists("respawn"))
+            this.Respawn = this.PropertyGet("respawn");
+        if (this.PropertyExists("targetLayer"))
+            this.TargetLayer = this.PropertyGet("targetLayer");
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("delay"))
+            this.Delay = this.PropertyGet("delay");
+        if (this.PropertyExists("eventOnly"))
+            this.EventOnly = this.PropertyGet("eventOnly");
+        if (this.PropertyExists("mightyOnly"))
+            this.MightyOnly = this.PropertyGet("mightyOnly");
+
+        // NOTE: Tiled Support
+        if (this.PropertyExists("Width") &&
+            this.PropertyExists("Height")) {
+            this.SizeX = this.PropertyGet("Width");
+            this.SizeY = this.PropertyGet("Height");
+
+            this.X += this.SizeX * 0.5;
+            this.Y += this.SizeY * 0.5;
+        }
+
+
+        this.TileBackup = Array.Create(256);
+
+        this.TileW = Number.AsInteger(this.SizeX / 16.0);
+        this.TileH = Number.AsInteger(this.SizeY / 16.0);
+
+        // Create
+        this.UpdateRegionW = 128.0 * 2.0;
+        this.UpdateRegionH = 128.0 * 2.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+        // Copy Tiles
+        // Set Hitbox
+        this.HitboxW = this.SizeX - 2.0;
+        this.HitboxH = this.SizeY + 8.0;
+        this.HitboxOffX = 0.0;
+        this.HitboxOffY = -8.0;
+        this.FlipFlag = 0;
+        this.TargetLayerIndex = this.TargetLayer == 0 ? Scene.GetLayerIndex("FG Low") : Scene.GetLayerIndex("FG High");
+        if (this.TargetLayer == 0) {
+            this.Priority = DrawGroup_FGLow_Low;
+        }
+        else {
+            this.Priority = DrawGroup_FGHigh_High;
+        }
+
+        switch (this.Type) {
+            case 1:
+                this.Status = this.CollapsingPlatform_BreakStatusFromRight;
+                break;
+            case 2:
+                this.Status = this.CollapsingPlatform_BreakStatusFromCenter;
+                break;
+            case 3:
+                this.Status = this.CollapsingPlatform_BreakStatusFromPlayerSide;
+                break;
+            case 4:
+                this.Status = this.CollapsingPlatform_BreakStatusFromPlayerSideSixth;
+                break;
+            default:
+                this.Status = this.CollapsingPlatform_BreakStatusFromLeft;
+                break;
+        }
+    }
+
+    event Update() {
+        if (this.BreakTimer) {
+            this.BreakTimer--;
+            if (this.BreakTimer == 0) {
+                return this.CollapsingPlatform_RunBreak();
+            }
+            return;
+        }
+
+        var player, platform = this;
+        with ("Player") {
+            player = this;
+            if (!player.IsGhost) {
+                player.UpdateHitbox(0);
+                if (!Static.Entity_CollideWithObject(platform, player))
+                    continue;
+
+                // CUSTOM:
+                // if (player.X < platform.X - platform.HitboxW * 0.5 ||
+                //     player.X > platform.X + platform.HitboxW * 0.5 ||
+                //     player.Y + player.HitboxH * 0.5 + player.HitboxOffY - 4.0 > platform.Y - platform.HitboxH * 0.5)
+                //     continue;
+
+                if (player.Character == Character_MIGHTY && player.MidAirFlag > 1) {
+                    platform.CollapsingPlatform_RunBreak();
+                    continue; // break; // TODO: should be break here
+                }
+
+                if ((!platform.MightyOnly || player.Character == Character_MIGHTY && player.MidAirFlag > 1) &&
+                    !player.IsSubPlayer &&
+                    player.Ground &&
+                    player.AngleMode == 0 &&
+                    !platform.EventOnly &&
+                    platform.Delay < 0xFFFF) {
+                    platform.PlayerX = player.X;
+                }
+            }
+        }
+
+        if (this.PlayerX) {
+            this.BreakTimer = this.Delay;
+            if (!this.Delay)
+                return this.CollapsingPlatform_RunBreak();
+        }
+    }
+
+    event CollapsingPlatform_BreakStatusFromLeft() {
+        var layer = this.TargetLayerIndex;
+        var minX = Number.AsInteger((this.X - this.SizeX * 0.5) / 16.0);
+        var maxX = minX + this.TileW;
+        var minY = Number.AsInteger((this.Y - this.SizeY * 0.5) / 16.0);
+        var maxY = minY + this.TileH;
+        var piece, tid;
+        var isOOZ = 0;
+        for (var x = minX; x < maxX; x++) {
+            for (var y = minY; y < maxY; y++) {
+                tid = Scene.GetTileID(layer, x, y);
+                if (tid == 0x3FF)
+                    continue;
+
+                piece = Instance.Create("BreakableWallPiece", (x * 16.0) + 8.0, (y * 16.0) + 8.0);
+                piece.TileID = tid;
+                piece.TileFlipX = Scene.GetTileFlipX(layer, x, y);
+                piece.TileFlipY = Scene.GetTileFlipY(layer, x, y);
+                piece.TileX = x;
+                piece.TileY = y;
+                piece.TileLayer = layer;
+                piece.Wait = 3 * (this.TileH + 2 * ((x - minX) >> isOOZ) - ((y - minY) >> isOOZ));
+                piece.Gravity = 0.21875;
+                piece.Priority = this.Priority;
+            }
+        }
+    }
+    event CollapsingPlatform_BreakStatusFromRight() {
+        var layer = this.TargetLayerIndex;
+        var minX = Number.AsInteger((this.X - this.SizeX * 0.5) / 16.0);
+        var maxX = minX + this.TileW;
+        var minY = Number.AsInteger((this.Y - this.SizeY * 0.5) / 16.0);
+        var maxY = minY + this.TileH;
+        var piece, tid;
+        var isOOZ = 0;
+        for (var x = minX; x < maxX; x++) {
+            for (var y = minY; y < maxY; y++) {
+                tid = Scene.GetTileID(layer, x, y);
+                if (tid == 0x3FF)
+                    continue;
+
+                piece = Instance.Create("BreakableWallPiece", (x * 16.0) + 8.0, (y * 16.0) + 8.0);
+                piece.TileID = tid;
+                piece.TileFlipX = Scene.GetTileFlipX(layer, x, y);
+                piece.TileFlipY = Scene.GetTileFlipY(layer, x, y);
+                piece.TileX = x;
+                piece.TileY = y;
+                piece.TileLayer = layer;
+                piece.Wait = 3 * (this.TileH + 2 * ((maxX - 1 - x) >> isOOZ) - ((y - minY) >> isOOZ));
+                piece.Gravity = 0.21875;
+                piece.Priority = this.Priority;
+            }
+        }
+    }
+    event CollapsingPlatform_BreakStatusFromCenter() {
+        var layer = this.TargetLayerIndex;
+        var minX = Number.AsInteger((this.X - this.SizeX * 0.5) / 16.0);
+        var maxX = minX + this.TileW;
+        var minY = Number.AsInteger((this.Y - this.SizeY * 0.5) / 16.0);
+        var maxY = minY + this.TileH;
+        var piece, tid;
+        var isOOZ = 0;
+        for (var x = minX; x < maxX; x++) {
+            for (var y = minY; y < maxY; y++) {
+                tid = Scene.GetTileID(layer, x, y);
+                if (tid == 0x3FF)
+                    continue;
+
+                piece = Instance.Create("BreakableWallPiece", (x * 16.0) + 8.0, (y * 16.0) + 8.0);
+                piece.TileID = tid;
+                piece.TileFlipX = Scene.GetTileFlipX(layer, x, y);
+                piece.TileFlipY = Scene.GetTileFlipY(layer, x, y);
+                piece.TileX = x;
+                piece.TileY = y;
+                piece.TileLayer = layer;
+
+                var tx = x - minX;
+                if (tx < this.TileW / 2)
+                    tx = maxX - 1 - x;
+
+                piece.Wait = 3 * (this.TileH + 2 * (tx >> isOOZ) - ((y - minY) >> isOOZ));
+                piece.Gravity = 0.21875;
+                piece.Priority = this.Priority;
+            }
+        }
+    }
+    event CollapsingPlatform_BreakStatusFromPlayerSide() {
+        if (this.PlayerX < this.X)
+            this.CollapsingPlatform_BreakStatusFromLeft();
+        else
+            this.CollapsingPlatform_BreakStatusFromRight();
+    }
+    event CollapsingPlatform_BreakStatusFromPlayerSideSixth() {
+        var disX = this.PlayerX - this.X;
+        if (Math.Abs(disX) >= this.SizeX / 6.0) {
+            if (disX < 0.0)
+                this.CollapsingPlatform_BreakStatusFromLeft();
+            else
+                this.CollapsingPlatform_BreakStatusFromLeft();
+        }
+        else
+            this.CollapsingPlatform_BreakStatusFromCenter();
+    }
+
+    event CollapsingPlatform_RunBreak() {
+        this.Status();
+        Sound.Play(this.SFX_LedgeBreak);
+        if (this.Respawn) {
+            this.BreakTimer = 0;
+            this.PlayerX = 0.0;
+        }
+        else {
+            this.Active = false;
+        }
+    }
+}

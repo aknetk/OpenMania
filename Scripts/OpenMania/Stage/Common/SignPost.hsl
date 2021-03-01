@@ -1,0 +1,555 @@
+var SignPost_Type_Grounded = 0;
+var SignPost_Type_BossTriggered = 1;
+var SignPost_Type_Competition = 2;
+var SignPost_Type_SetupTransition = 3;
+
+class SignPost {
+    // NOTE: These are just both called in Create()
+    Load() {
+        this.Sprite = Resources.LoadSprite("Sprites/Global/SignPost.bin", SCOPE_GAME);
+        this.HitboxPlayerCollide = [ 48.0, 30.0, 0.0, -7.0 ];
+        this.HitboxBase = [ 16.0, 4.0, 0.0, 22.0 ];
+
+        this.SFX_Signpost = Resources.LoadSound("SoundFX/Global/SignPost.wav", SCOPE_SCENE);
+        this.SFX_Signpost2p = Resources.LoadSound("SoundFX/Global/SignPost2p.wav", SCOPE_SCENE);
+        this.SFX_Twinkle = Resources.LoadSound("SoundFX/Global/Twinkle.wav", SCOPE_SCENE);
+        this.SFX_BubbleBounce = Resources.LoadSound("SoundFX/Global/BubbleBounce.wav", SCOPE_SCENE);
+        this.SFX_Slide = Resources.LoadSound("SoundFX/Global/Slide.wav", SCOPE_SCENE);
+
+        this.PlayerFinishFlag = 0;
+        this.ItemBoxesFound = 0;
+    }
+    Setup() {
+        this.Type = 0;
+        this.VsBoundsSizeW = 512.0;
+        this.VsBoundsSizeH = 240.0;
+        this.VsBoundsOffsetX =
+        this.VsBoundsOffsetY = 0.0;
+        this.VsExtendTop = 120.0;
+        this.VsExtendBottom = 120.0;
+        this.Gravity = 0.0;
+        this.StopTimer = 0;
+        this.AngleSpeed = 0;
+        this.AngleThreshold = 0;
+        this.SparkleIndex = 0;
+        this.ItemBoxesFound = 0;
+        this.StoredPlayerPosition = Array.Create(8 * 2, 0.0);
+        this.PlayerFlag = 0;
+        this.DebugSpawned = false;
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.Rot = 0;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("vsExtendTop"))
+            this.VsExtendTop = this.PropertyGet("vsExtendTop") * 1.0;
+        if (this.PropertyExists("vsExtendBottom"))
+            this.VsExtendBottom = this.PropertyGet("vsExtendBottom") * 1.0;
+        if (this.PropertyExists("vsBoundsSize")) {
+            var boundsSize = this.PropertyGet("vsBoundsSize");
+            this.VsBoundsSizeW = boundsSize[0];
+            this.VsBoundsSizeH = boundsSize[1];
+        }
+        if (this.PropertyExists("vsBoundsOffset")) {
+            var boundsOffset = this.PropertyGet("vsBoundsOffset");
+            this.VsBoundsOffsetX = boundsOffset[0];
+            this.VsBoundsOffsetY = boundsOffset[1];
+        }
+    }
+
+    SetSignPostAnimation() {
+        var player;
+        with ("Player") {
+            if (this.IsSubPlayer)
+                continue;
+            player = this;
+            break;
+        }
+        switch (player.Character) {
+            // Sonic
+            case 0:
+            default:
+                this.ResetAnimation(0, 0);
+                break;
+            // Tails
+            case 1:
+                this.ResetAnimation(1, 0);
+                break;
+            // Knuckles
+            case 2:
+                this.ResetAnimation(2, 0);
+                break;
+            // Mighty
+            case 3:
+                this.ResetAnimation(3, 0);
+                break;
+            // Ray
+            case 4:
+                this.ResetAnimation(4, 0);
+                break;
+        }
+    }
+
+    Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Load();
+        this.Setup();
+
+        var debugHold = false;
+        if (!debugHold) {
+            if (global.GameMode != GameModes_TimeAttack) {
+                this.SetSignPostAnimation();
+
+                this.UpdateRegionW =
+                this.UpdateRegionH = 128.0;
+                if (global.GameMode == GameModes_Competition) {
+                    this.UpdateRegionW = Math.Max(
+                        Math.Abs(this.VsBoundsOffsetX + this.VsBoundsSizeW * 0.5),
+                        Math.Abs(this.VsBoundsOffsetX - this.VsBoundsSizeW * 0.5)
+                    ) * 2.0 + 128.0;
+                    this.UpdateRegionH = Math.Max(
+                        Math.Abs(this.VsBoundsOffsetY + this.VsBoundsSizeH * 0.5 + this.VsExtendBottom),
+                        Math.Abs(this.VsBoundsOffsetY - this.VsBoundsSizeH * 0.5 - this.VsExtendTop)
+                    ) * 2.0 + 128.0;
+                }
+
+                this.Priority = DrawGroup_FGLow_Low;
+                this.AngleSpeed = 0x3000;
+                this.StopTimer = 8;
+                this.AngleThreshold = 0x10000;
+                switch (this.Type) {
+                    // 0: Mania Only
+                    case 0:
+                        if (global.GameMode != GameModes_Competition) {
+                            this.Status = this.SignPost_Status_WaitForPlayer;
+                            return;
+                        }
+                        break;
+                    // 1: Mania Only (Appears after boss)
+                    case 1:
+                        if (global.GameMode != GameModes_Competition) {
+                            this.UpdateRegionH = 0.0;
+                            this.Status = null;
+                            return;
+                        }
+                        break;
+                    // 2: Competition Only
+                    case 2:
+                        if (global.GameMode == GameModes_Competition) {
+                            this.Status = this.SignPost_Status_WaitForPlayer;
+                            return;
+                        }
+                        break;
+                    // 3: ????
+                    case 3:
+                        this.Status = this.SignPost_Status_ActCleared;
+                        return;
+                }
+            }
+
+            this.Active = false;
+        }
+    }
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+    Render() {
+        var cos = Math.Cos(this.Rot);
+        var sin = Math.Sin(this.Rot);
+
+        var back_x, back_w;
+        var front_x, front_w;
+        var side1_x, side1_w;
+        var side2_x, side2_w;
+
+        back_x  = sin * -4.0;
+        back_w  = Math.Ceil((cos * 24.0 + sin * -4.0) - (cos * -24.0 + sin * -4.0)) / 48.0;
+
+        front_x = sin *  4.0;
+        front_w = Math.Ceil((cos * -24.0 + sin * 4.0) - (cos * 24.0 + sin * 4.0)) / 48.0;
+
+        side1_x = cos * -24.0;
+        side1_w = Math.Ceil((cos * -24.0 + sin * -4.0) - (cos * -24.0 + sin * 4.0)) / 8.0;
+
+        side2_x = cos *  24.0;
+        side2_w = Math.Ceil((cos * 24.0 + sin * 4.0) - (cos * 24.0 + sin * -4.0)) / 8.0;
+
+        Draw.Save();
+        Draw.Translate(Math.Floor(this.X), Math.Floor(this.Y));
+            // Front
+            if (front_w > 0)
+                Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, front_x, 0.0, false, false, front_w, 1.0, 0.0);
+
+            // Back
+            if (back_w > 0)
+                Draw.Sprite(this.Sprite, 5, 0, back_x, 0.0, false, false, back_w, 1.0, 0.0);
+
+            // Side
+            if (side1_w > 0)
+                Draw.Sprite(this.Sprite, 6, 1, side1_x, 0.0, false, false, side1_w, 1.0, 0.0);
+
+            // Side
+            if (side2_w > 0)
+                Draw.Sprite(this.Sprite, 6, 1, side2_x, 0.0, false, false, side2_w, 1.0, 0.0);
+
+            // Top
+            Draw.Sprite(this.Sprite, 6, 0, 0.0, 0.0, false, false);
+            // Post
+            Draw.Sprite(this.Sprite, 6, 2, 0.0, 0.0, false, false);
+        Draw.Restore();
+    }
+
+    SignPost_DebugSpawn(debugObject) {
+        var sign = Instance.Create("SignPost", debugObject.X, debugObject.Y);
+        sign.DebugSpawned = true;
+        return sign;
+    }
+    SignPost_DebugRender() { }
+    SignPost_SpawnAnnouncer(viewIndex) {
+        var announcer = Instance.Create("Announcer", 0.0, 0.0, 0);
+        announcer.Status = announcer.Announcer_Status_Unk1;
+        announcer.RenderStatus = announcer.Announcer_RenderStatus_Unk1;
+        announcer.ViewIndex = viewIndex;
+
+        announcer.ResetAnimation(0, 0);
+        Sound.Play(announcer.SFX_Goal);
+    }
+
+    SignPost_CalculateRotation() {
+        this.Angle += this.AngleSpeed;
+
+        var threshold = this.AngleThreshold;
+        if (this.Angle >= threshold) {
+            this.StopTimer--;
+            var timer = this.StopTimer;
+            this.AngleThreshold = threshold + 0x20000;
+
+            var newASP = 0x600 * (timer + 1);
+            if (newASP > 0x3000)
+                newASP = 0x3000;
+            this.AngleSpeed = newASP;
+
+            if (timer == 0) {
+                this.AngleSpeed = 0;
+                this.Angle = 0x10000;
+                this.AnimationSpeedAdd = 1;
+            }
+        }
+
+        this.Rot = ((this.Angle >> 8) & 0x1FF) * Math_PI / 256.0;
+    }
+    SignPost_SpawnSparkles()  {
+        if ((Scene_Frame & 3) == 0) {
+            var sparkleX = this.X + Math.RandomRange(-24.0, 24.0);
+            var sparkleY = this.Y + Math.RandomRange(-32.0, 8.0);
+
+            var sparkle = Instance.Create("Ring", sparkleX, sparkleY);
+            sparkle.Status = sparkle.Ring_Status_Sparkle;
+            sparkle.RenderStatus = sparkle.Ring_RenderStatus_Sparkle;
+            sparkle.UpdateRegionW = sparkle.UpdateRegionH = 0.0;
+
+            sparkle.ResetAnimation(2 + this.SparkleIndex, 0);
+
+            var frameCount = sparkle.CurrentFrameCount;
+            if (sparkle.CurrentAnimation == 2) {
+                sparkle.TransparencyValue = 0.875;
+                frameCount >>= 1;
+            }
+            sparkle.SparkleLastFrameIndex = frameCount - 1;
+            sparkle.AnimationSpeedMult = Math.RandomRange(6.0, 8.0) / 4.0;
+            sparkle.DeathTimer = 0;
+
+            this.SparkleIndex = (this.SparkleIndex + 1) % 3;
+        }
+    }
+    SignPost_BoundPlayerCamera() {
+        var zone = null;
+        var vw = View.GetWidth(0) * 0.5;
+        var vh = View.GetHeight(0) * 0.5;
+        with ("Zone") {
+            zone = this;
+            break;
+        }
+
+        // this.HitboxW = 48.0;
+        // this.HitboxH = 30.0;
+        // this.HitboxOffY = -7.0;
+        // this.HitboxW = 16.0;
+        // this.HitboxH = 4.0;
+        // this.HitboxOffY = 22.0;
+        var ox = this.X;
+        var oy = this.Y;
+        this.HitboxW = this.VsBoundsSizeW;
+        this.HitboxH = this.VsBoundsSizeH;
+        this.HitboxOffY = 0.0;
+
+        var player, signPost = this, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+
+            if (player.IsSubPlayer)
+                continue;
+            if (!player.Active)
+                continue;
+
+            var collided = false;
+            if (global.GameMode != GameModes_Competition) {
+                collided = signPost.X - player.X < 256.0 || (zone && signPost.X - zone.CameraMaxX[index] < 256.0);
+            }
+            else {
+                signPost.X = ox + signPost.VsBoundsOffsetX;
+                signPost.Y = oy + signPost.VsBoundsOffsetY;
+
+                collided = Static.GameObject_TestCollide(player, signPost);
+
+                signPost.X = ox;
+                signPost.Y = oy;
+            }
+
+            if (collided) {
+                zone.CameraMinX[index] = signPost.X - vw;
+                zone.CameraMaxX[index] = signPost.X + vw;
+                if (global.GameMode == GameModes_Competition)
+                    zone.BoundPlayerRight[index] = true;
+            }
+        }
+    }
+    SignPost_HandlePlayers() {
+        // TODO: Actually port over the code instead of lazy coding it
+        var player, signPost = this, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+            if (player.IsSubPlayer)
+                continue;
+
+            if (player.X > signPost.X) {
+                var playerFlag = 1 << index;
+                if (!(signPost.PlayerFlag & playerFlag)) {
+                    signPost.PlayerFlag = playerFlag;
+
+                    if (global.GameMode == GameModes_Competition)
+                        signPost.SignPost_SpawnAnnouncer(this.CameraPtr.ViewIndex);
+
+                    Sound.Play(signPost.SFX_Signpost);
+                    signPost.UpdateRegionW = signPost.UpdateRegionH = 0.0;
+
+                    if (player.SuperForm == SuperState_Super)
+                        player.SuperForm = SuperState_Deforming;
+
+                    var playerSpeed = player.XSpeed;
+                    if (player.Ground)
+                        playerSpeed = player.GroundSpeed;
+
+                    // NOTE: Just in case that anyone wants to implement a left-facing SignPost
+                    playerSpeed = Math.Abs(playerSpeed);
+
+                    signPost.YSpeed = -playerSpeed * 0.5;
+                    signPost.Gravity = playerSpeed / 96.0;
+
+                    if (global.GameMode == GameModes_Competition) {
+
+                    }
+                    else {
+                        if (global.GameMode == GameModes_Encore) {
+                            signPost.SetSignPostAnimation();
+                        }
+
+                        global.TimerActive = false;
+                        if (playerSpeed < 4.0) {
+                            signPost.Status = signPost.SignPost_Status_Passed;
+                            Music.StopWithFadeOut(40.0 / 60.0);
+                        }
+                        else {
+                            signPost.Status = signPost.SignPost_Status_AirborneUp;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    SetHitbox(array) {
+        this.HitboxW = array[0];
+        this.HitboxH = array[1];
+        this.HitboxOffX = array[2];
+        this.HitboxOffY = array[3];
+    }
+
+    SignPost_Status_WaitForPlayer() {
+        this.Status = this.SignPost_Status_BoundCamera;
+    }
+    SignPost_Status_BoundCamera() {
+        this.SignPost_BoundPlayerCamera();
+        this.SignPost_HandlePlayers();
+    }
+    SignPost_Status_Passed() {
+        this.SignPost_CalculateRotation();
+        this.SignPost_SpawnSparkles();
+        this.Animate();
+
+        if (this.StopTimer == 0) {
+            this.Type = SignPost_Type_SetupTransition;
+            this.Status = this.SignPost_Status_ActCleared;
+
+            this.DoActClear();
+        }
+    }
+    SignPost_Status_Passed_Competition() {
+        this.SignPost_CalculateRotation();
+        this.SignPost_SpawnSparkles();
+        this.Animate();
+
+        this.SignPost_HandlePlayers();
+
+        if (this.StopTimer == 0) {
+            if (this.PlayerFlag >= this.PlayerFinishFlag) {
+                this.Type = SignPost_Type_SetupTransition;
+                this.Status = this.SignPost_Status_ActCleared;
+
+                global.TimerActive = false;
+            }
+            else {
+                this.AngleSpeed = 0x3000;
+                this.StopTimer = 8;
+                this.AngleThreshold = 0x10000;
+                this.Status = this.SignPost_Status_BoundCamera;
+            }
+        }
+    }
+    SignPost_Status_AirborneUp() {
+        this.SignPost_CalculateRotation();
+        this.SignPost_SpawnSparkles();
+        this.Animate();
+
+        var yspeed = this.YSpeed;
+        var yspGrv = yspeed + this.Gravity;
+
+        this.Y += yspeed;
+        this.YSpeed = yspGrv;
+        this.StopTimer = 16;
+
+        if (yspGrv >= 0.0)
+            this.Status = this.SignPost_Status_AirborneDown;
+    }
+    SignPost_Status_AirborneDown() {
+        this.UpdateRegionW =
+        this.UpdateRegionH = 0.0;
+
+        global.TimerActive = false;
+
+        if (this.Type == SignPost_Type_BossTriggered) {
+            this.Type = SignPost_Type_Grounded;
+            if (global.GameMode < GameModes_Competition) {
+                this.SetSignPostAnimation();
+            }
+        }
+
+        // SignPost juggling
+        var player, signPost = this;
+        signPost.SetHitbox(signPost.HitboxPlayerCollide);
+
+        with ("Player") {
+            player = this;
+            if (signPost.YSpeed >= 0.0) {
+                if (player.YSpeed < 0.0 && player.CurrentAnimation == 10 && !player.Ground) {
+                    if (Static.GameObject_TestCollide(player, signPost)) {
+                        signPost.XSpeed = (signPost.X - player.X) / 16.0;
+                        signPost.YSpeed = -2.0;
+                        Sound.Play(signPost.SFX_Twinkle);
+
+                        // TODO: Ensure ScoreBonus port accuracy
+                        var score = Instance.Create("ScoreBonus", signPost.X, signPost.Y);
+                        score.Priority = DrawGroup_FGHigh_High;
+                        score.ResetAnimation(0, 0);
+
+                        player.GainScore(100);
+                    }
+                }
+            }
+        }
+
+        this.SignPost_CalculateRotation();
+        this.SignPost_SpawnSparkles();
+        this.Animate();
+
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+        this.StopTimer = 16;
+
+        // Prevent from leaving the screen
+        var viewX = View.GetX(0);
+        var viewW = View.GetWidth(0);
+        var xsp = this.XSpeed;
+        if (xsp > 0) {
+            if (this.X > viewX + viewW - 32.0 || Static.Entity_CheckTileCollision(this, 0x0000, 1, 0, 24.0, 0.0, true)) {
+                this.XSpeed = -xsp;
+            }
+        }
+        else {
+            if (this.X < viewX + 32.0 || Static.Entity_CheckTileCollision(this, 0x0000, 3, 0, -24.0, 0.0, true)) {
+                this.XSpeed = -xsp;
+            }
+        }
+
+        // Add gravity
+        this.YSpeed += 0.046875;
+
+        // Do hidden ItemBox detection
+        if (Static.Entity_CheckTileCollision(this, 0x0000, 0, 0, 0.0, 24.0, true)) {
+            var itemBox, signPost = this;
+            signPost.SetHitbox(signPost.HitboxBase);
+
+            with ("ItemBox") {
+                itemBox = this;
+                if (itemBox.Hidden) {
+                    itemBox.HitboxOffY = -8.0;
+                    if (Static.Entity_CollideWithObject(itemBox, signPost)) {
+                        Sound.Play(signPost.SFX_BubbleBounce);
+
+                        itemBox.YSpeed = -5.0;
+                        itemBox.Hidden = false;
+                        itemBox.Status = itemBox.ItemBox_StatusFalling;
+
+                        signPost.YSpeed = -2.0;
+                        signPost.ItemBoxesFound++;
+                        if (signPost.ItemBoxesFound >= 2) {
+                            // Unlock Achievment "That's a Two-fer"
+                            // "Find the hidden item boxes at the end of the Zone"
+                        }
+                    }
+                }
+            }
+
+            if (this.YSpeed >= 0.0) {
+                Sound.Play(this.SFX_Slide);
+                this.StopTimer = 4;
+                this.YSpeed = 0.0;
+
+                Music.StopWithFadeOut(40.0 / 60.0);
+                this.Status = this.SignPost_Status_Passed;
+            }
+        }
+    }
+    SignPost_Status_ActCleared() {
+        this.Animate();
+
+        if (this.DebugSpawned) {
+            global.AtlEnabled = false;
+            global.EnableIntro = false;
+            global.SuppressTitlecard = false;
+            global.SuppressAutoMusic = false;
+        }
+    }
+
+    // Overridable function
+    DoActClear() {
+        // Play Act Clear Music here?
+        Instance.Create("ActClear", 0.0, 0.0);
+    }
+}

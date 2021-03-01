@@ -1,0 +1,193 @@
+class SpecialRing {
+    Load() {
+        // Default variables here
+        this.Status = null;
+        this.ID = 0;
+        this.PlaneFilter = 0;
+        this.Unk_0x64 = 0;
+        this.SparkleSpawnOffsetX = 0.0;
+        this.RotationZ = 0.0;
+        this.RotationY = 0.0;
+        this.RingActive = true;
+        this.Scale = 0.0;
+
+        this.HitboxW = 16.0;
+        this.HitboxH = 48.0;
+
+        // Resource loading here
+        this.Model = Resources.LoadModel("Meshes/Global/SpecialRing.bin", SCOPE_GAME);
+        this.Sprite = Resources.LoadSprite("Sprites/Global/SpecialRing.bin", SCOPE_SCENE);
+        this.SFX_SpecialRing = Resources.LoadSound("SoundFX/Global/SpecialRing.wav", SCOPE_SCENE);
+        this.SFX_SpecialWarp = Resources.LoadSound("SoundFX/Global/SpecialWarp.wav", SCOPE_SCENE);
+
+        this.ArrayBufferIndex = 0;
+        Draw.InitArrayBuffer(this.ArrayBufferIndex, 0x200);
+        Draw.SetAmbientLighting(this.ArrayBufferIndex, 0.625, 0.625, 0.625);
+        Draw.SetDiffuseLighting(this.ArrayBufferIndex, 1.0, 1.0, 1.0);
+        Draw.SetSpecularLighting(this.ArrayBufferIndex, 0.25, 0.25, 0.25);
+
+        this.ViewMatrix = Matrix.Create();
+        this.NormalMatrix = Matrix.Create();
+        this.ScaleTranslateMatrix = Matrix.Create();
+        this.RotationXMatrix = Matrix.Create();
+    }
+    Setup() {
+        if (this.PropertyExists("id"))
+            this.ID = this.PropertyGet("id");
+        if (this.PropertyExists("planeFilter"))
+            this.PlaneFilter = this.PropertyGet("planeFilter");
+    }
+    Create(flag) {
+        this.Load();
+        this.Setup();
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.UpdateRegionW = this.UpdateRegionH = 144.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+
+        var planeFilter = this.PlaneFilter;
+        if (planeFilter > 0 && (planeFilter - 1) & 2)
+            this.Priority = DrawGroup_FGHigh_High;
+        else
+            this.Priority = DrawGroup_FGLow_Low;
+
+        this.Status = this.SpecialRing_Status_WaitForPlayer;
+
+        this.RingActive = true;
+        this.AutoAnimate = false;
+
+        if (this.ID <= 0 || global.GameMode == GameModes_TimeAttack || global.GameMode == GameModes_Competition) {
+            this.RingActive = false;
+        }
+    }
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+    SpecialRing_Status_WaitForPlayer() {
+        if (!Static.Entity_IsOnScreen(this, 0x80, 0x80))
+            this.Scale = 0.0;
+
+        var scale = this.Scale;
+        if (scale >= 1.25)
+            this.Scale = 1.25;
+        else
+            this.Scale = scale + (1.40625 - scale) * 0.03125;
+        scale = this.Scale;
+
+        var matrix,
+            rotX = 0.46875 * Math_PI_DOUBLE,
+            rotY = (Scene_Frame & 0xFF) * Math_PI_DOUBLE / 256.0,
+            rotZ = (Scene_Frame & 0x3FF) * Math_PI_DOUBLE / 1024.0;
+
+        matrix = this.ScaleTranslateMatrix;
+        Matrix.Identity(matrix);
+        Matrix.Scale(matrix, scale, scale, scale);
+        Matrix.Translate(matrix, this.X, this.Y, 0.0);
+
+        matrix = this.ViewMatrix;
+        Matrix.Identity(matrix);
+        Matrix.Rotate(matrix, 0.0, rotY, rotZ);
+        Matrix.Multiply(matrix, matrix, this.ScaleTranslateMatrix);
+
+        matrix = this.RotationXMatrix;
+        Matrix.Identity(matrix);
+        Matrix.Rotate(matrix, rotX, 0.0, 0.0);
+
+        matrix = this.NormalMatrix;
+        Matrix.Identity(matrix);
+        Matrix.Rotate(matrix, 0.0, rotY, rotZ);
+        Matrix.Multiply(matrix, matrix, this.RotationXMatrix);
+
+        if (!global.TimerActive)
+            return;
+
+        if (this.RingActive && this.Scale > 1.0) {
+            var player, specialRing = this;
+            with ("Player") {
+                player = this;
+                var planeFilter = specialRing.PlaneFilter;
+                if ((planeFilter > 0 && player.PlaneIndex != ((planeFilter - 1) & 1)) || player.IsSubPlayer)
+                    continue;
+
+                if (Static.GameObject_TestCollide(player, specialRing)) {
+                    specialRing.SparkleSpawnOffsetX = 16.0;
+                    specialRing.Status = specialRing.SpecialRing_Status_Collected;
+
+                    player.GainRings(50);
+                    Sound.Play(specialRing.SFX_SpecialRing);
+                }
+            }
+        }
+    }
+    SpecialRing_Status_Collected() {
+        this.Animate();
+
+        if ((Scene_Frame & 3) == 0) {
+            for (var i = 0; i < 3; i++) {
+                var sparkleX = this.X + Math.RandomRange(-2.0, 2.0) + this.SparkleSpawnOffsetX;
+                var sparkleY = this.Y + Math.RandomRange(-32.0, 32.0);
+
+                var sparkle = Instance.Create("Ring", sparkleX, sparkleY);
+                sparkle.Status = sparkle.Ring_Status_Sparkle;
+                sparkle.RenderStatus = sparkle.Ring_RenderStatus_Sparkle;
+                sparkle.UpdateRegionW = sparkle.UpdateRegionH = 0.0;
+
+                sparkle.ResetAnimation(2 + i, 0);
+
+                var frameCount = sparkle.CurrentFrameCount;
+                if (sparkle.CurrentAnimation == 2) {
+                    sparkle.TransparencyValue = 0.875;
+                    frameCount >>= 1;
+                }
+                sparkle.SparkleLastFrameIndex = frameCount - 1;
+                sparkle.AnimationSpeedMult = Math.RandomRange(6.0, 8.0) / 4.0;
+                sparkle.DeathTimer = 0;
+            }
+
+            this.SparkleSpawnOffsetX -= 8.0;
+        }
+
+        // If not all emeralds and this.ID != 0
+        if (true && this.ID) {
+            if (this.CurrentFrame == this.CurrentFrameCount - 1) {
+                this.Status = this.SpecialRing_Status_FadeToSpecialStage;
+                this.ViewRenderFlag = 0;
+            }
+        }
+        else {
+            this.Active = false;
+        }
+    }
+    SpecialRing_Status_FadeToSpecialStage() {
+
+    }
+    Render() {
+        if (this.Status == this.SpecialRing_Status_Collected) {
+            var x = Math.Floor(this.X), y = Math.Floor(this.Y);
+            var sprite = this.Sprite, anim = this.CurrentAnimation, frame = this.CurrentFrame;
+            Draw.Sprite(sprite, anim, frame, x, y, frame > 8, false);
+        }
+        else if (this.Model > -1) {
+            var rotY = (Scene_Frame & 0xFF) * Math_PI_DOUBLE / 256.0,
+                rotZ = (Scene_Frame & 0x3FF) * Math_PI_DOUBLE / 1024.0;
+            if (this.RingActive) {
+                Draw.SetBlendColor(0xF0F000, 1.0);
+                Draw.BindArrayBuffer(this.ArrayBufferIndex);
+                Draw.Model(this.Model, 0, this.ViewMatrix, this.NormalMatrix);
+                // Draw.ModelSimple(this.Model, 0, this.X, this.Y, this.Scale, 0x1E0 * Math_PI_DOUBLE / 0x400, rot, rot);
+                Draw.RenderArrayBuffer(this.ArrayBufferIndex, DrawMode_POLYGONS_SMOOTH);
+            }
+            else {
+                Draw.SetBlendColor(0x609090, 1.0);
+                Draw.BindArrayBuffer(this.ArrayBufferIndex);
+                Draw.Model(this.Model, 0, this.ViewMatrix, this.NormalMatrix);
+                Draw.RenderArrayBuffer(this.ArrayBufferIndex, DrawMode_LINES_SMOOTH);
+            }
+        }
+    }
+}

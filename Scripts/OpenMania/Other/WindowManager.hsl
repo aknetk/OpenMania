@@ -1,0 +1,49 @@
+var WindowManager_Set = false;
+var WindowManager_BaseW = 424.0;
+var WindowManager_BaseH = 240.0;
+
+class WindowManager {
+    event Create() {
+        if (WindowManager_Set)
+            return;
+
+        View.SetUseSoftwareRenderer(0, true);
+
+        if (Device.IsMobile()) {
+            var w = Display.GetWidth();
+            var h = Display.GetHeight();
+
+            WindowManager_BaseW = WindowManager_BaseH * w / h;
+            // Round display bounds down to multiple of two
+            WindowManager_BaseW = Math.Floor(WindowManager_BaseW * 0.25) * 4.0;
+
+            this.SetScale(1);
+            this.SetFullscreen(true);
+
+            Window.SetSize(Display.GetWidth(), Display.GetHeight());
+            View.SetSize(7, w, h);
+        }
+        else {
+            Window.SetTitle("OpenMania Framework");
+            Window.SetBorderless(false);
+            // this.SetScale(1);
+            this.SetScale(2);
+            // this.SetScale(3);
+
+            View.SetSize(7, Window.GetWidth(), Window.GetHeight());
+        }
+        WindowManager_Set = true;
+
+        print "View Base Size: (" + Number.AsInteger(WindowManager_BaseW) + ", " + Number.AsInteger(WindowManager_BaseH) + ")";
+        print "Window Size: (" + Window.GetWidth() + ", " + Window.GetHeight() + ")";
+    }
+
+    event SetScale(screenScale) {
+        Window.SetSize(WindowManager_BaseW * screenScale, WindowManager_BaseH * screenScale);
+        for (var i = 0; i < 8; i++)
+            View.SetSize(i, WindowManager_BaseW, WindowManager_BaseH);
+    }
+    event SetFullscreen(full) {
+        Window.SetFullscreen(full);
+    }
+}

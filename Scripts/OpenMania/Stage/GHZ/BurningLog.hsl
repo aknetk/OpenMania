@@ -1,0 +1,40 @@
+class BurningLog {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load()
+        this.Sprite = Resources.LoadSprite("Sprites/GHZ/Fireball.bin", SCOPE_SCENE);
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.Timer = 0;
+        if (this.PropertyExists("timer"))
+            this.Timer = this.PropertyGet("timer");
+
+        // Create()
+        // this.VisibilityFlag = 1;
+        this.UpdateRegionW = this.UpdateRegionH = 0.0;
+        this.Priority = DrawGroup_FGLow_Low;
+        this.SetAnimation(0, 0);
+    }
+
+    event Update() {
+        this.Animate();
+        if (Static.Entity_IsOnScreen(this, 0x80, 0x1000)) {
+            this.Y += this.YSpeed;
+            this.YSpeed += 0.21875;
+        }
+        else {
+            this.Active = false;
+        }
+    }
+
+    event Render() {
+        if (!this.OnScreen)
+            return;
+
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+    }
+}

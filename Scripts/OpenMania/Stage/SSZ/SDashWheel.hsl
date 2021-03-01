@@ -1,0 +1,71 @@
+// SDashWheel
+var SDashWheel_HitboxTop = [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    3,
+    3,
+    4,
+    4,
+    5,
+    6,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    14,
+    15,
+    17,
+    19,
+    22,
+    26,
+];
+class SDashWheel {
+    Load() {
+        this.Type = 0;
+        this.AmplitudeX = 0.0;
+        this.AmplitudeY = 0.0;
+        this.Speed = 0;
+        this.HasTension = 0;
+        this.FrameID = 0;
+        this.Collision = 0;
+        this.TileOriginX = 0.0;
+        this.TileOriginY = 0.0;
+        this.ChildCount = 0;
+        this.Angle = 0;
+        this.Rotation = 0;
+        this.Status = null;
+        this.CollisionStatus = null;
+        this.Visible = true;
+        this.FlipFlag = 0;
+    }
+    Setup() {
+        if (this.PropertyExists("childCount"))
+            this.ChildCount = this.PropertyGet("childCount");
+        if (this.PropertyExists("angle"))
+            this.Angle = this.PropertyGet("angle");
+    }
+    Create(flag) {
+
+    }
+    Update() {
+
+    }
+    Render() {
+
+    }
+}

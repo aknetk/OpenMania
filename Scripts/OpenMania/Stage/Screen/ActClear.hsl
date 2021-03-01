@@ -1,0 +1,7 @@
+class ActClear {
+    event Create() {
+        this.UpdateRegionW = this.UpdateRegionH = 32.0;
+    }
+    event Update() { }
+    event Render() { }
+}

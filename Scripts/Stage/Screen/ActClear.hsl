@@ -1,7 +1,0 @@
-class ActClear {
-    event Create() {
-        this.OnScreenHitboxW = this.OnScreenHitboxH = 32.0;
-    }
-    event Update() { }
-    event Render() { }
-}

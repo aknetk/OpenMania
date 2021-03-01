@@ -1,0 +1,137 @@
+class ImageTrail {
+    Create() {
+        this.Player = null;
+        this.ArrPositionX = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        this.ArrPositionY = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        this.ArrRotation = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        this.ArrFlipFlag = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.ArrVisible = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.ArrScale = [ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 ];
+        this.ArrAnimation = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.ArrFrame = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.Transparency = 1.0;
+        this.Timer = 0;
+    }
+    Reset() {
+        this.Player = null;
+        for (var i = 0; i < 8; i++) {
+            this.ArrPositionX[i] = 0.0;
+            this.ArrPositionY[i] = 0.0;
+            this.ArrRotation[i] = 0.0;
+            this.ArrFlipFlag[i] = 0;
+            this.ArrVisible[i] = false;
+            this.ArrScale[i] = 1.0;
+            this.ArrAnimation[i] = 0;
+            this.ArrFrame[i] = 0;
+        }
+        this.Transparency = 1.0;
+        this.Timer = 0;
+    }
+
+    UpdateLate() {
+        var player = this.Player;
+        if (!player) {
+            this.Reset();
+            return;
+        }
+
+        // If in debug mode, deactivate & return.
+
+        var speedShoesTimer = player.SpeedShoesTimer;
+        if (player.SuperForm == 2) {
+            this.Transparency = 1.0;
+        }
+        else if (speedShoesTimer < 16 && player.Status == player.Player_StatusMighty_HammerDrop) {
+            this.Timer = 16;
+        }
+        else {
+            var timer = this.Timer;
+            if (timer <= 0) {
+                if (speedShoesTimer < 32) {
+                    var transparency = 8 * speedShoesTimer;
+                    this.Transparency = transparency / 256.0;
+
+                    if (transparency == 0) {
+                        this.Reset();
+                        return;
+                    }
+                }
+            }
+            else {
+                timer--;
+                this.Timer = timer;
+
+                var transparency = 16 * timer;
+                this.Transparency = transparency / 256.0;
+
+                if (transparency == 0) {
+                    this.Reset();
+                    return;
+                }
+            }
+        }
+
+        Array.Shift(this.ArrPositionX, true);
+        Array.Shift(this.ArrPositionY, true);
+        Array.Shift(this.ArrRotation, true);
+        Array.Shift(this.ArrFlipFlag, true);
+        Array.Shift(this.ArrVisible, true);
+        Array.Shift(this.ArrScale, true);
+        Array.Shift(this.ArrAnimation, true);
+        Array.Shift(this.ArrFrame, true);
+        this.Priority = player.Priority - 1;
+
+        if (Math.Abs(player.XSpeed) >= 1.0 || Math.Abs(player.YSpeed) >= 1.0)
+            this.ArrVisible[0] = true; // player.Visible;
+        else
+            this.ArrVisible[0] = false;
+
+        this.ArrPositionX[0] = player.X;
+        this.ArrPositionY[0] = player.Y;
+        this.ArrRotation[0] = player.Rotation;
+        this.ArrFlipFlag[0] = player.Flip;
+        this.ArrAnimation[0] = player.CurrentAnimation;
+        this.ArrFrame[0] = player.CurrentFrame;
+
+        if (player.UseChibiSprite) // || player.Scale == 1.0)
+            this.ArrScale[0] = 1.0;
+        else
+            this.ArrScale[0] = 1.0; // player.Scale;
+    }
+    Render() {
+        Draw.SetTextureBlend(true);
+        var player = this.Player;
+        if (player) {
+            var index = 6;
+            if (this.ArrVisible[index]) {
+                Draw.SetBlendColor(1.0, 1.0, 1.0, this.Transparency * 0.375);
+
+                Draw.Save();
+                Draw.Translate(Math.Floor(this.ArrPositionX[index]), Math.Floor(this.ArrPositionY[index]));
+                    Draw.Sprite(player.Sprite, this.ArrAnimation[index], this.ArrFrame[index], 0.0, 0.0, this.ArrFlipFlag[index], false, this.ArrScale[index], this.ArrScale[index], this.ArrRotation[index]);
+                Draw.Restore();
+            }
+
+            index = 4;
+            if (this.ArrVisible[index]) {
+                Draw.SetBlendColor(1.0, 1.0, 1.0, this.Transparency * 0.5);
+
+                Draw.Save();
+                Draw.Translate(Math.Floor(this.ArrPositionX[index]), Math.Floor(this.ArrPositionY[index]));
+                    Draw.Sprite(player.Sprite, this.ArrAnimation[index], this.ArrFrame[index], 0.0, 0.0, this.ArrFlipFlag[index], false, this.ArrScale[index], this.ArrScale[index], this.ArrRotation[index]);
+                Draw.Restore();
+            }
+
+            index = 2;
+            if (this.ArrVisible[index]) {
+                Draw.SetBlendColor(1.0, 1.0, 1.0, this.Transparency * 0.625);
+
+                Draw.Save();
+                Draw.Translate(Math.Floor(this.ArrPositionX[index]), Math.Floor(this.ArrPositionY[index]));
+                    Draw.Sprite(player.Sprite, this.ArrAnimation[index], this.ArrFrame[index], 0.0, 0.0, this.ArrFlipFlag[index], false, this.ArrScale[index], this.ArrScale[index], this.ArrRotation[index]);
+                Draw.Restore();
+            }
+        }
+        Draw.SetTextureBlend(false);
+    }
+}

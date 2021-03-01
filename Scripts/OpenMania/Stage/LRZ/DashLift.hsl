@@ -1,0 +1,168 @@
+class DashLift < Platform {
+    Load() {
+        super.Load();
+
+        this.Length = 0.0;
+        this.ChildCount = 0;
+        this.StartOff = 0.0;
+        this.PlayerCaptureFlag = 0;
+
+        this.SFX_Pulley = Resources.LoadSound("SoundFX/Stage/Pulley.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        if (this.PropertyExists("length"))
+            this.Length = this.PropertyGet("length");
+        if (this.PropertyExists("childCount"))
+            this.ChildCount = this.PropertyGet("childCount");
+        if (this.PropertyExists("startOff"))
+            this.StartOff = this.PropertyGet("startOff");
+
+        this.Collision = 1;
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        
+        // This code is hilariously hacked together.
+        super.Create();
+
+        this.Priority = DrawGroup_AboveTiles;
+        this.ResetAnimation(2, 4);
+        this.FrameID = 4;
+
+        var length = this.Length;
+        this.FinalY += this.StartOff * 0.5;
+
+        this.PositionTop = this.Y - length * 0.5;
+        this.PositionBottom = this.Y + length * 0.5;
+
+        this.UpdateRegionW = 256.0;
+        this.UpdateRegionH = length * 2.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+
+        this.Status = this.DashLift_Status_WaitForOnscreen;
+    }
+    UpdateEarly() {
+        super.UpdateEarly();
+    }
+    Update() {
+        super.Update();
+    }
+    DashLift_ResetWhenOffscreen() {
+        if (!Static.Position_IsOnScreen(this.FinalX, this.FinalY, this.RenderRegionW, this.RenderRegionH)) {
+            if (!Static.Position_IsOnScreen(this.StartX, this.StartY, this.RenderRegionW, this.RenderRegionH)) {
+                this.X = this.FinalX = this.StartX;
+                this.Y = this.FinalY = this.StartY;
+                this.UpdateRegionW = this.RenderRegionW;
+                this.UpdateRegionH = this.RenderRegionH;
+
+                this.PlayerCaptureFlag = 0;
+
+                this.Create(0);
+            }
+        }
+    }
+    DashLift_Status_WaitForOnscreen() {
+        this.UpdateRegionW =
+        this.UpdateRegionH = 0.0;
+        this.Status = this.DashLift_Status_Main;
+    }
+    DashLift_Status_Main() {
+        var frameSpeed = 0.0;
+        var player, index = -1, indexFlag, dashLift = this;
+        with ("Player") {
+            player = this;
+            index++;
+            indexFlag = 1 << index;
+
+            // print "dashLift.PlayerCaptureFlag: " + dashLift.PlayerCaptureFlag;
+
+            if (dashLift.PlayerOnTopFlag & indexFlag) {
+                var currentAnim = player.CurrentAnimation;
+                if (currentAnim == 15 || (currentAnim == 10 && (dashLift.PlayerCaptureFlag & indexFlag))) {
+                    dashLift.PlayerCaptureFlag |= indexFlag;
+
+                    // TODO: Deactivate Dust instances here
+
+                    player.XSpeed *= 0.96875;
+                    player.X = dashLift.X;
+                    if (player.Flip == 1) {
+                        if ((!player.IsSubPlayer || frameSpeed >= 0.0) && dashLift.FinalY < dashLift.PositionBottom) {
+                            var dashSpeed = -player.GroundSpeed;
+                            if (player.Status == player.Player_StatusSpinDash) {
+                                var spinDashSpeed = 8.0;
+                                if (player.SuperForm == SuperState_Super)
+                                    spinDashSpeed = 11.0;
+
+                                dashSpeed = spinDashSpeed + player.SpindashRev * 0.5;
+                            }
+
+                            dashSpeed -= 4.0;
+                            if (dashSpeed < 0.0) {
+                                dashSpeed = 0.0;
+                                player.XSpeed =
+                                player.GroundSpeed = 0.0;
+                            }
+
+                            var yspeed = dashSpeed * 0.25;
+                            dashLift.FinalY += yspeed;
+
+                            frameSpeed += yspeed;
+
+                            // TODO: Alter the frame here
+
+                            if (!(Scene_Frame & 15))
+                                Sound.Play(dashLift.SFX_Pulley);
+                        }
+                    }
+                    else if ((!player.IsSubPlayer || frameSpeed <= 0.0) && dashLift.FinalY > dashLift.PositionTop) {
+                        var dashSpeed = -player.GroundSpeed;
+                        if (player.Status == player.Player_StatusSpinDash) {
+                            var spinDashSpeed = -8.0;
+                            if (player.SuperForm == SuperState_Super)
+                                spinDashSpeed = -11.0;
+
+                            dashSpeed = spinDashSpeed - player.SpindashRev * 0.5;
+                        }
+
+                        dashSpeed += 4.0;
+                        if (dashSpeed > 0.0) {
+                            dashSpeed = 0.0;
+                            player.XSpeed =
+                            player.GroundSpeed = 0.0;
+                        }
+
+                        var yspeed = dashSpeed * 0.25;
+                        dashLift.FinalY += yspeed;
+
+                        frameSpeed += yspeed;
+
+                        // TODO: Alter the frame here
+
+                        if (!(Scene_Frame & 15))
+                            Sound.Play(dashLift.SFX_Pulley);
+                    }
+                }
+                else {
+                    dashLift.PlayerCaptureFlag &= ~indexFlag;
+                }
+            }
+            else if (dashLift.PlayerCaptureFlag & indexFlag) {
+                player.X = dashLift.X;
+                dashLift.PlayerCaptureFlag &= ~indexFlag;
+                if (player.CurrentAnimation == 10)
+                    player.XSpeed = 0.0;
+            }
+        }
+
+        this.DashLift_ResetWhenOffscreen();
+    }
+    Render() {
+        super.Render();
+        // Draw.SetBlendColor(0.5, 0.5, 0.625, 1.0);
+        // Draw.Rectangle(Math.Floor(this.FinalX - this.HitboxW * 0.5 + this.HitboxOffX), Math.Floor(this.FinalY - this.HitboxH * 0.5 + this.HitboxOffY), this.HitboxW, this.HitboxH);
+    }
+}

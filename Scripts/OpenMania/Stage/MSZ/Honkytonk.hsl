@@ -1,0 +1,186 @@
+class Honkytonk {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/MSZ/HonkyTonk.bin", SCOPE_SCENE);
+        this.SFX_Piano00C2 = Resources.LoadSound("SoundFX/MSZ/Piano00C2.wav", SCOPE_SCENE);
+        this.Status = null;
+
+        // Setup
+        this.Visible = true;
+        this.Respawn = 0;
+        this.PriorityFlag = 0;
+        if (this.PropertyExists("angle"))
+            this.Angle = this.PropertyGet("angle");
+        this.Rotation = this.Angle * Math_PI / 128.0;
+
+        this.RAngle = 0x100 - this.Angle;
+        this.RCos = Static.HexCos(this.RAngle);
+        this.RSin = Static.HexSin(this.RAngle);
+        this.Cos = Static.HexCos(this.Angle);
+        this.Sin = Static.HexSin(this.Angle);
+
+        this.Notes = [ 0x3F400000, 0x3FC00000, 0x3FA00000, 0x3F800000 ];
+
+        this.Priority = DrawGroup_FGLow_Low;
+
+        this.PressedIn = 0.0;
+
+        // Initial Status
+        this.SetAnimation(0, 1);
+        this.HitboxW = 48.0;
+        this.HitboxH = 24.0;
+
+        this.UpdateRegionW =
+        this.UpdateRegionH =
+        this.RenderRegionW =
+        this.RenderRegionH = 96.0;
+    }
+
+    event Update() {
+        if (this.PressedIn > 0.0) {
+            var p = this.PressedIn - 2.0;
+            if (p < 0.0)
+                p = 0.0;
+            this.PressedIn = p;
+        }
+
+        var player, honkytonk = this;
+        with ("Player") {
+            player = this;
+
+            if (!player.UseGroundSpeed)
+                continue;
+
+            var playerX = player.X;
+            var playerY = player.Y;
+            var playerXSpeed = player.XSpeed;
+            var playerYSpeed = player.YSpeed;
+
+            var rcos = honkytonk.RCos;
+            var rsin = honkytonk.RSin;
+            var relX = player.X - honkytonk.X;
+            var relY = player.Y - honkytonk.Y;
+            player.X = relY * rsin + relX * rcos + honkytonk.X;
+            player.Y = relY * rcos - relX * rsin + honkytonk.Y;
+
+            relX = player.XSpeed;
+            relY = player.YSpeed;
+            player.XSpeed = relY * rsin + relX * rcos;
+            player.YSpeed = relY * rcos - relX * rsin;
+
+            honkytonk.HitboxW = 48.0;
+            honkytonk.HitboxH = 24.0;
+            honkytonk.HitboxOffY = 0.0;
+            if (Static.GameObject_TestCollide(player, honkytonk)) {
+                var pressed = player.Y + (player.HitboxH * 0.5 - player.HitboxOffY) - (honkytonk.Y - 12.0);
+                if (pressed > honkytonk.PressedIn) {
+                    honkytonk.PressedIn = pressed;
+                }
+            }
+
+            honkytonk.HitboxW = 48.0;
+            honkytonk.HitboxH = 6.0;
+            honkytonk.HitboxOffY = 9.0;
+            if (Static.GameObject_TestCollide(player, honkytonk)) {
+                player.Status = player.Player_StatusJumping;
+                player.Ground = false;
+                player.JumpAbility = 0;
+                // player.YSpeed = -Math.Distance(0.0, 0.0, player.XSpeed, player.YSpeed);
+                player.YSpeed = -8.0;
+
+                if (player.CurrentAnimation != 10) {
+                    player.AnimationSpeedMult = 1.0;
+                    player.SetAnimation(23, 0);
+                }
+
+                if (player.YSpeed < -8.0) {
+                    player.YSpeed = -8.0;
+                }
+                else if (player.YSpeed > -2.0) {
+                    player.YSpeed = -2.0;
+                }
+
+                rcos = honkytonk.Cos;
+                rsin = honkytonk.Sin;
+
+                relX = player.X - honkytonk.X;
+                relY = player.Y - honkytonk.Y;
+                player.X = relY * rsin + relX * rcos + honkytonk.X;
+                player.Y = relY * rcos - relX * rsin + honkytonk.Y;
+
+                relX = player.XSpeed;
+                relY = player.YSpeed;
+                player.XSpeed = relY * rsin + relX * rcos;
+                player.YSpeed = relY * rcos - relX * rsin;
+
+                Sound.Play(honkytonk.SFX_Piano00C2);
+            }
+            else {
+                player.X = playerX;
+                player.Y = playerY;
+                player.XSpeed = playerXSpeed;
+                player.YSpeed = playerYSpeed;
+            }
+        }
+
+        if (this.PressedIn > 20.0) {
+            this.PressedIn = 20.0;
+        }
+    }
+
+    event Render() {
+        // var aae1 = (this.PressedIn + 2.0) / 24.0;
+        // var aae2 = 1.0 + (this.PressedIn) / 24.0 * 0.25;
+        //
+        // Draw.Save();
+        // Draw.Translate(Math.Floor(this.X), Math.Floor(this.Y));
+        // Draw.Rotate(0.0, 0.0, -this.Rotation);
+        //     Draw.Sprite(this.Sprite, 0, 4, 0.0, 0.0, false, false);
+        //
+        //     // Key top
+        //     Draw.Save();
+        //     Draw.Translate(0.0, -12.0);
+        //     Draw.Scale(1.0, aae1);
+        //         Draw.Sprite(this.Sprite, 0, 1, 0.0, 0.0, false, false);
+        //     Draw.Restore();
+        //
+        //     // Shadow
+        //     Draw.Save();
+        //     Draw.Translate(0.0, -8.0 + this.PressedIn);
+        //     Draw.Scale(1.0, aae2);
+        //         Draw.Sprite(this.Sprite, 0, 3, 0.0, 0.0, false, false);
+        //     Draw.Restore();
+        //
+        //     // Key edge
+        //     Draw.Sprite(this.Sprite, 0, 2, 0.0, -8.0 + this.PressedIn - 4.0, false, false);
+        // Draw.Restore();
+
+        var aae1 = (this.PressedIn + 2.0) / 24.0;
+        var aae2 = 1.0 + (this.PressedIn) / 24.0 * 0.25;
+        var rrot = -this.Rotation;
+
+        var x = Math.Floor(this.X), y = Math.Floor(this.Y);
+        var cos = Math.Cos(rrot), sin = Math.Sin(rrot);
+        var len;
+
+        len = 0.0;
+        Draw.Sprite(this.Sprite, 0, 4, x, y, false, false, 1.0, 1.0, rrot);
+
+        // Key top
+        len = -12.0; len += 1.0;
+        Draw.Sprite(this.Sprite, 0, 1, (x - len * sin), (y + len * cos), false, false, 1.0, aae1, rrot);
+
+        // Shadow
+        len = -8.0 + this.PressedIn - 1.0; len += 1.0;
+        Draw.Sprite(this.Sprite, 0, 3, (x - len * sin), (y + len * cos), false, false, 1.0, aae2, rrot);
+
+        // Key edge
+        len = -8.0 + this.PressedIn - 4.0; len += 1.0;
+        Draw.Sprite(this.Sprite, 0, 2, (x - len * sin), (y + len * cos), false, false, 1.0, 1.0, rrot);
+    }
+}

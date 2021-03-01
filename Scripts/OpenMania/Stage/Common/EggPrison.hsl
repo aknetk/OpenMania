@@ -1,0 +1,432 @@
+var EggPrison_Type_Grounded = 0x0;
+var EggPrison_Type_Flying = 0x1;
+var EggPrison_Type_ReleasesAnimals = 0x2;
+var EggPrison_Type_ReleasesRings = 0x3;
+var EggPrison_Type_ReleasesBadniks = 0x4;
+var EggPrison_Type_Spring = 0x5;
+
+class EggPrison {
+    // NOTE: These are just both called in Create()
+    Load() {
+        this.Sprite = Resources.LoadSprite("Sprites/Global/EggPrison.bin", SCOPE_GAME);
+        this.SFX_Destroy = Resources.LoadSound("SoundFX/Global/Destroy.wav", SCOPE_SCENE);
+        this.SFX_Spring = Resources.LoadSound("SoundFX/Global/Spring.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        this.Status = null;
+        this.Type = 0;
+        this.ExplodedTimer = 0;
+        this.BaseY = 0.0;
+        this.ButtonDepress = 0.0;
+        this.PreventPlayerInteract = false;
+        this.CheckFloor = false;
+        this.HitboxCapsule = null;
+        this.HitboxButtonOuter = null;
+        this.HitboxButtonInner = null;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+
+        this.ShowPanels = true;
+    }
+
+    event SetHitbox(array) {
+        this.HitboxW = array[0];
+        this.HitboxH = array[1];
+        this.HitboxOffX = array[2];
+        this.HitboxOffY = array[3];
+    }
+
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Load();
+        this.Setup();
+
+        if (global.GameMode < GameModes_TimeAttack || this.Type >= EggPrison_Type_Flying) {
+            // If entity is not being held in Debug Mode
+            if (true) {
+                if (flag)
+                    this.Type = flag;
+
+                if (this.Type == EggPrison_Type_Flying) {
+                    this.SetAnimation(3, 0);
+
+                    this.HitboxButtonOuter = [ 32.0, 14.0, 0.0, 31.0 ];
+                    this.HitboxButtonInner = [ 30.0, 24.0, 0.0, 36.0 ];
+                    this.XSpeed = 1.0;
+                    this.YSpeed = 0.25;
+                }
+                else {
+                    this.HitboxButtonOuter = [ 32.0, 14.0, 0.0, -31.0 ];
+                    this.HitboxButtonInner = [ 30.0, 24.0, 0.0, -36.0 ];
+                }
+
+                this.HitboxCapsule = [ 64.0, 56.0, 0.0, 4.0 ];
+
+                this.Status = this.EggPrison_Status_Init;
+                this.UpdateRegionW =
+                this.UpdateRegionH = 256.0;
+                this.Priority = DrawGroup_FGLow_Low;
+            }
+        }
+        else {
+            this.Active = false;
+        }
+
+        this.RenderRegionW =
+        this.RenderRegionH = 80.0;
+    }
+    event Update() {
+        if (this.Status)
+            this.Status();
+
+        if (this.Type == EggPrison_Type_Flying) {
+            this.Animate();
+            this.EggPrison_Hover();
+
+            if (!this.PreventPlayerInteract) {
+                var player, eggPrison = this, index = -1;
+                with ("Player") {
+                    player = this;
+                    index++;
+
+                    eggPrison.SetHitbox(eggPrison.HitboxCapsule);
+                    if (Static.Entity_SolidCollideWithPlayer(eggPrison, player)) {
+                        player.X += eggPrison.XSpeed;
+                        player.Y += 1.0;
+                    }
+
+                    eggPrison.SetHitbox(eggPrison.HitboxButtonOuter);
+                    if (eggPrison.Status == eggPrison.EggPrison_Status_BoundCamera) {
+                        if (Static.Entity_SolidCollideWithPlayer(eggPrison, player) == 4) {
+                            eggPrison.XSpeed = 0.0;
+                            eggPrison.UpdateRegionW =
+                            eggPrison.UpdateRegionH = 0.0;
+                            eggPrison.Status = eggPrison.EggPrison_Status_ReleaseContents;
+                            eggPrison.ButtonDepress = -8.0;
+                        }
+                        else {
+                            eggPrison.SetHitbox(eggPrison.HitboxButtonInner);
+                            if (!Static.GameObject_TestCollide(player, eggPrison)) {
+                                var buttonDepress = eggPrison.ButtonDepress;
+                                if (buttonDepress < 0)
+                                    eggPrison.ButtonDepress = buttonDepress + 1.0;
+                            }
+                            else {
+                                var buttonDepress = ((player.HitboxH * -0.5 + player.HitboxOffY) - 48.0) - eggPrison.Y + player.Y;
+                                eggPrison.ButtonDepress = buttonDepress;
+
+                                if (buttonDepress >= -8.0) {
+                                    if (buttonDepress > 0.0)
+                                        eggPrison.ButtonDepress = 0.0;
+                                }
+                                else {
+                                    eggPrison.ButtonDepress = -8.0;
+                                }
+
+                                eggPrison.ButtonDepress = Math.Floor(eggPrison.ButtonDepress);
+                            }
+                        }
+                    }
+                    else {
+                        eggPrison.SetHitbox(eggPrison.HitboxButtonOuter);
+                        Static.Entity_SolidCollideWithPlayer(eggPrison, player);
+                    }
+
+                    // if (player.IsSubPlayer)
+                    //     continue;
+                }
+            }
+        }
+        else if (!this.PreventPlayerInteract) {
+            var player, eggPrison = this, index = -1;
+            with ("Player") {
+                player = this;
+                index++;
+
+                eggPrison.SetHitbox(eggPrison.HitboxCapsule);
+                Static.Entity_SolidCollideWithPlayer(eggPrison, player);
+
+                eggPrison.SetHitbox(eggPrison.HitboxButtonOuter);
+                if (eggPrison.Status == eggPrison.EggPrison_Status_BoundCamera) {
+                    if (Static.Entity_SolidCollideWithPlayer(eggPrison, player) == 1) {
+                        eggPrison.ButtonDepress = 8.0;
+                        if (eggPrison.Type <= EggPrison_Type_Flying)
+                            global.TimerActive = false;
+
+                        if (eggPrison.Type == EggPrison_Type_Spring) {
+                            var playerAnim = player.CurrentAnimation;
+                            if (playerAnim == 5 || playerAnim > 6 && playerAnim <= 9)
+                                player.AnimationAfterSpring = player.CurrentAnimation;
+                            else
+                                player.AnimationAfterSpring = 5;
+
+                            player.Status = player.Player_StatusJumping;
+                            player.Ground = false;
+                            player.YSpeed = -10.0;
+                            player.SetAnimation(11, 0);
+                            Sound.Play(eggPrison.SFX_Spring);
+                        }
+                        else {
+                            eggPrison.UpdateRegionW =
+                            eggPrison.UpdateRegionH = 0.0;
+                            eggPrison.Status = eggPrison.EggPrison_Status_ReleaseContents;
+                        }
+                    }
+                    else {
+                        eggPrison.SetHitbox(eggPrison.HitboxButtonInner);
+                        if (!Static.GameObject_TestCollide(player, eggPrison)) {
+                            var buttonDepress = eggPrison.ButtonDepress;
+                            if (buttonDepress > 0)
+                                eggPrison.ButtonDepress = buttonDepress - 1.0;
+                        }
+                        else {
+                            var buttonDepress = ((player.HitboxH * 0.5 + player.HitboxOffY) + 48.0) - eggPrison.Y + player.Y;
+                            eggPrison.ButtonDepress = buttonDepress;
+
+                            if (buttonDepress <= 8.0) {
+                                if (buttonDepress < 0.0)
+                                    eggPrison.ButtonDepress = 0.0;
+                            }
+                            else {
+                                eggPrison.ButtonDepress = 8.0;
+                            }
+
+                            eggPrison.ButtonDepress = Math.Floor(eggPrison.ButtonDepress);
+                        }
+                    }
+                }
+                else {
+                    eggPrison.SetHitbox(eggPrison.HitboxButtonOuter);
+                    Static.Entity_SolidCollideWithPlayer(eggPrison, player);
+                }
+            }
+        }
+    }
+    event Render() {
+        var isFlying = this.Type == EggPrison_Type_Flying;
+
+        var x = Math.Floor(this.X);
+        var y = Math.Floor(this.Y);
+
+        Draw.Sprite(this.Sprite, 1, 0, x, y + this.ButtonDepress, false, isFlying);
+
+        Draw.Sprite(this.Sprite, 0, isFlying, x, y, false, false);
+        if (this.ShowPanels)
+            Draw.Sprite(this.Sprite, 2, isFlying, x, y, false, false);
+
+        if (isFlying) {
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, x, y, false, false);
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, x, y, true, false);
+        }
+    }
+
+    EggPrison_Hover() {
+        var viewY = View.GetY(0) + 64.0;
+        var viewX = View.GetX(0);
+        var viewW = View.GetWidth(0);
+
+        var comeInFromTop = true;
+        if (this.CheckFloor) {
+            if (Static.Entity_CheckTileCollision(this, /* unused_layerCollisionMask */ 0x0000, 0, 0, -48.0, 144.0, false) ||
+                Static.Entity_CheckTileCollision(this, /* unused_layerCollisionMask */ 0x0000, 0, 0,  48.0, 144.0, false)) {
+                this.BaseY -= this.YSpeed;
+                comeInFromTop = false;
+            }
+        }
+
+        if (comeInFromTop) {
+            var baseY = this.BaseY;
+            if (baseY < viewY)
+                this.BaseY = baseY + this.YSpeed;
+        }
+
+        if (this.Status != this.EggPrison_Status_ExitScreenStageLeft) {
+            var xsp = this.XSpeed;
+            if (xsp > 0) {
+                if (this.X > viewX + viewW - 48.0 || Static.Entity_CheckTileCollision(this, 0x0000, 1, 0, 64.0, 0.0, true)) {
+                    this.XSpeed = -xsp;
+                }
+            }
+            else {
+                if (this.X < viewX + 48.0 || Static.Entity_CheckTileCollision(this, 0x0000, 3, 0, -64.0, 0.0, true)) {
+                    this.XSpeed = -xsp;
+                }
+            }
+        }
+
+        var angle = this.Angle;
+        this.X += this.XSpeed;
+        this.Y = Static.HexSin(angle) * 4.0 + this.BaseY;
+        this.Angle = angle + 4;
+    }
+
+    EggPrison_Status_Init() {
+        this.BaseY = this.Y;
+        this.Status = this.EggPrison_Status_BoundCamera;
+    }
+    EggPrison_Status_BoundCamera() {
+        var zone = null;
+        with ("Zone") {
+            zone = this;
+            break;
+        }
+
+        var viewX = View.GetX(0);
+        var viewY = View.GetY(0);
+        var viewHalfW = View.GetWidth(0) * 0.5;
+
+        if (this.Type <= EggPrison_Type_Flying) {
+            var player, eggPrison = this, index = -1;
+            with ("Player") {
+                player = this;
+                index++;
+                if (player.IsSubPlayer)
+                    continue;
+
+                var absRelX = Math.Abs(eggPrison.X - player.X);
+                var absRelY = Math.Abs(eggPrison.Y - player.Y);
+                if (absRelX < 256.0 && absRelY < 256.0) {
+                    if (eggPrison.X - zone.CameraMaxX[index] < 256.0) {
+                        zone.BoundPlayerLeft[index] =
+                        zone.BoundPlayerRight[index] = true;
+                        if (eggPrison.Type == EggPrison_Type_Grounded) {
+                            zone.CameraMinX[index] = eggPrison.X - viewHalfW;
+                            zone.CameraMaxX[index] = eggPrison.X + viewHalfW;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    EggPrison_Status_ReleaseContents() {
+        this.ShowPanels = false;
+
+        this.Status = this.EggPrison_Status_Exploding;
+        switch (this.Type) {
+            // EggPrison_Type_ReleasesAnimals
+            default:
+            case 2: {
+                for (var i = 0; i < 10; i++) {
+                    var animal;
+                    animal = Instance.Create("Animals", this.X + Math.RandomRange(-24.0, 24.0), this.Y + 4.0);
+                    animal.Timer = i * 4;
+                    animal.Status = animal.Animals_Status_Timered;
+                    animal.Behavior = 1;
+                    animal.RotationSpeed = -4.0;
+                    animal.FlipFlag = (i ^ (i >> 1)) & 1;
+                }
+                break;
+            }
+            // EggPrison_Type_ReleasesRings
+            case 3:
+            case 4: {
+                // TODO: Update with accurate Rings
+                var ringAngle = 144;
+                for (var i = 0; i < 6; i++) {
+                    var ring = Instance.Create("Ring", this.X + Math.RandomRange(-24.0, 24.0), this.Y);
+                    ring.AnimationSpeedMult = 0.125;
+                    ring.RegatherTimer = 64;
+                    ring.DeathTimer = 256;
+                    ring.XSpeed = Static.HexCos(ringAngle) * 2.0;
+                    ring.YSpeed = Static.HexSin(ringAngle) * 2.0;
+                    ring.Bounceable = true;
+                    ring.Priority = this.Priority;
+                    ring.PlaneIndex = 0;
+                    ring.Status = ring.Ring_StatusBounceable;
+
+                    if (ringAngle == 176)
+                        ringAngle = 208;
+                    else
+                        ringAngle += 16;
+                }
+                break;
+            }
+            // EggPrison_Type_ReleasesBadniks
+        }
+
+        var debrisL, debrisC, debrisR;
+
+        debrisL = Instance.Create("Debris", this.X - 22.0, this.Y);
+        debrisL.Sprite = this.Sprite;
+        debrisL.ResetAnimation(2, 2);
+        debrisL.XSpeed = -2.0;
+        debrisL.YSpeed = -2.0;
+        debrisL.RotationSpeed = -4.0;
+        debrisL.Status = debrisL.Debris_Status_FallGravity_SpannedLife_Blinking;
+
+        debrisC = Instance.Create("Debris", this.X, this.Y);
+        debrisC.Sprite = this.Sprite;
+        debrisC.ResetAnimation(2, 3);
+        debrisC.XSpeed =  0.0;
+        debrisC.YSpeed = -3.0;
+        debrisC.RotationSpeed = 8.0;
+        debrisC.Status = debrisC.Debris_Status_FallGravity_SpannedLife_Blinking;
+
+        debrisR = Instance.Create("Debris", this.X + 22.0, this.Y);
+        debrisR.Sprite = this.Sprite;
+        debrisR.ResetAnimation(2, 4);
+        debrisR.XSpeed =  2.0;
+        debrisR.YSpeed = -2.0;
+        debrisR.RotationSpeed = 4.0;
+        debrisR.Status = debrisR.Debris_Status_FallGravity_SpannedLife_Blinking;
+
+
+        debrisL.Gravity =
+        debrisC.Gravity =
+        debrisR.Gravity = 0.21875;
+        debrisL.Priority =
+        debrisC.Priority =
+        debrisR.Priority = DrawGroup_FGHigh_High;
+        debrisL.UpdateRegionW =
+        debrisL.UpdateRegionH =
+        debrisC.UpdateRegionW =
+        debrisC.UpdateRegionH =
+        debrisR.UpdateRegionW =
+        debrisR.UpdateRegionH = 256.0;
+    }
+    EggPrison_Status_Exploding() {
+        if (this.ExplodedTimer % 3 == 0) {
+            var anim = ((Math.RandomMax(256) > 192) << 1) + 1; // Either 1 or 3
+            var explosion = Instance.Create("Explosion", this.X + Math.RandomRange(-24.0, 24.0), this.Y + Math.RandomRange(-24.0, 24.0), anim);
+            explosion.Priority = DrawGroup_FGHigh_High;
+            Sound.Play(this.SFX_Destroy);
+        }
+
+        this.ExplodedTimer++;
+        if (this.ExplodedTimer == 20) {
+            this.ExplodedTimer = 0;
+            if (this.Type <= EggPrison_Type_Flying) {
+                this.Status = this.EggPrison_Status_DoActClear;
+                Music.StopWithFadeOut(40.0 / 60.0);
+            }
+            else {
+                this.Status = null;
+            }
+        }
+    }
+    EggPrison_Status_DoActClear() {
+        this.ExplodedTimer++;
+        if (this.ExplodedTimer == 60) {
+            this.ExplodedTimer = 0;
+            this.Status = null;
+
+            this.DoActClear();
+        }
+    }
+    EggPrison_Status_ExitScreenStageLeft() {
+        var xsp = this.XSpeed;
+        if (xsp > -3.0)
+            this.XSpeed = xsp - 0.0625;
+    }
+
+    // Overridable function
+    DoActClear() {
+        // remove player control here?
+        // Play Act Clear Music here?
+        Instance.Create("ActClear", 0.0, 0.0);
+    }
+}

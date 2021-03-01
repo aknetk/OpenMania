@@ -1,0 +1,198 @@
+class TimeAttackGate {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        if (global.GameMode != 2) {
+            this.Active = false;
+            return;
+        }
+
+        this.FinishLine = false;
+        this.ExtendTop = 0.0;
+        this.ExtendBottom = 0.0;
+        this.BoundsSizeW = 0.0;
+        this.BoundsSizeH = 0.0;
+        this.BoundsOffsetX = 0.0;
+        this.BoundsOffsetY = 0.0;
+        this.TopBoundary = false;
+        if (this.PropertyExists("finishLine")) {
+            this.FinishLine = this.PropertyGet("finishLine");
+        }
+        if (this.PropertyExists("extendTop")) {
+            this.ExtendTop = this.PropertyGet("extendTop");
+        }
+        if (this.PropertyExists("extendBottom")) {
+            this.ExtendBottom = this.PropertyGet("extendBottom");
+        }
+        if (this.PropertyExists("boundsSize")) {
+            var boundsSize = this.PropertyGet("boundsSize");
+            this.BoundsSizeW = boundsSize[0];
+            this.BoundsSizeH = boundsSize[1];
+        }
+        if (this.PropertyExists("boundsOffset")) {
+            var boundsOffset = this.PropertyGet("boundsOffset");
+            this.BoundsOffsetX = boundsOffset[0];
+            this.BoundsOffsetY = boundsOffset[1];
+        }
+        if (this.PropertyExists("topBoundary")) {
+            this.TopBoundary = this.PropertyGet("topBoundary");
+        }
+        /*
+        Property: finishLine    Type: bool
+        Property: extendTop    Type: int32
+        Property: extendBottom    Type: int32
+        Property: boundsSize    Type: vector2
+        Property: boundsOffset    Type: vector2
+        Property: topBoundary    Type: bool
+        */
+
+        this.Priority = DrawGroup_FGLow_High + 1;
+
+        this.Sprite = Resources.LoadSprite("Sprites/Global/SpeedGate.bin", SCOPE_SCENE);
+        this.AnimationSpeedMult = 1.0;
+        if (this.FinishLine)
+            this.SetAnimation(4, 0);
+        else
+            this.SetAnimation(3, 0);
+
+        this.HitboxW = 16.0;
+        this.HitboxH = 64.0;
+        this.HitboxOffY = -12.0;
+
+        this.Rot = 0x200;
+        this.Speed = 0;
+        this.Accel = 0;
+        this.Timer = 0;
+        this.MaxTimer = 0;
+
+        this.SFX_SignPost = Resources.LoadSound("SoundFX/Global/SignPost.wav", SCOPE_SCENE);
+        this.SFX_Teleport = Resources.LoadSound("SoundFX/Global/Teleport.wav", SCOPE_SCENE);
+
+        this.UpdateRegionW = this.UpdateRegionH = 128.0;
+
+        this.Finished = false;
+    }
+
+    event Update() {
+        if (this.Timer > 0) {
+            this.Speed = this.Accel * this.Timer;
+            this.Rot = this.Speed * this.Timer;
+            this.Timer--;
+
+            this.ResetAnimation(this.CurrentAnimation, 0);
+
+            if (this.Timer == 0) {
+                this.Rot = 0.0;
+                this.ResetAnimation(this.CurrentAnimation, 0);
+            }
+        }
+        else {
+            var player, timeAtkGate = this;
+            with ("Player") {
+                player = this;
+
+                var relX = Math.Abs(player.X - timeAtkGate.X);
+                var relY = (player.Y - timeAtkGate.Y);
+                if (relX > 16.0)
+                    continue;
+                if (relY < -timeAtkGate.ExtendTop - 20)
+                    continue;
+                if (relY > timeAtkGate.ExtendBottom + 36)
+                    continue;
+
+                if (timeAtkGate.FinishLine) {
+                    if (!timeAtkGate.Finished) {
+                        global.TimerActive = false;
+                        timeAtkGate.DoFinish(0);
+                    }
+                    timeAtkGate.Finished = true;
+                }
+                else {
+                    player.TimerFrames = 0;
+                    global.TimerActive = true;
+                }
+
+                timeAtkGate.DoSpin(player.XSpeed / 2.0);
+                Sound.Play(timeAtkGate.SFX_SignPost);
+            }
+        }
+    }
+
+    event DoSpin(spins) {
+        var revolu = 0x400;
+        spins = -Math.Clamp(Math.Round(Math.Abs(spins)), 1.0, 8.0) * Math.Sign(spins);
+        this.Speed = 0;
+        this.Timer = 180;
+        this.Accel = (spins * revolu + this.Rot) / (this.Timer * this.Timer);
+    }
+    event DoFinish(playerIndex) {
+        var vw = View.GetWidth(0) * 0.5;
+        var vh = View.GetHeight(0) * 0.5;
+        with ("Zone") {
+            this.CameraMinX[playerIndex] = other.X - vw;
+            this.CameraMaxX[playerIndex] = other.X + vw;
+            print "this.CameraMinX: " + this.CameraMinX[playerIndex];
+            if (other.TopBoundary)
+                this.CameraMinY[playerIndex] = other.Y - vh;
+        }
+    }
+
+    event DrawFin(off) {
+        var cos = -Static.HexCosHighPrec(Number.AsInteger(this.Rot + off));
+        var sin = -Static.HexSinHighPrec(Number.AsInteger(this.Rot + off));
+
+        var back_x, back_w;
+        var front_x, front_w;
+        var side1_x, side1_w;
+        var side2_x, side2_w;
+
+        back_x  = sin * -3.0;
+        back_w  = Math.Ceil((cos *  20.0 + sin * -3.0) - (cos * -20.0 + sin * -3.0)) / 40.0;
+
+        front_x = sin *  3.0;
+        front_w = Math.Ceil((cos * -20.0 + sin *  3.0) - (cos *  20.0 + sin *  3.0)) / 40.0;
+
+        side1_x = cos * -20.0;
+        side1_w = Math.Ceil((cos * -20.0 + sin * -3.0) - (cos * -20.0 + sin *  3.0)) / 6.0;
+
+        side2_x = cos *  20.0;
+        side2_w = Math.Ceil((cos *  20.0 + sin *  3.0) - (cos *  20.0 + sin * -3.0)) / 6.0;
+
+        // Front
+        if (front_w > 0.0)
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, 0, 0.0, 0.0, false, false, front_w, 1.0, 0.0);
+        // Back
+        if (back_w > 0.0)
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, 1, 0.0, 0.0, false, false, back_w, 1.0, 0.0);
+        // Side
+        if (side2_w > 0)
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, 2, 0.0 + side2_x, 0.0, false, false, side2_w, 1.0, 0.0);
+    }
+
+    event Render() {
+        if (!this.OnScreen)
+            return;
+
+        Draw.Save();
+        Draw.Translate(Math.Floor(this.X), Math.Floor(this.Y));
+            this.Rot = (this.Rot & 0xFF) + 0x200;
+            this.DrawFin(0x300);
+            this.DrawFin(0x200);
+            if ((this.Rot >= 584) == (this.Speed >= 0)) {
+                this.DrawFin(0x100);
+                this.DrawFin(0x000);
+            }
+            else {
+                this.DrawFin(0x000);
+                this.DrawFin(0x100);
+            }
+
+            // Top
+            // Draw.Sprite(this.Sprite, 4, 0, 0.0, 0.0, false, false);
+            // Post
+            Draw.Sprite(this.Sprite, 0, 0, 0.0, 0.0, false, false);
+        Draw.Restore();
+    }
+}

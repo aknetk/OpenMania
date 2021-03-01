@@ -1,0 +1,181 @@
+class ParallaxSprite {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.AniID = -1;
+        this.Attribute = 0;
+        this.ParallaxFactorX = 0.0;
+        this.ParallaxFactorY = 0.0;
+        this.ScrollSpeedX = 0.0;
+        this.ScrollSpeedY = 0.0;
+        this.LoopPointX = 0.0;
+        this.LoopPointY = 0.0;
+        this.HiddenAtStart = false;
+        this.ScrollPositionX = 0.0;
+        this.ScrollPositionY = 0.0;
+        this.ScrollAccelerationX = 0.0;
+        this.ScrollAccelerationY = 0.0;
+        if (this.PropertyExists("aniID")) this.AniID = this.PropertyGet("aniID");
+        if (this.PropertyExists("attribute")) this.Attribute = this.PropertyGet("attribute");
+        if (this.PropertyExists("parallaxFactor")) {
+            var vec2 = this.PropertyGet("parallaxFactor");
+            this.ParallaxFactorX = vec2[0] / 256.0;
+            this.ParallaxFactorY = vec2[1] / 256.0;
+            // print "parallaxFactor: " + vec2;
+        }
+        if (this.PropertyExists("scrollSpeed")) {
+            var vec2 = this.PropertyGet("scrollSpeed");
+            this.ScrollSpeedX = vec2[0] / 256.0;
+            this.ScrollSpeedY = vec2[1] / 256.0;
+            // print "scrollSpeed: " + vec2;
+        }
+        if (this.PropertyExists("loopPoint")) {
+            var vec2 = this.PropertyGet("loopPoint");
+            this.LoopPointX = vec2[0];
+            this.LoopPointY = vec2[1];
+            // print "loopPoint: " + vec2;
+        }
+        if (this.PropertyExists("hiddenAtStart")) this.HiddenAtStart = this.PropertyGet("hiddenAtStart");
+
+
+        var sceneName = Scene.GetName();
+        if (String.Contains(sceneName, "AIZ"))
+            this.Sprite = Resources.LoadSprite("Sprites/AIZ/Decoration.bin", SCOPE_SCENE);
+        else if (String.Contains(sceneName, "CPZ"))
+            this.Sprite = Resources.LoadSprite("Sprites/CPZ/CPZParallax.bin", SCOPE_SCENE);
+        else if (String.Contains(sceneName, "SPZ1"))
+            this.Sprite = Resources.LoadSprite("Sprites/SPZ1/SPZParallax.bin", SCOPE_SCENE);
+        else if (String.Contains(sceneName, "FBZ"))
+            this.Sprite = Resources.LoadSprite("Sprites/FBZ/FBZParallax.bin", SCOPE_SCENE);
+        else if (String.Contains(sceneName, "MSZ") || String.Contains(sceneName, "MSZCutscene"))
+            this.Sprite = Resources.LoadSprite("Sprites/MSZ/MSZParallax.bin", SCOPE_SCENE);
+        else if (String.Contains(sceneName, "OOZ2"))
+            this.Sprite = Resources.LoadSprite("Sprites/OOZ/OOZParallax.bin", SCOPE_SCENE);
+        else if (String.Contains(sceneName, "LRZ2") || String.Contains(sceneName, "LRZ3"))
+            this.Sprite = Resources.LoadSprite("Sprites/LRZ2/LRZParallax.bin", SCOPE_SCENE);
+        else
+            this.Sprite = Resources.LoadSprite("Sprites/OOZ/OOZParallax.bin", SCOPE_SCENE);
+        this.Status = null;
+
+        this.Visible = false;
+        this.Priority = 1;
+        this.BlendFlag = BlendMode_NORMAL;
+        this.Transparency = 1.0;
+
+        if (flag)
+            this.Attribute = flag;
+
+        switch (this.Attribute) {
+            case 3:
+                this.Status = this.ParallaxSprite_Status_Emitter;
+                break;
+            case 4:
+                this.BlendFlag = BlendMode_NORMAL;
+                this.Visible = true;
+                this.Transparency = 1.0;
+                this.Status = this.ParallaxSprite_Status_FadingAway;
+                break;
+            case 5:
+                this.Visible = true;
+                this.BlendFlag = BlendMode_NORMAL;
+                this.DrawGroupPriority = DrawGroup_FGHigh_High + 1;
+                this.Status = this.ParallaxSprite_Status_Rotation;
+                break;
+            case 6: // CPZ chemicals
+                // v5 = GetAnimationFrame_Ptr(ParallaxSprite_ClassInfo->SPR_Parallax, parallaxSprite->AniID, 1)->X;
+                this.AnimationFrameX = 0.0;
+                this.TimerBitshift = Number.AsInteger(Math.RandomMax(2)); // RandomRangeSeed_Ptr(0, 2, &Zone_ClassInfo->RandomSeed1);
+                this.TimerOffset = Number.AsInteger(Math.RandomMax(128)); // RandomRangeSeed_Ptr(0, 128, &Zone_ClassInfo->RandomSeed1);
+                this.BlendFlag = BlendMode_MATCH_EQUAL;
+                this.Visible = true;
+                this.Status = null;
+                break;
+            case 2:
+                if (global.GameMode == GameModes_Encore) {
+                    this.Color1 = 0x189098;
+                    this.Color2 = 0x00D098;
+                }
+                else {
+                    this.Color1 = 0x885820;
+                    this.Color2 = 0xE89850;
+                }
+            default:
+                this.Visible = !this.HiddenAtStart;
+                this.Status = this.ParallaxSprite_Status_Rotation;
+                break;
+        }
+        this.ResetAnimation(this.AniID, 0);
+    }
+
+    event Update() {
+        if (this.Status) {
+            this.Status();
+        }
+    }
+
+    ParallaxSprite_Status_Emitter() {
+        if (!(Scene_Frame & 3)) {
+            var parallaxSprite = Instance.Create("ParallaxSprite", this.X, this.Y, 4);
+            parallaxSprite.ParallaxFactorX = this.ParallaxFactorX;
+            parallaxSprite.ParallaxFactorY = this.ParallaxFactorY;
+            parallaxSprite.LoopPointX = this.LoopPointX;
+            parallaxSprite.LoopPointY = this.LoopPointY;
+            parallaxSprite.ScrollSpeedY = Math.RandomRange(0.5, 2.0);
+            parallaxSprite.ScrollAccelerationX = Math.RandomRange(-0.00390625, 0.00390625);
+        }
+    }
+    ParallaxSprite_Status_FadingAway() {
+        this.ScrollSpeedX += this.ScrollAccelerationX;
+        this.ScrollSpeedY += this.ScrollAccelerationY;
+        this.ScrollPositionX += this.ScrollSpeedX;
+        this.ScrollPositionY += this.ScrollSpeedY;
+
+        this.Transparency -= 2.0 / 256.0;
+        if (this.Transparency == 0.0)
+            this.Active = false;
+    }
+    ParallaxSprite_Status_Rotation() {
+        this.Rotation = (this.Rotation + Math_PI / 256.0) % Math_PI_DOUBLE;
+        this.ScrollPositionX += this.ScrollSpeedX;
+        this.ScrollPositionY += this.ScrollSpeedY;
+    }
+
+    event Render() {
+        var vx = View.GetX(0);
+        var vy = View.GetY(0);
+        var xx = this.X;
+        var yy = this.Y;
+        var fX = (this.FlipFlag & 1);
+        var fY = (this.FlipFlag & 2);
+
+        xx = xx - Math.Floor(this.ScrollPositionX + this.ParallaxFactorX * vx) % this.LoopPointX;
+        yy = yy - Math.Floor(this.ScrollPositionY + this.ParallaxFactorY * vy) % this.LoopPointY;
+
+        if (xx < -this.LoopPointX * 0.25)
+            xx += this.LoopPointX;
+        if (yy < -this.LoopPointY * 0.25)
+            yy += this.LoopPointY;
+
+        xx += vx;
+        yy += vy;
+
+        Draw.SetCompareColor(0x00F000);
+        Draw.SetBlendMode(this.BlendFlag);
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendColor(0xFFFFFF, 1.0);
+
+        if (this.Attribute == 2) {
+            // xx -= (this.TimerOffset + (Scene_Frame << this.TimerBitshift)) & 0x7F;
+        }
+        else if (this.Attribute == 6) {
+            // xx -= (this.TimerOffset + (Scene_Frame << this.TimerBitshift)) & 0x7F;
+        }
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(xx), Math.Floor(yy), fX, fY);
+
+        Draw.SetTextureBlend(false);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+}

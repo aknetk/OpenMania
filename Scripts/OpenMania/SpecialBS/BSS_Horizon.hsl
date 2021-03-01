@@ -1,0 +1,30 @@
+class BSS_Horizon {
+    Create(flag) {
+        this.Sprite = Resources.LoadSprite("Sprites/SpecialBS/Horizon.bin", SCOPE_SCENE);
+        this.SkyAlpha = 0.0;
+        this.GlobeAlpha = 0.0;
+
+        this.Priority = 3;
+    }
+    Update() {
+
+    }
+    Render() {
+        var x = Math.Floor(this.X),
+            y = Math.Floor(this.Y),
+            spr = this.Sprite;
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendMode(BlendMode_ADD);
+
+        Draw.SetBlendColor(1.0, 1.0, 1.0, this.SkyAlpha);
+        Draw.Sprite(spr, 0, 0, x, y, true, false);
+        Draw.Sprite(spr, 0, 0, x, y, false, false);
+
+        Draw.SetBlendColor(1.0, 1.0, 1.0, this.GlobeAlpha);
+        Draw.Sprite(spr, 0, 1, x, y, true, false);
+        Draw.Sprite(spr, 0, 1, x, y, false, false);
+
+        Draw.SetBlendMode(BlendMode_NORMAL);
+        Draw.SetTextureBlend(false);
+    }
+}

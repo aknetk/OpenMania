@@ -1,0 +1,117 @@
+class CorkscrewPath {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Setup
+        this.Period = 0;
+        this.PeriodHalf = 0;
+        this.Amplitude = 0;
+        this.Angle = 0;
+        if (this.PropertyExists("period"))
+            this.Period = this.PropertyGet("period");
+        if (this.PropertyExists("amplitude"))
+            this.Amplitude = this.PropertyGet("amplitude");
+        if (this.PropertyExists("angle"))
+            this.Angle = this.PropertyGet("angle");
+
+        // NOTE: Tiled Support
+        if (this.PropertyExists("Width") &&
+            this.PropertyExists("Height")) {
+            var width = this.PropertyGet("Width");
+            var height = this.PropertyGet("Height");
+            this.Period = width;
+            this.Amplitude = height * 0.5 - 28.0;
+
+            this.X += width * 0.5;
+            this.Y += height * 0.5;
+        }
+
+        // Create
+        this.Period *= 1.0;
+        this.PeriodHalf = this.Period * 0.5;
+        this.UpdateRegionW = this.Period;
+        this.UpdateRegionH = this.Amplitude * 2.0;
+        this.PlayersCaptured = 0;
+    }
+
+    event Update() {
+        var player, index = -1, corkscrew = this;
+        with ("Player") {
+            player = this;
+            index++;
+
+            var relX = Math.Abs(player.X - corkscrew.X);
+            var periodHalf = corkscrew.PeriodHalf;
+
+            if (relX > periodHalf) {
+                corkscrew.PlayersCaptured &= ~(1 << index);
+                if (player.CurrentAnimation != 23)
+                    player.FlipFlag &= 1;
+                continue;
+            }
+
+            var playerXFromLeft = Number.AsInteger(player.X - (corkscrew.X - periodHalf)) << 10;
+            var playerFrame = Number.AsInteger(24.0 * playerXFromLeft / corkscrew.Period) >> 10;
+
+            var relY = corkscrew.Amplitude * Static.HexCosHighPrec(Number.AsInteger(playerXFromLeft / corkscrew.Period));
+
+            if (corkscrew.PlayersCaptured & (1 << index)) {
+                if (Math.Abs(relY + corkscrew.Y - player.Y) >= 16.0) {
+                    corkscrew.PlayersCaptured &= ~(1 << index);
+                    continue;
+                }
+
+                if (Math.Abs(player.GroundSpeed) <= 4.0 || player.YSpeed <= -4.0) {
+                    corkscrew.PlayersCaptured &= ~(1 << index);
+                    continue;
+                }
+
+                player.Y = relY + corkscrew.Y;
+                player.YSpeed = 0.0;
+                player.Ground = true;
+
+                if (player.CurrentAnimation != 10) {
+                    if (player.GroundSpeed < 0.0) {
+                        player.FlipFlag |= 2;
+                        player.AnimationSpeedMult = 1.0;
+                        player.ResetAnimation(23, (-playerFrame + 12 + 24) % 24);
+                    }
+                    else {
+                        player.FlipFlag &= 1;
+                        player.AnimationSpeedMult = 1.0;
+                        player.ResetAnimation(23, playerFrame);
+                    }
+                }
+            }
+            else {
+                if (Math.Abs(relY + corkscrew.Y - player.Y) >= 16.0)
+                    continue;
+                if (Math.Abs(player.GroundSpeed) <= 4.0)
+                    continue;
+                if (!player.OnGroundCopy)
+                    continue;
+
+                player.Y = relY + corkscrew.Y;
+                player.YSpeed = 0.0;
+                player.Ground = true;
+                corkscrew.PlayersCaptured |= 1 << index;
+
+                if (player.CurrentAnimation != 10) {
+                    if (player.GroundSpeed < 0.0) {
+                        player.FlipFlag |= 2;
+                        player.AnimationSpeedMult = 1.0;
+                        player.ResetAnimation(23, (-playerFrame + 12 + 24) % 24);
+                    }
+                    else {
+                        player.FlipFlag &= 1;
+                        player.AnimationSpeedMult = 1.0;
+                        player.ResetAnimation(23, playerFrame);
+                    }
+                }
+            }
+        }
+    }
+}

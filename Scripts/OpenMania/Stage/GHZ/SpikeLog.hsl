@@ -1,0 +1,115 @@
+class SpikeLog {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load()
+        this.Sprite = Resources.LoadSprite("Sprites/GHZ/SpikeLog.bin", SCOPE_SCENE);
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.Frame = 0;
+        if (this.PropertyExists("frame"))
+            this.Frame = this.PropertyGet("frame");
+
+        // Create()
+        // this.VisibilityFlag = 1;
+        this.UpdateRegionW = this.UpdateRegionH = 0x40;
+        this.Frame *= 4;
+        this.Priority = DrawGroup_FGLow_Low;
+        this.SetAnimation(0, 0);
+        this.Status = this.SpikeLog_Status_Spinning;
+    }
+
+    // States
+    event SpikeLog_Status_Spinning() {
+        this.CurrentFrame = (this.Frame + (Scene_Frame / 3)) & 0x1F;
+        var player, spikeLog = this;
+        with ("Player") {
+            player = this;
+            if (player.Shield != ShieldType_FIRE || player.Invincibility) {
+                if ((spikeLog.CurrentFrame & 0xFC) != 8)
+                    continue;
+
+                spikeLog.HitboxW = 16.0;
+                spikeLog.HitboxH = 16.0;
+                spikeLog.HitboxOffY = -8.0;
+                if (Static.GameObject_TestCollide(player, spikeLog)) {
+                    if (player.Character == Character_MIGHTY) {
+                        var anim = player.CurrentAnimation;
+                        if (anim == 10 || anim == 15 || anim == 16) {
+                            if (!player.Invincibility && player.InvincibilityTimer <= 0) {
+                                if (Math.Abs(player.XSpeed) < 1.0 || !player.OnGroundCopy) {
+                                    player.YSpeed = -4.5;
+                                    player.Ground = false;
+                                    player.JumpAbility = 0;
+                                    player.MidAirFlag = 0;
+                                    player.SetAnimation(48, 0);
+                                    Sound.Play(player.SFX_MightyUnspin);
+                                }
+                            }
+                            if (!player.Unk_0x234) {
+                                player.Unk_0x234 = 15;
+                                Sound.Play(player.SFX_PimPom);
+                            }
+                            continue;
+                        }
+                        if (anim != 48)
+                            player.Player_AttemptHurtPlayer(spikeLog);
+                    }
+                    else {
+                        player.Player_AttemptHurtPlayer(spikeLog);
+                    }
+                }
+            }
+            else {
+                spikeLog.HitboxW = 16.0;
+                spikeLog.HitboxH = 16.0;
+                spikeLog.HitboxOffY = -8.0;
+                if (Static.GameObject_TestCollide(player, spikeLog)) {
+                    spikeLog.Burn();
+                }
+            }
+        }
+    }
+    event SpikeLog_Status_Burning() {
+        this.Frame--;
+        if (this.Frame == 0) {
+            var otherspikeLog, spikeLog = this;
+            spikeLog.HitboxW = 18.0;
+            spikeLog.HitboxH = 16.0;
+            spikeLog.HitboxOffY = -8.0;
+            with ("SpikeLog") {
+                otherspikeLog = this;
+                otherspikeLog.HitboxW = 18.0;
+                otherspikeLog.HitboxH = 16.0;
+                otherspikeLog.HitboxOffY = -8.0;
+                if (otherspikeLog.Status == otherspikeLog.SpikeLog_Status_Spinning &&
+                    Static.Entity_CollideWithObject(spikeLog, otherspikeLog)) {
+                    otherspikeLog.Burn();
+                }
+            }
+            this.Active = false;
+        }
+    }
+
+    Burn() {
+        Instance.Create("BurningLog", this.X, this.Y, 16);
+        Scene.SetTile(Scene.GetLayerIndex("FG Low"), this.X / 16, this.Y / 16, 0x3FF, false, false, 0);
+        this.Frame = 8;
+        this.Status = this.SpikeLog_Status_Burning;
+        this.UpdateRegionW = this.UpdateRegionH = 0.0;
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+    event Render() {
+        if (!this.OnScreen)
+            return;
+
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+    }
+}

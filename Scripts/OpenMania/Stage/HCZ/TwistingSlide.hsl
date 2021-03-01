@@ -1,0 +1,285 @@
+class TwistingSlide {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Custom:
+        this.Priority = DrawGroup_AboveTiles;
+
+        this.Type = 0;
+        this.EndLen = 0.0;
+        this.FlipFlag = 0;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("endLen"))
+            this.EndLen = this.PropertyGet("endLen");
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+
+        this.StartY = 0.0;
+        this.EndY = 0.0;
+        this.PlayersCaptured = 0;
+        this.CapturedPlayerY = Array.Create(8);
+
+        // Left, Top, Right, Bottom
+        this.OuterHitbox = [ 0.0, 0.0, 32.0, 32.0 ];
+        this.HitboxCurved = [ 0.0, 0.0, 32.0, 32.0 ];
+        this.HitboxStraight = [ 0.0, 0.0, 32.0, 32.0 ];
+
+        var slideY = this.Y;
+        var endLen = this.EndLen * 0.5;
+        switch (this.Type) {
+            case 0:
+                this.UpdateRegionW = 0x80 * 2.0;
+                this.UpdateRegionH = 0x78 * 2.0;
+                this.StartY = slideY + 0x78;
+                this.EndY = slideY - 0x4A;
+                break;
+            case 1:
+                this.UpdateRegionW = 0xC0 * 2.0;
+                this.UpdateRegionH = 0xC0 * 2.0;
+                this.StartY = slideY + 0xC0;
+                this.EndY = slideY - 0xC0;
+                break;
+            case 2:
+                this.UpdateRegionW = 0x80 * 2.0;
+                this.UpdateRegionH = 0xC0 * 2.0;
+                this.StartY = slideY + 0xC0;
+                this.EndY = slideY - 0xC0;
+                break;
+            case 3:
+                this.UpdateRegionW = 0x80 * 2.0;
+                this.UpdateRegionH = 0xC0 * 2.0;
+                this.StartY = slideY + endLen;
+                this.EndY = slideY - endLen;
+                break;
+        }
+
+        this.SetHitboxes();
+    }
+    event SetHitboxes() {
+        var left, top, right, bottom;
+        left = top = right = bottom = 0.0;
+        switch (this.Type) {
+            case 0:
+                this.HitboxCurved = [
+                    -40.0 * Static.HexCos(0x30) - 4, -46.0,
+                    -40.0 * Static.HexCos(0x30) + 4, -38.0 ];
+                top = -119.0;
+                left = -56.0;
+                bottom = 120.0;
+                right = 56.0;
+                break;
+            case 1:
+            case 2:
+                top = -195.0;
+                left = -132.0;
+                bottom = 196.0;
+                right = 132.0;
+                break;
+            case 3:
+                bottom = this.EndLen * 0.5;
+                right = this.EndLen / 3.0;
+                left = -right;
+                top = -bottom;
+                this.HitboxStraight = [
+                    right - 4, bottom - 4,
+                    right + 4, bottom + 4 ];
+                break;
+        }
+        this.OuterHitbox = [ left, top, right, bottom ];
+    }
+    event SetHitboxFromArray(array) {
+        this.HitboxW = array[2] - array[0];
+        this.HitboxH = array[3] - array[1];
+        this.HitboxOffX = (array[2] + array[0]) * 0.5;
+        this.HitboxOffY = (array[3] + array[1]) * 0.5;
+    }
+
+    event Update() {
+        var player, slide = this;
+        var index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+
+            var playerX = player.X;
+            var playerY = player.Y;
+
+            if (player.Status != player.Player_StatusNone) {
+                // Remove player from captured
+                slide.PlayersCaptured &= ~(1 << index);
+            }
+
+            player.UpdateHitbox(0);
+            slide.SetHitboxFromArray(slide.OuterHitbox);
+            if (player.IsGhost ||
+                Static.Entity_CollideWithObject(slide, player) == 0 ||
+                playerY < slide.EndY ||
+                playerY > slide.StartY) {
+                // Remove player from captured
+                slide.PlayersCaptured &= ~(1 << index);
+            }
+            else {
+                var flip = slide.FlipFlag ? 1.0 : -1.0;
+                var indexFlag = 1 << index;
+                var endLenHalf = slide.EndLen * 0.5;
+                var endLenThird = slide.EndLen / 3.0;
+                switch (slide.Type) {
+                    case 0:
+                        slide.SetHitboxFromArray(slide.HitboxCurved);
+                        if (player.Status == player.Player_StatusNone) {
+                            if (!(indexFlag & slide.PlayersCaptured)) {
+                                slide.CapturedPlayerY[index] = (playerY - slide.Y + 0x4A);
+                                slide.PlayersCaptured |= indexFlag;
+                            }
+
+                            var capturedPS = Number.AsInteger(slide.CapturedPlayerY[index]);
+                            var capturedAng = 0xDD * capturedPS;
+                            if (capturedAng >= 0x3FC0)
+                                capturedAng = 0xAA * capturedPS;
+
+                            player.X = flip * 40.0 * Static.HexCos((capturedAng >> 8) + 0xC0) + slide.X;
+                            player.Y = (slide.CapturedPlayerY[index] - 0x4A) + slide.Y;
+
+                            // Exiting slide
+                            if (player.GroundSpeed * flip > 0.0 &&
+                                Static.GameObject_TestCollide(player, slide)) {
+                                slide.PlayersCaptured &= ~indexFlag;
+                                player.Status = player.Player_StatusRoll;
+                                player.AngleMode = 2;
+                                player.UseGroundSpeed = true;
+                                if (flip > 0)
+                                    player.Angle = 0x90;
+                                else
+                                    player.Angle = 0x70;
+                            }
+                        }
+                        // If this is the player entering for the first time
+                        else if (!(indexFlag & slide.PlayersCaptured) &&
+                            player.Ground &&
+                            player.GroundSpeed * flip < 0.0 &&
+                            Static.GameObject_TestCollide(player, slide)) {
+
+                            player.UseGroundSpeed = false;
+                            player.Status = player.Player_StatusNone;
+                            player.XSpeed =
+                            player.YSpeed = 0.0;
+                            player.SetAnimation(10, 0);
+                            slide.CapturedPlayerY[index] = (player.Y - slide.Y + 0x4A);
+                            slide.PlayersCaptured |= indexFlag;
+                        }
+                        break;
+                    case 1:
+                        if (player.Status == player.Player_StatusNone) {
+                            if (!(indexFlag & slide.PlayersCaptured)) {
+                                slide.CapturedPlayerY[index] = (playerY - slide.Y + 0xC0);
+                                slide.PlayersCaptured |= 1 << index;
+                            }
+                            // 0xAA00 = 0.6640625
+                            player.X = slide.X + (0x80 - 0.6640625 * slide.CapturedPlayerY[index]) * flip;
+                            player.Y = slide.Y + slide.CapturedPlayerY[index] - 0xC0;
+                        }
+                        break;
+                    case 2:
+                        if (player.Status == player.Player_StatusNone) {
+                            if (!(indexFlag & slide.PlayersCaptured)) {
+                                slide.CapturedPlayerY[index] = (playerY - slide.Y + 0xC0);
+                                slide.PlayersCaptured |= 1 << index;
+                            }
+                            // 0xAA00 = 0.6640625
+                            player.X = slide.X + flip * 40.0 * Static.HexCos((Number.AsInteger(0xAA * slide.CapturedPlayerY[index]) >> 8) + 0x40);
+                            player.Y = slide.Y + slide.CapturedPlayerY[index] - 0xC0;
+                        }
+                        break;
+                    case 3:
+                        slide.SetHitboxFromArray(slide.HitboxStraight);
+                        if (player.Status == player.Player_StatusNone) {
+                            // If this is the player entering for the first time
+                            if (!(indexFlag & slide.PlayersCaptured)) {
+                                slide.CapturedPlayerY[index] = (playerY - slide.Y + endLenHalf);
+                                slide.PlayersCaptured |= indexFlag;
+                            }
+
+                            player.X = flip * (endLenThird - 0.6640625 * slide.CapturedPlayerY[index]) + slide.X;
+                            player.Y = (slide.CapturedPlayerY[index] - endLenHalf) + slide.Y;
+
+                            // Exiting slide
+                            if (player.GroundSpeed * flip < 0.0 &&
+                                Static.GameObject_TestCollide(player, slide)) {
+
+                                slide.PlayersCaptured &= ~indexFlag;
+                                player.Status = player.Player_StatusRoll;
+                                player.AngleMode = 3;
+                                player.UseGroundSpeed = true;
+                                if (flip > 0)
+                                    player.Angle = 0xD8;
+                                else
+                                    player.Angle = 0x28;
+                            }
+                        }
+                        else if (!(indexFlag & slide.PlayersCaptured) &&
+                            player.Ground &&
+                            player.GroundSpeed * flip > 0.0 &&
+                            Static.GameObject_TestCollide(player, slide)) {
+
+                            player.UseGroundSpeed = false;
+                            player.Status = player.Player_StatusNone;
+                            player.XSpeed =
+                            player.YSpeed = 0.0;
+                            player.SetAnimation(10, 0);
+                            slide.CapturedPlayerY[index] = (player.Y - slide.Y + endLenHalf);
+                            slide.PlayersCaptured |= indexFlag;
+                        }
+                        break;
+                }
+            }
+
+            // If player is not captured
+            if (!((1 << index) & slide.PlayersCaptured))
+                continue;
+
+            // Do slope physics
+            var slp;
+            if (slide.FlipFlag) {
+                slide.CapturedPlayerY[index] -= player.GroundSpeed * Static.HexSin(0x28);
+                if (player.GroundSpeed <= 0.0)
+                    slp = 0.078125 * Static.HexCos(0x28);
+                else
+                    slp = 0.3125 * Static.HexCos(0x28);
+                player.GroundSpeed -= slp;
+
+                if (player.GroundSpeed < -24.0)
+                    player.GroundSpeed = -24.0;
+            }
+            else {
+                slide.CapturedPlayerY[index] += player.GroundSpeed * Static.HexSin(0x28);
+                if (player.GroundSpeed <= 0.0)
+                    slp = 0.078125 * Static.HexCos(0x28);
+                else
+                    slp = 0.3125 * Static.HexCos(0x28);
+                player.GroundSpeed += slp;
+
+                if (player.GroundSpeed > 24.0)
+                    player.GroundSpeed = 24.0;
+            }
+
+            // Set animation speeds
+
+            // Set angles
+            var deltaX = player.X - playerX;
+            var deltaY = player.Y - playerY;
+            if (deltaX && deltaY) {
+                if (player.GroundSpeed <= 0.0) {
+                    deltaX = -deltaX;
+                    deltaY = -deltaY;
+                }
+                var ang = Math.Atan(deltaX, deltaY);
+                player.Angle = Number.AsInteger(ang * 128.0 / Math_PI);
+                player.Rotation = ang;
+            }
+        }
+    }
+}

@@ -1,0 +1,18 @@
+WARNING: Object "Splats" does not exist!
+VERBOSE: Property: bounceCount    Type: uint8
+VERBOSE: Property: direction    Type: uint8
+VERBOSE: Property: numActive    Type: uint8
+VERBOSE: Property: minDelay    Type: uint16
+WARNING: Object "Chopper" does not exist!
+VERBOSE: Property: type    Type: uint8
+VERBOSE: Property: direction    Type: uint8
+VERBOSE: Property: charge    Type: bool
+WARNING: Object "Batbrain" does not exist!
+
+WARNING: Object "ZipLine" does not exist!
+VERBOSE: Property: angle    Type: int32
+VERBOSE: Property: length    Type: int32
+WARNING: Object "CutsceneSeq" does not exist!
+WARNING: Object "GHZ2Outro" does not exist!
+WARNING: Object "WaterfallSound" does not exist!
+VERBOSE: Property: size    Type: vector2

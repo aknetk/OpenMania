@@ -1,0 +1,1687 @@
+var Platform_ClassInfo = [
+    0.0, 0.0,
+    0.0, 0.0,
+    0.0, 0.0,
+    0.0, 0.0,
+    0.0, 0.0,
+    0.0, 0.0,
+    0.0, 0.0,
+    0.0, 0.0,
+];
+
+class Platform {
+    Load() {
+        this.Type = 0;
+        this.AmplitudeX = 0.0;
+        this.AmplitudeY = 0.0;
+        this.Speed = 0;
+        this.HasTension = 0;
+        this.FrameID = 0;
+        this.Collision = 0;
+        this.TileOriginX = 0.0;
+        this.TileOriginY = 0.0;
+        this.ChildCount = 0;
+        this.Angle = 0;
+        this.Rotation = 0;
+        this.Status = null;
+        this.CollisionStatus = null;
+        this.Visible = true;
+        this.FlipFlag = 0;
+
+        this.UpdateRegionW = 0.0;
+        this.UpdateRegionH = 0.0;
+
+        this.StartX = this.X;
+        this.StartY = this.Y;
+        this.FinalX = this.X;
+        this.FinalY = this.Y;
+        this.TensionValue = 0;
+        this.PlayerAtop = false;
+        this.PlayerOnTopFlag = 0;
+        this.PlayerOnLeftFlag = 0;
+        this.PlayerOnRightFlag = 0;
+        this.PlayerOnBottomFlag = 0;
+
+        this.DeltaX = 0.0;
+        this.DeltaY = 0.0;
+        this.PossibleTimerUntilDrop = 0;
+    }
+    Setup() {
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("amplitude")) {
+            var amplitude = this.PropertyGet("amplitude");
+            this.AmplitudeX = amplitude[0];
+            this.AmplitudeY = amplitude[1];
+        }
+        if (this.PropertyExists("speed"))
+            this.Speed = this.PropertyGet("speed");
+        if (this.PropertyExists("hasTension"))
+            this.HasTension = this.PropertyGet("hasTension");
+        if (this.PropertyExists("frameID"))
+            this.FrameID = this.PropertyGet("frameID");
+        if (this.PropertyExists("collision"))
+            this.Collision = this.PropertyGet("collision");
+        if (this.PropertyExists("tileOrigin")) {
+            var tileOrigin = this.PropertyGet("tileOrigin");
+            this.TileOriginX = tileOrigin[0];
+            this.TileOriginY = tileOrigin[1];
+        }
+        if (this.PropertyExists("childCount"))
+            this.ChildCount = this.PropertyGet("childCount");
+        if (this.PropertyExists("angle"))
+            this.Angle = this.PropertyGet("angle");
+    }
+    Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Priority = DrawGroup_FGLow_Low + 1;
+
+        this.Load();
+        this.Setup();
+
+        this.SFX_Push = Resources.LoadSound("SoundFX/Global/Push.wav", SCOPE_SCENE);
+        this.SFX_Clang = Resources.LoadSound("SoundFX/Stage/Clang.wav", SCOPE_SCENE);
+        this.SFX_Clack2 = Resources.LoadSound("SoundFX/Stage/Clack2.wav", SCOPE_SCENE);
+        this.SFX_Clacker = Resources.LoadSound("SoundFX/Stage/Clacker.wav", SCOPE_SCENE);
+
+        var animation = this.LoadSprite();
+
+        this.CosVal = Math.Cos(this.Angle);
+        this.SinVal = Math.Sin(this.Angle);
+
+        if (true)
+            this.Priority = DrawGroup_FGLow_Low;
+
+        // Choose status
+        switch (this.Type) {
+            // Stationary
+            case 0:
+                this.UpdateRegionW = 256.0;
+                this.UpdateRegionH = 256.0;
+                this.Status = this.Platform_Status_Stationary;
+                break;
+            // Timed Fall
+            case 1:
+                this.UpdateRegionW = 256.0;
+                this.UpdateRegionH = Math.Abs(this.AmplitudeY) * 2.0 + 256.0;
+                this.Status = this.Platform_Status_TimedFalling;
+                break;
+            // Oscillating Movement
+            case 2:
+                this.UpdateRegionW = Math.Abs(this.AmplitudeX) * 2.0 + 256.0;
+                this.UpdateRegionH = Math.Abs(this.AmplitudeY) * 2.0 + 256.0;
+                this.Status = this.Platform_Status_Moving;
+                this.Rotation = this.Angle;
+                this.Angle = 0;
+                break;
+            // Circular Movement
+            case 3:
+                this.UpdateRegionW = Math.Abs(this.AmplitudeX) * 2.0 + 256.0;
+                this.UpdateRegionH = Math.Abs(this.AmplitudeY) * 2.0 + 256.0;
+                this.Status = this.Platform_Status_MovingCircular;
+                break;
+            // uh
+            case 12:
+                print "case " + this.Type + " (" + this.X + ", " + this.Y + ")";
+                this.PossibleTimerUntilDrop = 88;
+            // Swinging Movement
+            case 4:
+                this.UpdateRegionW = this.UpdateRegionH = (Math.Abs(this.AmplitudeY) * 16.0 + 128.0) * 2.0;
+                animation = 1; this.FrameID = 0;
+                this.AmplitudeY *= 16.0;
+                this.SwingAngle = 4 * this.Angle;
+                this.Angle = this.SwingAngle + 0x100 + Number.AsInteger(this.AmplitudeX * Static.HexSinHighPrec(this.Speed * this.PossibleTimerUntilDrop) * 4.0);
+                this.FinalX = this.AmplitudeY * Static.HexCosHighPrec(this.Angle) + this.StartX;
+                this.FinalY = this.AmplitudeY * Static.HexSinHighPrec(this.Angle) + this.StartY;
+                this.Status = this.Platform_Status_Swinging;
+                break;
+            // PlatformController Controlled
+            case 5:
+                this.UpdateRegionW = 256.0;
+                this.UpdateRegionH = 256.0;
+                this.Status = this.Platform_Status_PlatformControlledMovement;
+                break;
+            // Pushable
+            case 6:
+                this.Speed /= 32.0;
+                this.UpdateRegionW = 256.0;
+                this.UpdateRegionH = 256.0;
+                this.Status = this.Platform_Status_Pushable;
+                break;
+            // uh
+            case 13:
+                print "case " + this.Type + " (" + this.X + ", " + this.Y + ")";
+            // Back/Forth Hitting Walls
+            case 7:
+                this.UpdateRegionW = Math.Abs(this.AmplitudeX) * 2.0 + 256.0;
+                this.UpdateRegionH = Math.Abs(this.AmplitudeY) * 2.0 + 256.0;
+
+                if (this.Speed < 0)
+                    this.FlipFlag = 1;
+
+                if (this.Type == 7)
+                    this.Status = this.Platform_Status_BackForthRigid;
+                break;
+            // Rise on stand
+            case 8:
+                this.Speed *= 1.0;
+                this.UpdateRegionW = this.UpdateRegionH = Math.Abs(this.AmplitudeX) * 2.0 + 256.0;
+
+                // print "this.AmplitudeX: " + this.AmplitudeX + " (" + this.X + ", " + this.Y + ")";
+
+                if (this.Speed < 0.0)
+                    this.FlipFlag = 1;
+
+                this.Status = this.Platform_Status_StandMove_Stationary;
+                break;
+            // Lower on stand
+            case 9:
+                this.Speed *= 1.0;
+                this.UpdateRegionW = this.UpdateRegionH = Math.Abs(this.AmplitudeX) * 2.0 + 256.0;
+
+                if (this.Speed < 0.0)
+                    this.FlipFlag = 1;
+
+                this.Status = this.Platform_Status_StandMove_Oscillating;
+                break;
+            // Hiding in wall
+            case 10:
+                this.UpdateRegionW = Math.Abs(this.AmplitudeX) * 2.0 + 256.0;
+                this.UpdateRegionH = Math.Abs(this.AmplitudeX) * 2.0 + 256.0;
+
+                if (this.Speed < 0) {
+                    this.FlipFlag = 1;
+                    this.Speed = -this.Speed;
+                }
+                this.Speed *= 1.0;
+
+                this.Status = this.Platform_Status_HidingInWall;
+                break;
+            // Node Based Movement
+            case 11:
+                this.UpdateRegionW = 256.0;
+                this.UpdateRegionH = 256.0;
+                this.Status = this.Platform_Status_NodeBasedMovement;
+                break;
+            // Clackers
+            case 14:
+                this.UpdateRegionW = this.UpdateRegionH = (Math.Abs(this.AmplitudeY) * 16.0 + 128.0) * 2.0;
+                animation = 1; this.FrameID = 0;
+                this.AmplitudeY *= 16.0;
+
+                this.SwingAngle = 4 * this.Angle;
+                this.Angle = this.SwingAngle + 0x100 + Number.AsInteger(this.AmplitudeX * Static.HexSinHighPrec(this.Speed * this.PossibleTimerUntilDrop) * 4.0);
+                this.FinalX = this.AmplitudeY * Static.HexCosHighPrec(this.Angle) + this.StartX;
+                this.FinalY = this.AmplitudeY * Static.HexSinHighPrec(this.Angle) + this.StartY;
+
+                this.Status = this.Platform_Status_Clackers;
+                break;
+            // Sink while player is atop (LRZ1 hidden springs)
+            case 16:
+                this.UpdateRegionW = 256.0;
+                this.UpdateRegionH = (Math.Abs(this.AmplitudeY) + 128.0) * 2.0;
+
+                if (this.Speed == 0)
+                    this.Speed = 1;
+
+                this.YSpeed = this.Speed * 1.0;
+                this.Status = this.Platform_Status_StandSinker;
+                break;
+            default:
+                print "Unimplemented platform type: " + this.Type + " (" + Number.AsInteger(this.X) + ", " + Number.AsInteger(this.Y) + ")";
+                break;
+        }
+
+        // Choose collision status
+        var collisionHitbox = 0;
+        switch (this.Collision) {
+            case 0:
+                collisionHitbox = 0;
+                this.CollisionStatus = this.Platform_CollisionStatus_TopSolid;
+                break;
+            case 1:
+                collisionHitbox = 1;
+                this.CollisionStatus = this.Platform_CollisionStatus_Solid;
+                break;
+            case 2:
+                collisionHitbox = 1;
+                this.CollisionStatus = this.Platform_CollisionStatus_TilePlatform;
+                break;
+            case 3:
+                this.CollisionStatus = this.Platform_CollisionStatus_HarmfulSpike;
+                break;
+            case 4:
+                this.CollisionStatus = null;
+                break;
+            case 5:
+                collisionHitbox = 1;
+                this.CollisionStatus = this.Platform_CollisionStatus_SidesHurt;
+                break;
+            case 6:
+                collisionHitbox = 1;
+                this.CollisionStatus = this.Platform_CollisionStatus_BottomHurt;
+                break;
+            case 7:
+                collisionHitbox = 1;
+                this.CollisionStatus = this.Platform_CollisionStatus_TopHurt;
+                break;
+            case 8:
+                collisionHitbox = 1;
+                this.CollisionStatus = this.Platform_CollisionStatus_ControlPlayer;
+                break;
+            case 9:
+            case 10:
+            case 11:
+            case 12:
+            case 13:
+                print "Unimplemented platform collision type: " + this.Collision + " Platform @ (" + Number.AsInteger(this.X) + ", " + Number.AsInteger(this.Y) + ")";
+                this.CollisionStatus = null;
+                break;
+            case 14:
+                this.CollisionStatus = null;
+                break;
+            case 15:
+                collisionHitbox = 1;
+                this.CollisionStatus = this.Platform_CollisionStatus_SolidNoCollisionFlagSets; // FBZ Copper Circle Things
+                break;
+            default:
+                print "Unimplemented platform collision type: " + this.Collision + " Platform @ (" + Number.AsInteger(this.X) + ", " + Number.AsInteger(this.Y) + ")";
+                this.CollisionStatus = this.Platform_CollisionStatus_Solid;
+                break;
+        }
+
+        // Set hitbox
+        if (this.FrameID >= 0) {
+            this.GetHitboxFromSprite(this.Sprite, animation, this.FrameID, collisionHitbox);
+            this.SetAnimation(animation, this.FrameID);
+        }
+        else {
+            this.Visible = false;
+        }
+
+        this.HitboxHalfW = this.HitboxW / 2.0;
+        this.HitboxHalfH = this.HitboxH / 2.0;
+
+        this.SoundLooping = false;
+
+
+        this.Child = Array.Create(this.ChildCount);
+
+        var childIndex = 0;
+        var distance = (this.HitboxW + 16.0) * (this.HitboxW + 16.0) + (this.HitboxH + 16.0) * (this.HitboxH + 16.0);
+
+        /*
+        with ("Spring") {
+            if (childIndex >= other.ChildCount)
+                continue;
+
+            var disObj = Math.Distance(this.X, this.Y, other.X, other.Y);
+            if (disObj * disObj < distance) {
+                other.Child[childIndex] = this;
+
+                this.PlatformChildType = "Spring";
+                childIndex++;
+            }
+        }
+        with ("ItemBox") {
+            if (childIndex >= other.ChildCount)
+                continue;
+
+            var disObj = Math.Distance(this.X, this.Y, other.X, other.Y);
+            if (disObj * disObj < distance) {
+                other.Child[childIndex] = this;
+                childIndex++;
+
+                this.PlatformChildType = "ItemBox";
+            }
+        }
+        with ("Spikes") {
+            if (childIndex >= other.ChildCount)
+                continue;
+
+            var disObj = Math.Distance(this.X, this.Y, other.X, other.Y);
+            if (disObj * disObj < distance) {
+                other.Child[childIndex] = this;
+                childIndex++;
+
+                this.PlatformChildType = "Spikes";
+            }
+        }
+        with ("InvisibleBlock") {
+            if (childIndex >= other.ChildCount)
+                continue;
+
+            var disObj = Math.Distance(this.X, this.Y, other.X, other.Y);
+            if (disObj * disObj < distance) {
+                other.Child[childIndex] = this;
+                childIndex++;
+
+                this.PlatformChildType = "InvisibleBlock";
+            }
+        }
+        with ("HangPoint") {
+            if (childIndex >= other.ChildCount)
+                continue;
+
+            var disObj = Math.Distance(this.X, this.Y, other.X, other.Y);
+            if (disObj * disObj < distance) {
+                other.Child[childIndex] = this;
+                childIndex++;
+
+                this.PlatformChildType = "HangPoint";
+                // other.UpdateRegionH += this.Length + 48.0;
+                other.UpdateRegionH += 256.0 + 48.0;
+            }
+        }
+        with ("WallBumper") {
+            if (childIndex >= other.ChildCount)
+                continue;
+
+            var disObj = Math.Distance(this.X, this.Y, other.X, other.Y);
+            if (disObj * disObj < distance) {
+                other.Child[childIndex] = this;
+                childIndex++;
+
+                this.PlatformChildType = "WallBumper";
+            }
+        }
+        //*/
+
+        for (var i = 0; i < this.ChildCount; i++) {
+            var child = Instance.GetNextInstance(this, i);
+            child.PlatformChildType = "Unknown";
+
+            this.Child[i] = child;
+
+            if (Instance.IsClass(child, "HangPoint")) {
+                this.UpdateRegionH += 256.0 + 48.0;
+            }
+        }
+
+
+        this.UpdateRegionHalfW = this.UpdateRegionW * 0.5;
+        this.UpdateRegionHalfH = this.UpdateRegionH * 0.5;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+    }
+
+    LoadSprite() {
+        var animation = 0;
+        var sceneName = Scene.GetName();
+
+        // Custom: Loading sprites without using a big set of if statements
+        var customExists = false;
+        if (String.Contains(sceneName, "Stages/")) {
+            var sceneFolder = String.Substring(sceneName, 7, String.Length(sceneName) - 7);
+            var sceneFolderSlashIndex = String.IndexOf(sceneFolder, "/");
+            if (sceneFolderSlashIndex > -1) {
+                sceneFolder = String.Substring(sceneFolder, 0, sceneFolderSlashIndex);
+                customExists = Resources.FileExists("Sprites/" + sceneFolder + "/Platform.bin");
+                if (customExists) {
+                    this.Sprite = Resources.LoadSprite("Sprites/" + sceneFolder + "/Platform.bin", SCOPE_SCENE);
+                    var animCount = Sprite.GetAnimationCount(this.Sprite);
+                    var frameCount = Sprite.GetFrameCount(this.Sprite, animation);
+                    while (animation < animCount && this.FrameID >= frameCount) {
+                        this.FrameID -= frameCount;
+                        animation++;
+                        frameCount = Sprite.GetFrameCount(this.Sprite, animation);
+                    }
+                }
+            }
+        }
+
+        if (customExists)
+            return animation;
+
+        if (String.Contains(sceneName, "OOZ1") ||
+            String.Contains(sceneName, "OOZ2"))
+            this.Sprite = Resources.LoadSprite("Sprites/OOZ/Platform.bin", SCOPE_SCENE);
+        else if (String.Contains(sceneName, "LRZ3"))
+            this.Sprite = Resources.LoadSprite("Sprites/LRZ2/Platform.bin", SCOPE_SCENE);
+        else if (String.Contains(sceneName, "TMZ2"))
+            this.Sprite = Resources.LoadSprite("Sprites/TMZ1/Platform.bin", SCOPE_SCENE);
+        else
+            this.Sprite = Resources.LoadSprite("Sprites/AIZ/Platform.bin", SCOPE_SCENE);
+
+        var animCount = Sprite.GetAnimationCount(this.Sprite);
+        var frameCount = Sprite.GetFrameCount(this.Sprite, animation);
+        while (animation < animCount && this.FrameID >= frameCount) {
+            this.FrameID -= frameCount;
+            animation++;
+            frameCount = Sprite.GetFrameCount(this.Sprite, animation);
+        }
+
+        return animation;
+    }
+
+    UpdateEarly() {
+        for (var i = 0; i < 16; i++)
+            Platform_ClassInfo[i] = 0.0;
+    }
+    Update() {
+        this.X = Math.Floor(this.FinalX);
+        this.Y = Math.Floor(this.FinalY);
+        if (this.HasTension) {
+            var tension = this.TensionValue;
+            if (this.PlayerAtop) {
+                if (tension < 0x40)
+                    this.TensionValue = tension + 4;
+            }
+            else {
+                if (tension > 0x00)
+                    this.TensionValue = tension - 4;
+            }
+        }
+
+        this.DeltaX = -this.X;
+        this.DeltaY = -this.Y;
+
+        if (this.Status)
+            this.Status();
+
+        if (true) {
+            this.PlayerAtop = false;
+            this.DeltaX += Math.Floor(this.FinalX);
+            this.DeltaY += Math.Floor(this.FinalY);
+
+            // TODO: complete this
+            // if (this.Status != sub_XXX && this.Status != sub_XXX) {
+                if (this.CollisionStatus)
+                    this.CollisionStatus();
+            // }
+
+            this.X = this.StartX;
+            this.Y = this.StartY;
+            for (var c = 0; c < this.ChildCount; c++) {
+                var child = this.Child[c];
+                if (child) {
+                    if (child.PlatformChildType == "ItemBox") {
+                        if (child.PlatformOffsetY == 0.0) {
+                            child.Platform = this;
+                            child.PlatformOffsetX = child.X - this.StartX;
+                            child.PlatformOffsetY = child.Y - this.StartY;
+                            child.X = child.PlatformOffsetX + this.FinalX;
+                            child.Y = child.PlatformOffsetY + this.FinalY;
+                            child.UpdateRegionW = this.UpdateRegionW;
+                            child.UpdateRegionH = this.UpdateRegionH;
+                        }
+                    }
+                    else {
+                        child.X += this.DeltaX;
+                        child.Y += this.DeltaY;
+                    }
+                }
+            }
+        }
+    }
+
+    // Type 0
+    Platform_Status_Stationary() {
+        this.FinalX = this.StartX;
+        this.FinalY = this.StartY;
+        this.FinalY += Static.HexSin(this.TensionValue) * 4;
+        this.XSpeed = 0.0;
+        this.YSpeed = 0.0;
+    }
+    // Type 1
+    Platform_Status_TimedFalling() {
+        var time = this.PossibleTimerUntilDrop;
+        if (time) {
+            this.PossibleTimerUntilDrop = time - 1;
+            if (time == 1) {
+                this.UpdateRegionW = this.UpdateRegionH = 0.0;
+                this.Status = this.Platform_Status_TimedFalling_OnFall;
+                this.PossibleTimerUntilDrop = 30;
+            }
+        }
+        this.FinalX = this.StartX;
+        this.FinalY = this.StartY;
+        this.FinalY += Static.HexSin(this.TensionValue) * 4;
+        this.XSpeed = 0.0;
+    }
+    // Type 2
+    Platform_Status_Moving() {
+        var angle = Number.AsInteger(this.Speed * (this.Rotation + Scene_Frame));
+
+        var negOffsetX = -this.FinalX;
+        var negOffsetY = -this.FinalY;
+        this.FinalX = this.AmplitudeX * Static.HexSinHighPrec(angle) + this.StartX;
+        this.FinalY = this.AmplitudeY * Static.HexSinHighPrec(angle) + this.StartY;
+        this.FinalY += Static.HexSin(this.TensionValue) * 4;
+        this.XSpeed = this.FinalX + negOffsetX;
+        this.YSpeed = this.FinalY + negOffsetY;
+    }
+    // Type 3
+    Platform_Status_MovingCircular() {
+        var angle = Number.AsInteger(this.Speed * Scene_Frame + this.Angle * 4);
+
+        var negOffsetX = -this.FinalX;
+        var negOffsetY = -this.FinalY;
+        this.FinalX = this.AmplitudeX * Static.HexCosHighPrec(angle) + this.StartX;
+        this.FinalY = this.AmplitudeY * Static.HexSinHighPrec(angle) + this.StartY;
+        this.FinalY += Static.HexSin(this.TensionValue) * 4;
+        this.XSpeed = this.FinalX + negOffsetX;
+        this.YSpeed = this.FinalY + negOffsetY;
+    }
+    // Type 4
+    Platform_Status_Swinging() {
+        var negOffsetX = -this.FinalX;
+        var negOffsetY = -this.FinalY;
+
+        this.Angle = this.SwingAngle + 0x100 + Number.AsInteger(this.AmplitudeX * Static.HexSinHighPrec(this.Speed * Scene_Frame) * 4.0);
+        this.FinalX = this.AmplitudeY * Static.HexCosHighPrec(this.Angle) + this.StartX;
+        this.FinalY = this.AmplitudeY * Static.HexSinHighPrec(this.Angle) + this.StartY;
+
+        this.XSpeed = this.FinalX + negOffsetX;
+        this.YSpeed = this.FinalY + negOffsetY;
+    }
+    // Type 5
+    Platform_Status_PlatformControlledMovement() {
+        this.FinalX = this.StartX;
+        this.FinalY = this.StartY;
+        this.XSpeed = this.YSpeed = 0.0;
+    }
+    // Type 6
+    Platform_Status_Pushable() {
+        this.XSpeed = this.YSpeed = 0.0;
+
+        var player, platform, playerIndex, playerFlag;
+
+        platform = this;
+
+        playerIndex = -1;
+        with ("Player") {
+            playerIndex++;
+            playerFlag = 1 << playerIndex;
+            if (playerFlag & platform.PlayerOnLeftFlag)
+                platform.XSpeed += platform.Speed;
+            if (playerFlag & platform.PlayerOnRightFlag)
+                platform.XSpeed -= platform.Speed;
+        }
+
+        if (this.XSpeed != 0.0) {
+            if (!this.SoundLooping) {
+                Sound.Loop(this.SFX_Push);
+                this.SoundLooping = true;
+            }
+
+            var timeToDrop = this.PossibleTimerUntilDrop;
+            if (timeToDrop > 0) {
+                this.XSpeed = 0.0;
+                this.PossibleTimerUntilDrop = timeToDrop - 1;
+            }
+        }
+        else {
+            if (this.SoundLooping) {
+                Sound.Stop(this.SFX_Push);
+                this.SoundLooping = false;
+            }
+            if (this.PossibleTimerUntilDrop < 4)
+                this.PossibleTimerUntilDrop++;
+        }
+
+        this.FinalX += this.XSpeed;
+        this.X = this.FinalX;
+        this.Y = this.FinalY;
+
+        playerIndex = -1;
+        with ("Player") {
+            playerIndex++;
+            playerFlag = 1 << playerIndex;
+            if (playerFlag & platform.PlayerOnLeftFlag)
+                this.X = platform.FinalX + (-platform.HitboxHalfW - this.HitboxW / 2.0);
+            if (playerFlag & platform.PlayerOnRightFlag)
+                this.X = platform.FinalX + (platform.HitboxHalfW - (-this.HitboxW / 2.0) - 1.0);
+        }
+
+        // TODO: the rest here
+
+        //
+        this.FinalX = this.X;
+        this.FinalY = this.Y;
+    }
+    // Type 7
+    Platform_Status_BackForthRigid() {
+        var negFinalX = -this.FinalX;
+        var negFinalY = -this.FinalY;
+
+        var oscill = Scene_Frame * this.Speed;
+        var dir = (oscill >> 9) & 1;
+
+        oscill &= 0x1FF;
+
+        var ampX = this.AmplitudeX;
+        var ampY = this.AmplitudeY;
+
+        if (dir == this.FlipFlag) {
+            this.FinalX = (oscill * ampX / 512.0 - ampX * 0.5) + this.StartX;
+            this.FinalY = (oscill * ampY / 512.0 - ampY * 0.5) + this.StartY;
+        }
+        else {
+            this.FinalX = (ampX * 0.5 - oscill * ampX / 512.0) + this.StartX;
+            this.FinalY = (ampY * 0.5 - oscill * ampY / 512.0) + this.StartY;
+        }
+
+        if (dir != this.HasTension) {
+            if (this.OnScreen)
+                Sound.Play(this.SFX_Clang);
+            this.HasTension = dir;
+        }
+
+        this.XSpeed = this.FinalX + negFinalX;
+        this.YSpeed = this.FinalY + negFinalY;
+    }
+    // Type 8
+    Platform_Status_StandMove_Stationary() {
+        if (this.PlayerAtop) {
+            if (this.HasTension == 1)
+                this.PossibleTimerUntilDrop = 120;
+
+            this.Rotation = 0.0;
+            this.TileOriginX =
+            this.TileOriginY = 0.0;
+            this.UpdateRegionW =
+            this.UpdateRegionH = 0.0;
+            this.Status = this.Platform_Status_StandMove_SpeedUp;
+            // this.UpdateRegionW = this.UpdateRegionHalfW * 2.0;
+            // this.UpdateRegionH = this.UpdateRegionHalfH * 2.0;
+        }
+        this.XSpeed =
+        this.YSpeed = 0.0;
+    }
+    // Type 9
+    Platform_Status_StandMove_Oscillating() {
+        this.Rotation += 4;
+        var oscillate = Static.HexSinHighPrec(Number.AsInteger(this.Rotation)) * 8.0;
+
+        this.FinalY = this.StartY + oscillate;
+
+        if (this.PlayerAtop) {
+            if (this.HasTension)
+                this.PossibleTimerUntilDrop = 120;
+
+            this.TileOriginX = this.FinalX - this.StartX;
+            this.StartX = this.FinalX;
+
+            this.TileOriginY = oscillate;
+            this.StartY = this.FinalY;
+
+            this.UpdateRegionW = this.UpdateRegionH = 0.0;
+
+            this.Status = this.Platform_Status_StandMove_SpeedUp;
+        }
+
+        this.XSpeed = this.YSpeed = 0.0;
+    }
+    // Type 10
+    Platform_Status_HidingInWall() {
+        var negFinalX = -this.FinalX;
+        var negFinalY = -this.FinalY;
+
+        var player, platform = this;
+        var doMoveOut = false;
+
+        with ("Player") {
+            player = this;
+            if (player.IsSubPlayer)
+                continue;
+
+            var oppAngle = platform.Angle + 0x80;
+            var cos = Static.HexCos(oppAngle);
+            var sin = Static.HexSin(oppAngle);
+
+            var startX = platform.StartX;
+            var startY = platform.StartY;
+            var relX = (player.X - startX);
+            var relY = (player.Y - startY);
+
+            var playerRelY = relY * cos - relX * sin + startY;
+
+            cos = 420.0;
+            sin = 69.0;
+
+            if (Math.Abs(relX) > 1024.0) {
+                continue;
+            }
+            if (Math.Abs(relY) > 1024.0 || playerRelY >= startY) {
+                continue;
+            }
+            else {
+                if (playerRelY < startY && playerRelY > startY - 256.0)
+                    doMoveOut = true;
+            }
+        }
+
+        var doSound = false;
+        if (!doMoveOut) {
+            var outDis = this.AmplitudeY;
+            var outDisxxx = this.AmplitudeY;
+            if (outDis > 0.0) {
+                outDis -= this.Speed;
+                this.AmplitudeY = outDis;
+                if (outDis <= 0.0) {
+                    this.AmplitudeY = 0.0;
+                    doSound = true;
+                }
+            }
+        }
+        else {
+            var ampX = this.AmplitudeX;
+            var outDis = this.AmplitudeY;
+            if (outDis < ampX) {
+                outDis += this.Speed;
+                this.AmplitudeY = outDis;
+                if (outDis >= ampX) {
+                    this.AmplitudeY = ampX;
+                    doSound = true;
+                }
+            }
+        }
+
+        if (doSound && this.OnScreen)
+            Sound.Play(this.SFX_Clack2);
+
+        var angle = this.Angle;
+        var outDist = this.AmplitudeY;
+        if (this.FlipFlag) {
+            this.FinalX = -outDist * Static.HexCos(angle) + this.StartX;
+            this.FinalY = -outDist * Static.HexSin(angle) + this.StartY;
+        }
+        else {
+            this.FinalX = outDist * Static.HexCos(angle) + this.StartX;
+            this.FinalY = outDist * Static.HexSin(angle) + this.StartY;
+        }
+
+        this.XSpeed = this.FinalX + negFinalX;
+        this.YSpeed = this.FinalY + negFinalY;
+    }
+    // Type 11
+    Platform_Status_NodeBasedMovement() {
+
+    }
+    // Type 14
+    Platform_Status_Clackers() {
+        var angle = this.Angle;
+        var negOffsetX = -this.FinalX;
+        var negOffsetY = -this.FinalY;
+        var sin = Static.HexSinHighPrec(this.Speed * Scene_Frame);
+        var sin0x400 = Number.AsInteger(sin * 0x400);
+
+        var swingAngle = this.SwingAngle;
+        var swingX = (this.AmplitudeX * sin0x400 + 0x200) >> 8;
+        var boundAng = swingAngle + 0x100;
+        var currentAng = swingAngle + swingX + 0x100;
+
+        this.Angle = currentAng;
+        // If is Right
+        if (this.HasTension == 0) {
+            if (currentAng >= boundAng) {
+                if (this.OnScreen && angle < boundAng) {
+                    Sound.Play(this.SFX_Clacker);
+                    this.Angle = swingAngle + 0x100;
+                }
+                else {
+                    this.Angle = swingAngle + 0x100;
+                }
+            }
+        }
+        else if (currentAng <= boundAng) {
+            if (this.OnScreen && angle > boundAng) {
+                Sound.Play(this.SFX_Clacker);
+                this.Angle = swingAngle + 0x100;
+            }
+            else {
+                this.Angle = swingAngle + 0x100;
+            }
+        }
+
+        this.FinalX = this.AmplitudeY * Static.HexCosHighPrec(this.Angle) + this.StartX;
+        this.FinalY = this.AmplitudeY * Static.HexSinHighPrec(this.Angle) + this.StartY;
+
+        this.XSpeed = this.FinalX + negOffsetX;
+        this.YSpeed = this.FinalY + negOffsetY;
+    }
+    // Type 16
+    Platform_Status_StandSinker() {
+        var yspeed = this.YSpeed;
+        if (this.PlayerAtop) {
+            this.FinalY += yspeed;
+            var maxY = this.StartY + this.AmplitudeY;
+            if (this.FinalY > maxY)
+                this.FinalY = maxY;
+        }
+        else {
+            this.FinalY -= yspeed;
+            var minY = this.StartY;
+            if (this.FinalY < minY)
+                this.FinalY = minY;
+        }
+    }
+
+    // Post-statuses
+    Platform_Status_TimedFalling_OnFall() {
+        this.PossibleTimerUntilDrop--;
+        if (this.PossibleTimerUntilDrop <= 0) {
+            this.PossibleTimerUntilDrop = 0;
+
+            this.Status = this.Platform_Status_TimedFalling_WaitForOffscreen;
+
+            var player, platform, playerIndex, playerFlag;
+
+            platform = this;
+
+            playerIndex = -1;
+            with ("Player") {
+                playerIndex++;
+                playerFlag = 1 << playerIndex;
+                if (playerFlag & platform.PlayerOnTopFlag)
+                    this.YSpeed = platform.YSpeed - 1.0;
+            }
+        }
+
+        this.FinalY += this.YSpeed;
+        this.YSpeed += 0.21875;
+        this.XSpeed = 0;
+    }
+    Platform_Status_TimedFalling_WaitForOffscreen() {
+        this.FinalY += this.YSpeed;
+        this.YSpeed += 0.21875;
+
+        this.X = this.FinalX;
+        this.Y = this.FinalY;
+
+        if (Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH)) {
+            this.X = this.StartX;
+            this.Y = this.StartY;
+            this.XSpeed = 0.0;
+        }
+        else {
+            if (this.AmplitudeX) {
+                this.Active = false;
+            }
+            else {
+                this.FinalX = this.StartX;
+                this.FinalY = this.StartY;
+                this.YSpeed = 0.0;
+                this.Visible = false;
+                this.Status = this.Platform_Status_TimedFalling_Resetting;
+            }
+        }
+    }
+    Platform_Status_TimedFalling_Resetting() {
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH))
+            this.Create();
+        this.XSpeed = 0.0;
+        this.YSpeed = 0.0;
+    }
+    Platform_Status_StandMove_SpeedUp() {
+        var angle = this.Angle;
+        var negFinalX = -this.FinalX;
+        var negFinalY = -this.FinalY;
+
+        // AmplitudeX = maxMoveSpeed
+        // AmplitudeY = moveSpeed
+        // GroundSpeed = moveAcceleration
+        // Angle = moveDirection
+
+        this.AmplitudeY += this.GroundSpeed;
+
+        var cos = Static.HexCos(angle);
+        var sin = Static.HexSin(angle);
+        var amplitudeY = this.AmplitudeY;
+
+        this.FinalX = amplitudeY * cos + this.StartX;
+        this.FinalY = amplitudeY * sin + this.StartY;
+
+        var speed = this.Speed;
+        var gsp = this.GroundSpeed;
+
+        if (gsp == speed) {
+            var amplitudeX = this.AmplitudeX;
+            if (amplitudeY >= amplitudeX) {
+                this.AmplitudeY = amplitudeX;
+                this.GroundSpeed = gsp - speed * 0.03125;
+                this.Status = this.Platform_Status_StandMove_SlowDown;
+            }
+        }
+        else {
+            this.GroundSpeed += speed * 0.015625;
+            if (this.GroundSpeed >= speed) {
+                this.GroundSpeed = speed;
+                gsp = this.GroundSpeed;
+
+                this.StartX += (this.AmplitudeY + gsp) * cos;
+                this.StartY += (this.AmplitudeY + gsp) * sin;
+                this.AmplitudeY = -gsp;
+            }
+        }
+
+        this.XSpeed = negFinalX + this.FinalX;
+        this.YSpeed = negFinalY + this.FinalY;
+    }
+    Platform_Status_StandMove_SlowDown() {
+        var angle = this.Angle;
+        var negFinalX = -this.FinalX;
+        var negFinalY = -this.FinalY;
+
+        // this.AmplitudeY becomes a YSpeed
+        // this.GroundSpeed becomes a Gravity
+
+        this.AmplitudeY += this.GroundSpeed;
+
+        var cos = Static.HexCos(angle);
+        var sin = Static.HexSin(angle);
+        var amplitudeY = this.AmplitudeY;
+
+        this.FinalX = amplitudeY * cos + this.StartX;
+        this.FinalY = amplitudeY * sin + this.StartY;
+
+        var speed = this.Speed;
+        var gsp = this.GroundSpeed;
+
+        var stationaryStatus = null;
+        var oscillatingStatus = null;
+
+        if (gsp <= 0.0) {
+            this.StartX = this.FinalX - this.TileOriginX;
+            this.StartY = this.FinalY - this.TileOriginY;
+            this.GroundSpeed = 0.0;
+            this.AmplitudeY = 0.0;
+            this.Angle = -this.Angle;
+            if (this.PossibleTimerUntilDrop == -1) {
+                this.PossibleTimerUntilDrop = 0;
+                stationaryStatus = this.Platform_Status_StandMove_Stationary;
+                oscillatingStatus = this.Platform_Status_StandMove_Oscillating;
+            }
+            else {
+                if (this.HasTension == 1) {
+                    stationaryStatus =
+                    oscillatingStatus = this.Platform_Status_StandMove_WaitForPlayerToGetOff;
+                }
+                else {
+                    this.UpdateRegionW = this.UpdateRegionHalfW * 2.0;
+                    this.UpdateRegionH = this.UpdateRegionHalfH * 2.0;
+                    stationaryStatus = this.Platform_Status_Stationary;
+                    oscillatingStatus = this.Platform_Status_Oscillating;
+                }
+            }
+
+            if (this.Type == 9)
+                stationaryStatus = oscillatingStatus;
+
+            this.Status = stationaryStatus;
+        }
+        else {
+            this.GroundSpeed -= speed * 0.015625;
+        }
+
+        this.XSpeed = negFinalX + this.FinalX;
+        this.YSpeed = negFinalY + this.FinalY;
+    }
+    Platform_Status_Oscillating() {
+        this.Rotation += 4;
+        var oscillate = Static.HexSinHighPrec(Number.AsInteger(this.Rotation)) * 8.0;
+
+        this.FinalY = this.StartY + oscillate;
+
+        this.XSpeed = this.YSpeed = 0.0;
+    }
+    Platform_Status_StandMove_WaitForPlayerToGetOff() {
+        if (this.Type == 9) {
+            this.Rotation += 4;
+            var oscillate = Static.HexSinHighPrec(Number.AsInteger(this.Rotation)) * 8.0;
+
+            this.FinalY = this.StartY + oscillate;
+        }
+
+        if (this.PlayerAtop) {
+            this.PossibleTimerUntilDrop = 120;
+            this.XSpeed = this.YSpeed = 0.0;
+        }
+        else {
+            this.PossibleTimerUntilDrop--;
+            if (this.PossibleTimerUntilDrop == 0) {
+                this.TileOriginX = this.FinalX - this.StartX;
+                this.TileOriginY = this.FinalY - this.StartY;
+                this.StartX = this.FinalX;
+                this.StartY = this.FinalY;
+
+                this.PossibleTimerUntilDrop = -1;
+
+                this.UpdateRegionW = this.UpdateRegionH = 0.0;
+
+                this.Status = this.Platform_Status_StandMove_SpeedUp;
+            }
+            this.XSpeed = this.YSpeed = 0.0;
+        }
+    }
+
+    // Collision 0
+    Platform_CollisionStatus_TopSolid() {
+        var onTopFlag = this.PlayerOnTopFlag;
+
+        this.PlayerOnTopFlag = 0;
+
+        var player, platform = this, playerIndex = -1;
+        with ("Player") {
+            playerIndex++;
+            player = this;
+
+            var originalYSpeed = player.YSpeed;
+            if (platform.DeltaY < 0.0)
+                player.YSpeed = originalYSpeed - platform.DeltaY;
+
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 0);
+
+            if (Static.Entity_TopSolidCollideWithPlayer(platform, player)) {
+                // Custom: Instead of rewriting the same code, using a function instead
+                platform.PlayerCollisionTop(player, playerIndex, onTopFlag);
+            }
+            else {
+                player.YSpeed = originalYSpeed;
+            }
+        }
+    }
+    // Collision 1
+    Platform_CollisionStatus_Solid() {
+        var onTopFlag = this.PlayerOnTopFlag;
+
+        this.PlayerOnTopFlag = 0;
+        this.PlayerOnLeftFlag = 0;
+        this.PlayerOnRightFlag = 0;
+
+        var player, platform = this, playerIndex = -1;
+        with ("Player") {
+            player = this;
+            playerIndex++;
+
+            // var platformHitboxH = platform.HitboxH; var platformY = platform.Y;
+            // platform.HitboxH = 8.0; platform.Y -= platformHitboxH / 2.0 - 4.0;
+
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 0);
+
+            Static.Entity_TopSolidCollideWithPlayer(platform, player);
+            // platform.HitboxH = platformHitboxH; platform.Y = platformY;
+
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 1);
+
+            switch (Static.Entity_SolidCollideWithPlayer(platform, player)) {
+                // Top
+                case 1:
+                    // Custom: Instead of rewriting the same code, using a function instead
+                    platform.PlayerCollisionTop(player, playerIndex, onTopFlag);
+                    break;
+                // Left
+                case 2:
+                    if (player.Ground && player.InputRight) {
+                        platform.PlayerOnLeftFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed <= 0.0) {
+                        if (player.InputLeft) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed - player.Acceleration;
+                        }
+                        player.HorizontalCollisionFlag |= 1;
+                    }
+                    break;
+                // Right
+                case 3:
+                    if (player.Ground && player.InputLeft) {
+                        platform.PlayerOnRightFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed >= 0.0) {
+                        if (player.InputRight) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed + player.Acceleration;
+                        }
+                        player.HorizontalCollisionFlag |= 2;
+                    }
+                    break;
+                // Bottom
+                case 4:
+                    if (platform.YSpeed >= 0.0)
+                        player.VerticalCollisionFlag |= 2;
+                    break;
+            }
+        }
+    }
+    // Collision 2
+    Platform_CollisionStatus_TilePlatform() {
+        // TODO: This is not supposed to be collidable
+        // this.Platform_CollisionStatus_Solid();
+
+        // Move player if they are walking or climbing on the platform but wouldn't be moved
+        // by the tiles otherwise
+
+        var player, index = -1, platform = this;
+        with ("Player") {
+            player = this;
+            index++;
+            if (player.IsGhost)
+                continue;
+
+            player.UpdateHitbox(0);
+
+            platform.HitboxW += 32.0;
+            platform.HitboxH += 32.0;
+
+            if (Static.Entity_CollideWithObject(platform, player)) {
+                player.MoveLayer_OffsetX = platform.TileOriginX - platform.FinalX;
+                player.MoveLayer_OffsetY = platform.TileOriginY - platform.FinalY;
+                // print "platform.TileOriginX: " + platform.TileOriginX;
+                // print "platform.FinalX: " + platform.FinalX;
+                // print "player.MoveLayer_OffsetX: " + player.MoveLayer_OffsetX;
+            }
+
+            platform.HitboxW -= 32.0;
+            platform.HitboxH -= 32.0;
+        }
+    }
+    // Collision 3
+    Platform_CollisionStatus_HarmfulSpike() {
+        var player, platform = this;
+        with ("Player") {
+            player = this;
+            if (player.IsGhost)
+                continue;
+
+            player.UpdateHitbox(0);
+
+            if (Static.Entity_CollideWithObject(platform, player)) {
+                if (!player.Player_DoMightyUnspin(4.0, false, platform, player.Unk_0x234))
+                    platform.Platform_AttemptHurtPlayer(player, platform);
+            }
+        }
+    }
+    // Collision 5
+    Platform_CollisionStatus_SidesHurt() {
+        var onTopFlag = this.PlayerOnTopFlag;
+
+        this.PlayerOnTopFlag = 0;
+        this.PlayerOnLeftFlag = 0;
+        this.PlayerOnRightFlag = 0;
+
+        var player, platform = this, playerIndex = -1;
+        with ("Player") {
+            playerIndex++;
+            player = this;
+
+            switch (Static.Entity_SolidCollideWithPlayer(platform, player)) {
+                // Top
+                case 1:
+                    // Custom: Instead of rewriting the same code, using a function instead
+                    platform.PlayerCollisionTop(player, playerIndex, onTopFlag);
+                    break;
+                // Left
+                case 2:
+                    if (player.Player_DoMightyUnspin(4.0, false, platform, player.Unk_0x234) ||
+                        platform.Platform_AttemptHurtPlayer(player, platform)) {
+                        player.XSpeed += platform.XSpeed;
+                    }
+
+                    if (!player.InvincibilityTimer || player.XSpeed >= platform.XSpeed) {
+                        if (player.Ground && player.InputRight) {
+                            platform.PlayerOnLeftFlag |= 1 << playerIndex;
+                        }
+                        if (platform.XSpeed < 0.0 && player.XSpeed >= platform.XSpeed && player.InputLeft) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed - player.Acceleration;
+                        }
+                    }
+
+                    if (platform.XSpeed <= 0.0)
+                        player.HorizontalCollisionFlag |= 1;
+                    break;
+                // Right
+                case 3:
+                    if (player.Player_DoMightyUnspin(4.0, false, platform, player.Unk_0x234) ||
+                        platform.Platform_AttemptHurtPlayer(player, platform)) {
+                        player.XSpeed += platform.XSpeed;
+                    }
+
+                    if (!player.InvincibilityTimer || player.XSpeed <= platform.XSpeed) {
+                        if (player.Ground && player.InputLeft) {
+                            platform.PlayerOnRightFlag |= 1 << playerIndex;
+                        }
+                        if (platform.XSpeed > 0.0 && player.XSpeed <= platform.XSpeed && player.InputRight) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed + player.Acceleration;
+                        }
+                    }
+
+                    if (platform.XSpeed >= 0.0)
+                        player.HorizontalCollisionFlag |= 2;
+                    break;
+                // Bottom
+                case 4:
+                    if (platform.YSpeed >= 0.0)
+                        player.VerticalCollisionFlag |= 2;
+                    break;
+            }
+        }
+    }
+    // Collision 6
+    Platform_CollisionStatus_BottomHurt() {
+        var onTopFlag = this.PlayerOnTopFlag;
+
+        this.PlayerOnTopFlag = 0;
+        this.PlayerOnLeftFlag = 0;
+        this.PlayerOnRightFlag = 0;
+
+        var player, platform = this, playerIndex = -1;
+        with ("Player") {
+            playerIndex++;
+            player = this;
+
+            var platformHitboxH = platform.HitboxH;
+            var platformY = platform.Y;
+
+            // platform.HitboxH = 8.0;
+            // platform.Y -= platformHitboxH / 2.0 - 4.0;
+
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 0);
+
+            Static.Entity_TopSolidCollideWithPlayer(platform, player);
+
+            // platform.HitboxH = platformHitboxH;
+            // platform.Y = platformY;
+
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 1);
+
+            var val = Static.Entity_SolidCollideWithPlayer(platform, player);
+            switch (val) {
+                // Top
+                case 1:
+                    // Custom: Instead of rewriting the same code, using a function instead
+                    platform.PlayerCollisionTop(player, playerIndex, onTopFlag);
+                    break;
+                // Left
+                case 2:
+                    if (player.Ground && player.InputRight) {
+                        platform.PlayerOnLeftFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed <= 0.0) {
+                        if (player.InputLeft) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed - player.Acceleration;
+                        }
+                        player.HorizontalCollisionFlag |= 1;
+                    }
+                    break;
+                // Right
+                case 3:
+                    if (player.Ground && player.InputLeft) {
+                        platform.PlayerOnRightFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed >= 0.0) {
+                        if (player.InputRight) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed + player.Acceleration;
+                        }
+                        player.HorizontalCollisionFlag |= 2;
+                    }
+                    break;
+                // Bottom
+                case 4:
+                    if (platform.YSpeed >= 0.0)
+                        player.VerticalCollisionFlag |= 2;
+                    if (!player.Player_DoMightyUnspin(4.0, false, platform, player.Unk_0x234))
+                        platform.Platform_AttemptHurtPlayer(player, platform);
+                    break;
+            }
+        }
+    }
+    // Collision 7
+    Platform_CollisionStatus_TopHurt() {
+        var onTopFlag = this.PlayerOnTopFlag;
+
+        this.PlayerOnTopFlag = 0;
+        this.PlayerOnLeftFlag = 0;
+        this.PlayerOnRightFlag = 0;
+
+        var player, platform = this, playerIndex = -1;
+        with ("Player") {
+            playerIndex++;
+            player = this;
+
+            var platformHitboxH = platform.HitboxH;
+            var platformY = platform.Y;
+
+            // platform.HitboxH = 8.0;
+            // platform.Y -= platformHitboxH / 2.0 - 4.0;
+
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 0);
+
+            Static.Entity_TopSolidCollideWithPlayer(platform, player);
+
+            // platform.HitboxH = platformHitboxH;
+            // platform.Y = platformY;
+
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 1);
+
+            var val = Static.Entity_SolidCollideWithPlayer(platform, player);
+            switch (val) {
+                // Top
+                case 1:
+                    // Custom: Instead of rewriting the same code, using a function instead
+                    platform.PlayerCollisionTop(player, playerIndex, onTopFlag);
+
+                    if (!player.Player_DoMightyUnspin(4.0, false, platform, player.Unk_0x234))
+                        platform.Platform_AttemptHurtPlayer(player, platform);
+                    break;
+                // Left
+                case 2:
+                    if (player.Ground && player.InputRight) {
+                        platform.PlayerOnLeftFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed <= 0.0) {
+                        if (player.InputLeft) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed - player.Acceleration;
+                        }
+                        player.HorizontalCollisionFlag |= 1;
+                    }
+                    break;
+                // Right
+                case 3:
+                    if (player.Ground && player.InputLeft) {
+                        platform.PlayerOnRightFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed >= 0.0) {
+                        if (player.InputRight) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed + player.Acceleration;
+                        }
+                        player.HorizontalCollisionFlag |= 2;
+                    }
+                    break;
+                // Bottom
+                case 4:
+                    if (platform.YSpeed >= 0.0)
+                        player.VerticalCollisionFlag |= 2;
+                    break;
+            }
+        }
+    }
+    // Collision 8
+    Platform_CollisionStatus_ControlPlayer() {
+        var onTopFlag = this.PlayerOnTopFlag;
+
+        this.PlayerOnTopFlag = 0;
+        this.PlayerOnLeftFlag = 0;
+        this.PlayerOnRightFlag = 0;
+
+        var player, platform = this, playerIndex = -1;
+        with ("Player") {
+            player = this;
+            playerIndex++;
+
+            // var platformHitboxH = platform.HitboxH; var platformY = platform.Y;
+            // platform.HitboxH = 8.0; platform.Y -= platformHitboxH / 2.0 - 4.0;
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 0);
+
+            Static.Entity_TopSolidCollideWithPlayer(platform, player);
+
+            // platform.HitboxH = platformHitboxH; platform.Y = platformY;
+
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 1);
+
+            switch (Static.Entity_SolidCollideWithPlayer(platform, player)) {
+                // None
+                case 0:
+                    if ((1 << playerIndex) & onTopFlag) {
+                        if (player.Status == player.Player_StatusNone) {
+                            player.Status = player.Player_StatusJumping;
+                            player.SetAnimation(6, 0);
+                        }
+                    }
+                    break;
+                // Top
+                case 1:
+                    if (!((1 << playerIndex) & onTopFlag)) {
+                        player.Status = player.Player_StatusNone;
+                        player.LateUpdateGroundStatus = null;
+                        player.LateUpdateAirStatus = null;
+                        player.XSpeed = 0.0;
+                        player.YSpeed = 0.0;
+                        player.GroundSpeed = 0.0;
+                        player.SetAnimation(34, 0);
+                        player.AnimationSpeedMult = 1.0;
+                        player.AnimationSpeedAdd = 64;
+                        player.Flip = true;
+                    }
+                    // Custom: Instead of rewriting the same code, using a function instead
+                    platform.PlayerCollisionTop(player, playerIndex, onTopFlag);
+
+                    if (Math.Floor(player.X - platform.X) != 0.0) {
+                        if (player.X < platform.X)
+                            player.X += 1.0;
+                        else
+                            player.X -= 1.0;
+                    }
+
+                    if (player.InputJumpPressed) {
+                        player.Player_DoJump();
+                        player.VerticalCollisionFlag &= ~1;
+                    }
+                    break;
+                // Left
+                case 2:
+                    if (player.Ground && player.InputRight) {
+                        platform.PlayerOnLeftFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed <= 0.0) {
+                        if (player.InputLeft) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed - player.Acceleration;
+                        }
+                        player.HorizontalCollisionFlag |= 1;
+                    }
+                    break;
+                // Right
+                case 3:
+                    if (player.Ground && player.InputLeft) {
+                        platform.PlayerOnRightFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed >= 0.0) {
+                        if (player.InputRight) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed + player.Acceleration;
+                        }
+                        player.HorizontalCollisionFlag |= 2;
+                    }
+                    break;
+                // Bottom
+                case 4:
+                    if (platform.YSpeed >= 0.0)
+                        player.VerticalCollisionFlag |= 2;
+                    break;
+            }
+        }
+    }
+
+    // Collision 15
+    Platform_CollisionStatus_SolidNoCollisionFlagSets() {
+        var onTopFlag = this.PlayerOnTopFlag;
+
+        this.PlayerOnTopFlag = 0;
+        this.PlayerOnLeftFlag = 0;
+        this.PlayerOnRightFlag = 0;
+
+        var player, platform = this, playerIndex = -1;
+        with ("Player") {
+            player = this;
+            playerIndex++;
+
+            // var platformHitboxH = platform.HitboxH; var platformY = platform.Y;
+            // platform.HitboxH = 8.0; platform.Y -= platformHitboxH / 2.0 - 4.0;
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 0);
+
+            Static.Entity_TopSolidCollideWithPlayer(platform, player);
+
+            // platform.HitboxH = platformHitboxH; platform.Y = platformY;
+            if (platform.FrameID >= 0)
+                platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 1);
+
+            var temp;
+            switch (Static.Entity_SolidCollideWithPlayer(platform, player)) {
+                // Top
+                case 1:
+                    temp = player.VerticalCollisionFlag;
+                    // Custom: Instead of rewriting the same code, using a function instead
+                    platform.PlayerCollisionTop(player, playerIndex, onTopFlag);
+
+                    // Custom: Set it back just in case we changed it
+                    player.VerticalCollisionFlag = temp;
+                    break;
+                // Left
+                case 2:
+                    if (player.Ground && player.InputRight) {
+                        platform.PlayerOnLeftFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed <= 0.0) {
+                        if (player.InputLeft) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed - player.Acceleration;
+                        }
+                    }
+                    break;
+                // Right
+                case 3:
+                    if (player.Ground && player.InputLeft) {
+                        platform.PlayerOnRightFlag |= 1 << playerIndex;
+                    }
+
+                    if (platform.XSpeed >= 0.0) {
+                        if (player.InputRight) {
+                            player.GroundSpeed = platform.XSpeed;
+                            player.XSpeed = player.GroundSpeed + player.Acceleration;
+                        }
+                    }
+                    break;
+                // Bottom
+                case 4:
+                    break;
+            }
+        }
+    }
+
+    PlayerCollisionTop(player, playerIndex, onTopFlag) {
+        var platform = this;
+
+        platform.PlayerAtop = true;
+        // TODO: complete this
+        if (!((1 << playerIndex) & onTopFlag) &&
+            !player.IsSubPlayer &&
+            platform.Status == platform.Platform_Status_TimedFalling &&
+            !platform.PossibleTimerUntilDrop) {
+            if (player.Status == player.Player_StatusMighty_HammerDrop)
+                platform.PossibleTimerUntilDrop = 1;
+            else
+                platform.PossibleTimerUntilDrop = 30;
+        }
+
+        platform.PlayerOnTopFlag |= 1 << playerIndex;
+
+        if (Platform_ClassInfo[playerIndex * 2]) {
+            player.X = Platform_ClassInfo[playerIndex * 2 + 0];
+            player.Y = Platform_ClassInfo[playerIndex * 2 + 1];
+        }
+        else {
+            Platform_ClassInfo[playerIndex * 2 + 0] = player.X;
+            Platform_ClassInfo[playerIndex * 2 + 1] = player.Y;
+        }
+
+        player.X += platform.DeltaX;
+        player.Y += platform.DeltaY;
+        player.Y =  Math.Floor(player.Y);
+        if (platform.YSpeed <= 0.0)
+            player.VerticalCollisionFlag |= 1;
+    }
+
+    Platform_AttemptHurtPlayer(player, entity) {
+        var status = player.Status;
+        if (status != player.Player_StatusHurt &&
+            status != player.Player_StatusDead &&
+            status != player.Player_StatusDrown &&
+            !player.Invincibility &&
+            player.InvincibilityTimer <= 0) {
+            player.GetHurt(entity.X);
+            // return true;
+        }
+        return false;
+    }
+
+    DrawPlatform() {
+        if (this.Sprite > -1) {
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.FinalX), Math.Floor(this.FinalY), false, false);
+
+            // Draw.SetBlendColor(0.5, 0.5, 0.625, 0.5);
+            // Draw.Rectangle(Math.Floor(this.FinalX - this.HitboxW * 0.5 + this.HitboxOffX), Math.Floor(this.FinalY - this.HitboxH * 0.5 + this.HitboxOffY), this.HitboxW, this.HitboxH);
+        }
+        else {
+            Draw.SetBlendColor(0.5, 0.5, 0.625, 1.0);
+            Draw.Rectangle(Math.Floor(this.FinalX - this.HitboxW * 0.5 + this.HitboxOffX), Math.Floor(this.FinalY - this.HitboxH * 0.5 + this.HitboxOffY), this.HitboxW, this.HitboxH);
+        }
+    }
+    Render() {
+        if (!this.Visible)
+            return;
+        var status, angle;
+        if (this.FrameID > -1) {
+            status = this.Status;
+            angle = this.Angle;
+            if (status != this.Platform_Status_MovingCircular || this.HasTension != 1) {
+                if (status != this.Platform_Status_Swinging && status != this.Platform_Status_Clackers && this.Type != 12) {
+                    this.DrawPlatform();
+                    return;
+                }
+            }
+            else {
+                angle = Number.AsInteger(this.Speed * Scene_Frame + angle * 4);
+            }
+
+            var cos = Static.HexCosHighPrec(angle) * 16.0;
+            var sin = Static.HexSinHighPrec(angle) * 16.0;
+            var x = Math.Floor(this.StartX);
+            var y = Math.Floor(this.StartY);
+
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.FrameID + 2, x, y, false, false);
+            x += cos;
+            y += sin;
+
+            var flip = false;
+            for (var i = 16.0; i < this.AmplitudeY; i += 16.0) {
+                Draw.Sprite(this.Sprite, this.CurrentAnimation, this.FrameID + 1, x, y, false, flip);
+                flip = !flip;
+                x += cos;
+                y += sin;
+            }
+
+            this.DrawPlatform();
+        }
+    }
+}

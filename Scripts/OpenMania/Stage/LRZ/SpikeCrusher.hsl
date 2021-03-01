@@ -1,0 +1,201 @@
+class SpikeCrusher < Platform {
+    Load() {
+        super.Load();
+
+        this.ChildCount = 0;
+        this.StartDir = 0;
+        this.SpikeFrame = 0;
+
+        this.SFX_Huff = Resources.LoadSound("SoundFX/Stage/Huff.wav", SCOPE_SCENE);
+        this.SFX_Impact4 = Resources.LoadSound("SoundFX/Stage/Impact4.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        if (this.PropertyExists("childCount"))
+            this.ChildCount = this.PropertyGet("childCount");
+        if (this.PropertyExists("startDir"))
+            this.StartDir = this.PropertyGet("startDir");
+
+        this.Collision = 6;
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        super.Create();
+
+        this.Priority = DrawGroup_FGHigh_High;
+
+        this.ResetAnimation(3, 4);
+        this.FrameID = 4;
+
+        while (!Static.Entity_CheckTileCollision(this, 0, SensorDirection_Down, 0, 0.0, 32.0, true)) {
+            this.Y += 8.0;
+        }
+
+        var groundY = this.Y;
+        var startY = this.StartY;
+
+        var rangeHalfY = this.Y - startY + 32.0;
+
+        this.UpdateRegionW = 256.0;
+        this.UpdateRegionH = rangeHalfY * 2.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+
+        if (this.StartDir)
+            this.FinalY = groundY;
+
+        this.Y = startY;
+
+        this.Status = this.SpikeCrusher_Status_WaitForOnscreen;
+    }
+    UpdateEarly() {
+        super.UpdateEarly();
+    }
+    Update() {
+        super.Update();
+    }
+    SpikeCrusher_ResetWhenOffscreen() {
+        if (!Static.Position_IsOnScreen(this.FinalX, this.FinalY, this.RenderRegionW, this.RenderRegionH)) {
+            if (!Static.Position_IsOnScreen(this.StartX, this.StartY, this.RenderRegionW, this.RenderRegionH)) {
+                this.X = this.FinalX = this.StartX;
+                this.Y = this.FinalY = this.StartY;
+                this.UpdateRegionW = this.RenderRegionW;
+                this.UpdateRegionH = this.RenderRegionH;
+
+                this.YSpeed = 0.0;
+                this.PossibleTimerUntilDrop = 0;
+
+                this.Create(0);
+            }
+        }
+    }
+    SpikeCrusher_Status_WaitForOnscreen() {
+        this.UpdateRegionW = this.UpdateRegionH = 0.0;
+        if (this.StartDir)
+            this.Status = this.SpikeCrusher_Status_LiftOff;
+        else
+            this.Status = this.SpikeCrusher_Status_Falling;
+    }
+    SpikeCrusher_Status_Falling() {
+        this.FinalY += this.YSpeed;
+
+        var timer = this.PossibleTimerUntilDrop;
+        var x = this.X;
+        var y = this.Y;
+
+        this.YSpeed += 0.21875;
+        if (timer < 8 && (timer & 1))
+            this.CurrentFrame = timer >> 1;
+        else
+            this.CurrentFrame = 4;
+
+        this.PossibleTimerUntilDrop = timer + 1;
+        this.X = this.FinalX;
+        this.Y = this.FinalY;
+
+        var isOffscreen = !Static.Entity_IsOnScreen(this, 128.0, 64.0);
+        if (Static.Entity_CheckTileCollision(this, 0, SensorDirection_Down, 0, 0.0, 32.0, true)) {
+            if (!isOffscreen)
+                Sound.Play(this.SFX_Impact4);
+
+            this.PossibleTimerUntilDrop = 0;
+            this.YSpeed = 0.0;
+            this.Status = this.SpikeCrusher_Status_SpikePress;
+        }
+
+        this.FinalX = this.X;
+        this.FinalY = this.Y;
+
+        this.X = x;
+        this.Y = y;
+
+        this.SpikeCrusher_ResetWhenOffscreen();
+    }
+    SpikeCrusher_Status_SpikePress() {
+        this.PossibleTimerUntilDrop += 2;
+
+        var timer = this.PossibleTimerUntilDrop;
+
+        this.FinalY += 2.0;
+
+        var finalY = this.FinalY;
+
+        this.SpikeFrame = timer + 5;
+        if (timer >= 6) {
+            this.PossibleTimerUntilDrop = 15;
+            this.FinalY = finalY + 0.5;
+            this.Status = this.SpikeCrusher_Status_SpikeUnpress;
+        }
+
+        this.SpikeCrusher_ResetWhenOffscreen();
+    }
+    SpikeCrusher_Status_SpikeUnpress() {
+        this.PossibleTimerUntilDrop--;
+        var timer = this.PossibleTimerUntilDrop;
+
+        this.FinalY -= 0.5;
+
+        var frame = (timer >> 1) + 4;
+        if (frame < 5)
+            frame = 5;
+        this.SpikeFrame = frame;
+
+        if (timer <= 0) {
+            this.Status = this.SpikeCrusher_Status_FlickerFire;
+        }
+
+        this.SpikeCrusher_ResetWhenOffscreen();
+    }
+    SpikeCrusher_Status_FlickerFire() {
+        var timer = this.PossibleTimerUntilDrop;
+
+        if (timer & 1)
+            this.CurrentFrame = 3 - (timer >> 1);
+        else
+            this.CurrentFrame = 4;
+
+        this.PossibleTimerUntilDrop = timer + 1;
+        if (timer + 1 >= 8) {
+            this.PossibleTimerUntilDrop = 0;
+            this.Status = this.SpikeCrusher_Status_LiftOff;
+        }
+
+        this.SpikeCrusher_ResetWhenOffscreen();
+    }
+    SpikeCrusher_Status_LiftOff() {
+        var timer = this.PossibleTimerUntilDrop;
+
+        this.FinalY -= 1.0;
+
+        var isOffscreen = !Static.Entity_IsOnScreen(this, 128.0, 64.0);
+        this.CurrentFrame = 4 * (~timer & 1);
+
+        if (!isOffscreen && !(timer & 0x1F))
+            Sound.Play(this.SFX_Huff);
+
+        this.PossibleTimerUntilDrop++;
+
+        var startY = this.StartY;
+        if (this.FinalY <= startY) {
+            this.PossibleTimerUntilDrop = 0;
+            this.FinalY = startY;
+            this.Status = this.SpikeCrusher_Status_Falling;
+        }
+
+        this.YSpeed = -1.0;
+
+        this.SpikeCrusher_ResetWhenOffscreen();
+    }
+    Render() {
+        var x = Math.Floor(this.FinalX), y = Math.Floor(this.FinalY);
+        var sprite = this.Sprite, anim = this.CurrentAnimation, frame = this.CurrentFrame;
+        Draw.Sprite(sprite, anim, this.SpikeFrame, x, y, false, false);
+        Draw.Sprite(sprite, anim, frame, x, y, false, false);
+
+        // Draw.SetBlendColor(0.5, 0.5, 0.625, 1.0);
+        // Draw.Rectangle(Math.Floor(this.FinalX - this.HitboxW * 0.5 + this.HitboxOffX), Math.Floor(this.FinalY - this.HitboxH * 0.5 + this.HitboxOffY), this.HitboxW, this.HitboxH);
+    }
+}

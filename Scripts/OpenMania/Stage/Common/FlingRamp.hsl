@@ -1,0 +1,50 @@
+class FlingRamp {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Priority = DrawGroup_FGLow_Low;
+
+        this.FlipFlag = 0;
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+
+        // NOTE: Tiled Support
+        if (this.PropertyExists("flipFlag"))
+            this.FlipFlag = this.PropertyGet("flipFlag");
+
+        this.HitboxW = 32.0;
+        this.HitboxH = 32.0;
+
+        this.UpdateRegionW = 256.0;
+        this.UpdateRegionH = 256.0;
+
+        this.Visible = false;
+    }
+    event Update() {
+        var direction = this.FlipFlag;
+
+        var flingRamp = this, player;
+        with ("Player") {
+            player = this;
+            if (!player.Ground)
+                continue;
+                
+            if (( direction != 2 && player.XSpeed >=  4.0 && !player.Flip) ||
+                ( direction == 2 && player.XSpeed <= -4.0 &&  player.Flip)) {
+                if (Static.GameObject_TestCollide(player, flingRamp)) {
+                    if (player.Flip)
+                        player.XSpeed -= 4.0;
+                    else
+                        player.XSpeed += 4.0;
+                    player.YSpeed = -7.0;
+                    player.Ground = false;
+                    player.AnimationSpeedMult = 1.0;
+                    player.SetAnimation(23, 0);
+                }
+            }
+        }
+    }
+}

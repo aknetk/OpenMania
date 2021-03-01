@@ -1,0 +1,326 @@
+class LRZRockPile {
+    Load() {
+        this.Status = null;
+        this.Type = 0;
+        this.Delay = 0;
+        this.DebugParticles = false;
+        this.Unbreakable = false;
+        this.PlaneFilter = 0;
+        this.OnlyKnux = false;
+        this.OnlyMighty = false;
+        this.RockCount = 0;
+        this.RockInfo = Array.Create(22, null);
+        this.DelayTimer = 0;
+        this.Timer = 0;
+        this.StartX = this.X;
+        this.StartY = this.Y;
+        this.Broken = false;
+
+        if (String.Contains(Scene.GetName(), "LRZ2"))
+            this.Sprite = Resources.LoadSprite("Sprites/LRZ2/LRZRockPile.bin", SCOPE_SCENE);
+        else
+            this.Sprite = Resources.LoadSprite("Sprites/LRZ1/LRZRockPile.bin", SCOPE_SCENE);
+        this.SPR_Particles = Resources.LoadSprite("Sprites/LRZ1/Particles.bin", SCOPE_SCENE);
+        this.SFX_LedgeBreak = Resources.LoadSound("SoundFX/Stage/LedgeBreak.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("delay"))
+            this.Delay = this.PropertyGet("delay");
+        if (this.PropertyExists("debugParticles"))
+            this.DebugParticles = this.PropertyGet("debugParticles");
+        if (this.PropertyExists("unbreakable"))
+            this.Unbreakable = this.PropertyGet("unbreakable");
+        if (this.PropertyExists("planeFilter"))
+            this.PlaneFilter = this.PropertyGet("planeFilter");
+        if (this.PropertyExists("onlyKnux"))
+            this.OnlyKnux = this.PropertyGet("onlyKnux");
+        if (this.PropertyExists("onlyMighty"))
+            this.OnlyMighty = this.PropertyGet("onlyMighty");
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Load();
+        this.Setup();
+
+        var drawGroup = DrawGroup_FGLow_Low;
+        var planeFilter = this.PlaneFilter;
+        if (planeFilter > 0 && (planeFilter - 1) & 2)
+            drawGroup = DrawGroup_AboveTiles;
+
+        this.Priority = drawGroup;
+
+        this.UpdateRegionW = 256.0;
+        this.UpdateRegionH = 256.0;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+
+        switch (this.Type) {
+            case 0:
+                this.SetAnimation(0, 0);
+                this.HitboxW = 32.0;
+                this.HitboxH = 80.0;
+                if (String.Contains(Scene.GetName(), "LRZ2"))
+                    this.HitboxH = 64.0;
+
+                this.Status = this.LRZRockPile_Status_Breakable;
+                break;
+            case 1:
+                this.SetAnimation(1, 0);
+                this.HitboxW = 128.0;
+                this.HitboxH = 16.0;
+                this.HitboxOffY = -24.0;
+
+                this.Status = this.LRZRockPile_Status_TopSolidPlatform;
+                break;
+            case 2:
+                this.SetAnimation(1, 0);
+                this.HitboxW = 128.0;
+                this.HitboxH = 64.0;
+
+                this.Status = this.LRZRockPile_Status_SolidPlatform;
+                break;
+        }
+    }
+    Update() {
+        if (this.Status)
+            this.Status();
+
+        if (this.DelayTimer > 0)
+            this.DelayTimer--;
+    }
+    Render() {
+        if (this.Sprite > -1)
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+    }
+
+    LRZRockPile_CreateRockInfos() {
+        switch (this.Type) {
+            case 0:
+                this.RockCount = 6;
+                this.RockInfo[0] = [ 3, 2,  -1.0, -25.0, 0, 0 ];
+                this.RockInfo[1] = [ 3, 4,   0.0,  25.0, 0, 0 ];
+                this.RockInfo[2] = [ 2, 0,  -8.0, -16.0, 0, 0 ];
+                this.RockInfo[3] = [ 2, 2,   8.0,  32.0, 0, 0 ];
+                this.RockInfo[4] = [ 3, 0,  -1.0,  -2.0, 0, 0 ];
+                this.RockInfo[5] = [ 3, 2,  -1.0,  12.0, 0, 0 ];
+                break;
+            case 1:
+            case 2:
+                this.RockCount = 22;
+                this.RockInfo[0]  = [ 3, 3, -0x2D,   0xB, 1,  9 ];
+                this.RockInfo[1]  = [ 3, 3,  0x2D,   0xB, 0,  9 ];
+                this.RockInfo[2]  = [ 3, 3, -0x20, -0x10, 1, 30 ];
+                this.RockInfo[3]  = [ 3, 3,  0x20, -0x10, 0, 30 ];
+                this.RockInfo[4]  = [ 2, 0,  0x00,  0x18, 3,  0 ];
+                this.RockInfo[5]  = [ 2, 0, -0x37,   0x1, 0, 20 ];
+                this.RockInfo[6]  = [ 2, 1, -0x30,   0xF, 0, 14 ];
+                this.RockInfo[7]  = [ 2, 3, -0x22,  0x18, 1,  6 ];
+                this.RockInfo[8]  = [ 1, 5, -0x16,  0x13, 0, 12 ];
+                this.RockInfo[9]  = [ 2, 0,  0x37,   0x1, 1, 20 ];
+                this.RockInfo[10] = [ 2, 1,  0x30,   0xF, 1, 14 ];
+                this.RockInfo[11] = [ 2, 3,  0x22,  0x18, 0,  6 ];
+                this.RockInfo[12] = [ 1, 5,  0x16,  0x13, 1, 12 ];
+                this.RockInfo[13] = [ 2, 2,  -0xA,  0x14, 0,  8 ];
+                this.RockInfo[14] = [ 2, 2,   0xA,  0x14, 1,  7 ];
+                this.RockInfo[15] = [ 3, 0, -0x31, -0x11, 0, 26 ];
+                this.RockInfo[16] = [ 3, 0,   0xF, -0x11, 0, 24 ];
+                this.RockInfo[17] = [ 3, 0,  -0xF, -0x11, 1, 24 ];
+                this.RockInfo[18] = [ 3, 2,  0x31, -0x11, 0, 26 ];
+                this.RockInfo[19] = [ 3, 0, -0x21,   0x2, 0, 18 ];
+                this.RockInfo[20] = [ 3, 0,  0x21,   0x2, 1, 17 ];
+                this.RockInfo[21] = [ 3, 1,  0x00,   0x8, 0, 16 ];
+                break;
+        }
+    }
+    LRZRockPile_Break(x, y, xspeed, yspeed) {
+        this.LRZRockPile_CreateRockInfos();
+
+        var maxWait = 0;
+        var rockPileX = this.X;
+        var rockPileY = this.Y;
+        var hitboxW = this.HitboxW;
+        var hitboxH = this.HitboxH;
+
+        if (!String.Contains(Scene.GetName(), "LRZ2")) {
+            for (var i = 0; i < this.RockCount; i++) {
+                var info = this.RockInfo[i];
+                var anim = info[0],
+                    frame = info[1],
+                    offsetX = info[2],
+                    offsetY = info[3],
+                    flipFlag = info[4],
+                    wait = info[5];
+                var rockX = rockPileX + offsetX;
+                var rockY = rockPileY + offsetY;
+                var rock = Instance.Create("Debris", rockX, rockY);
+                rock.Status = rock.Debris_Status_FallGravity_SpannedLife;
+
+                rock.Sprite = this.SPR_Particles;
+                rock.ResetAnimation(anim, frame);
+
+                rock.Priority = this.Priority;
+                rock.Wait = wait;
+                rock.FlipFlag = flipFlag;
+                rock.Gravity = 0.21875;
+
+                rock.XSpeed = xspeed * Math.Abs(x - rockX) / hitboxW;
+                if (xspeed)
+                    rock.XSpeed += Math.RandomRange(0.5, 1.5) * Math.Sign(xspeed);
+
+                rock.YSpeed = yspeed * (y - rockY) / hitboxW;
+                if (yspeed)
+                    rock.YSpeed += Math.RandomRange(0.5, 1.5) * Math.Sign(yspeed);
+
+                if (maxWait < wait)
+                    maxWait = wait;
+            }
+        }
+        else {
+
+        }
+
+        this.Timer = maxWait;
+
+        Sound.Play(this.SFX_LedgeBreak);
+
+        if (this.Timer <= 0) {
+            this.Active = false;
+        }
+        else {
+            this.Sprite = -1;
+            this.Status = this.LRZRockPile_Status_Solid;
+        }
+    }
+
+
+    event CanBreakHorizontally(player) {
+        var characterFlag = player.Character;
+        var absGSP = Math.Abs(player.GroundSpeed);
+
+        var canBreak = false;
+        canBreak |= absGSP >= 4.5 && player.Ground && player.CurrentAnimation == 10;
+        canBreak |= characterFlag == Character_KNUCKLES;
+        canBreak |= characterFlag == Character_SONIC && player.SuperForm == SuperState_Super;
+        canBreak |= player.Status == player.Player_StatusFrozen_PGZ;
+        if (player.Shield == ShieldType_FIRE && player.ShieldObject.CurrentAnimation == 2)
+            canBreak = true;
+
+        return canBreak;
+    }
+    LRZRockPile_Status_Breakable() {
+        var player, rockPile;
+        with ("Player") {
+            player = this;
+            rockPile = other;
+
+            var characterFlag = player.Character;
+            var collideWithWall = false;
+            if (rockPile.OnlyKnux && characterFlag != Character_KNUCKLES) {
+                collideWithWall = true;
+            }
+            else if (rockPile.OnlyMighty && characterFlag != Character_MIGHTY) {
+                collideWithWall = true;
+            }
+
+            var canBreak = rockPile.CanBreakHorizontally(player);
+            if (!canBreak)
+                collideWithWall = true;
+
+            if (!collideWithWall && !rockPile.Unbreakable) {
+                if (canBreak && player.IsSubPlayer == 0) {
+                    if (!player.IsGhost) {
+                        if (Static.Entity_CollideWithObject(rockPile, player)) {
+                            var breakXSP = 4.0;
+                            if (player.X > rockPile.X)
+                                breakXSP = -4.0;
+
+                            rockPile.LRZRockPile_Break(player.X, player.Y, breakXSP, -2.0);
+                        }
+                    }
+                }
+            }
+            else {
+                Static.Entity_SolidCollideWithPlayer(rockPile, player);
+            }
+        }
+    }
+    LRZRockPile_Status_TopSolidPlatform() {
+        if (this.Broken && this.DelayTimer <= 0) {
+            this.LRZRockPile_Break(0.0, 0.0, 0.0, 0.0);
+        }
+        else {
+            var player, rockPile = this;
+            with ("Player") {
+                player = this;
+
+                var rockPlaneFilter = rockPile.PlaneFilter;
+                if (rockPlaneFilter <= 0 || player.PlaneIndex == ((rockPlaneFilter - 1) & 1)) {
+                    if (Static.Entity_TopSolidCollideWithPlayer(rockPile, player)) {
+                        if ((!rockPile.OnlyMighty || player.Character == Character_MIGHTY && player.Status == player.Player_StatusMighty_HammerDrop) && !player.IsSubPlayer && !rockPile.Unbreakable && player.Ground) {
+                            var delay = rockPile.Delay;
+                            if (delay != -1) {
+                                if (!rockPile.Broken) {
+                                    rockPile.Broken = true;
+                                    rockPile.DelayTimer = delay;
+                                }
+                                if (player.Status == player.Player_StatusMighty_HammerDrop)
+                                    rockPile.DelayTimer = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    LRZRockPile_Status_SolidPlatform() {
+        if (this.Broken && this.DelayTimer <= 0) {
+            this.LRZRockPile_Break(0.0, 0.0, 0.0, 0.0);
+        }
+        else {
+            var player, rockPile = this;
+            with ("Player") {
+                player = this;
+
+                var rockPlaneFilter = rockPile.PlaneFilter;
+                if (rockPlaneFilter <= 0 || player.PlaneIndex == ((rockPlaneFilter - 1) & 1)) {
+                    if (Static.Entity_SolidCollideWithPlayer(rockPile, player)) {
+                        if ((!rockPile.OnlyMighty || (player.Character == Character_MIGHTY && player.Status == player.Player_StatusMighty_HammerDrop)) && !player.IsSubPlayer && !rockPile.Unbreakable && player.Ground) {
+                            var delay = rockPile.Delay;
+                            if (delay != -1) {
+                                if (!rockPile.Broken) {
+                                    rockPile.Broken = true;
+                                    rockPile.DelayTimer = delay;
+                                }
+                                if (player.Status == player.Player_StatusMighty_HammerDrop)
+                                    rockPile.DelayTimer = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    LRZRockPile_Status_Solid() {
+        if (this.Timer <= 0) {
+            this.Active = false;
+        }
+        else {
+            var player, rockPile = this;
+            with ("Player") {
+                player = this;
+
+                var rockPlaneFilter = rockPile.PlaneFilter;
+                if (rockPlaneFilter <= 0 || player.PlaneIndex == ((rockPlaneFilter - 1) & 1))
+                    Static.Entity_SolidCollideWithPlayer(rockPile, player);
+            }
+
+            this.Timer--;
+        }
+    }
+}

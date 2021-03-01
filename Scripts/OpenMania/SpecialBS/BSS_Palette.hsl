@@ -1,0 +1,59 @@
+class BSS_Palette {
+    // NOTE: These are just both called in Create()
+    Load() {
+        // this.Sprite = Resources.LoadSprite("Sprites/Global/EggPrison.bin", SCOPE_GAME);
+        // this.SFX_Destroy = Resources.LoadSound("SoundFX/Global/Destroy.wav", SCOPE_SCENE);
+        // this.SFX_Spring = Resources.LoadSound("SoundFX/Global/Spring.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        this.UseStageConfig = false;
+        this.PaletteID = 0;
+        this.SkyAlpha = 0.0;
+        this.GlobeAlpha = 0.0;
+        this.PlayfieldA = 0;
+        this.PlayfieldB = 0;
+        this.BgColor1 = 0;
+        this.BgColor2 = 0;
+        this.BgColor3 = 0;
+        if (this.PropertyExists("useStageConfig"))
+            this.UseStageConfig = this.PropertyGet("useStageConfig");
+        if (this.PropertyExists("paletteID"))
+            this.PaletteID = this.PropertyGet("paletteID");
+        if (this.PropertyExists("skyAlpha"))
+            this.SkyAlpha = this.PropertyGet("skyAlpha") / 256.0;
+        if (this.PropertyExists("globeAlpha"))
+            this.GlobeAlpha = this.PropertyGet("globeAlpha") / 256.0;
+        if (this.PropertyExists("playfieldA"))
+            this.PlayfieldA = this.PropertyGet("playfieldA");
+        if (this.PropertyExists("playfieldB"))
+            this.PlayfieldB = this.PropertyGet("playfieldB");
+        if (this.PropertyExists("bgColor1"))
+            this.BgColor1 = this.PropertyGet("bgColor1");
+        if (this.PropertyExists("bgColor2"))
+            this.BgColor2 = this.PropertyGet("bgColor2");
+        if (this.PropertyExists("bgColor3"))
+            this.BgColor3 = this.PropertyGet("bgColor3");
+    }
+
+    Create(flag) {
+        this.Load();
+        this.Setup();
+
+        var viewW = View.GetWidth(0);
+        View.SetX(0, (512.0 - viewW) * 0.5);
+
+        var horizon = Instance.Create("BSS_Horizon", 256.0, 0.0);
+        horizon.SkyAlpha = this.SkyAlpha;
+        horizon.GlobeAlpha = this.GlobeAlpha;
+
+        var setup = Instance.Create("BSS_Setup", 256.0, 0.0);
+        setup.PlayfieldA = this.PlayfieldA;
+        setup.PlayfieldB = this.PlayfieldB;
+        setup.BgColor1 = this.BgColor1;
+        setup.BgColor2 = this.BgColor2;
+        setup.BgColor3 = this.BgColor3;
+    }
+    Update() {
+
+    }
+}

@@ -1,0 +1,245 @@
+class Newtron {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/GHZ/Newtron.bin", SCOPE_SCENE);
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.Timer = 0;
+        this.DoShot = 0;
+        this.Status = null;
+        this.BlendFlag = BlendMode_NORMAL;
+        this.TransparencyValue = 1.0;
+        this.CurrentFrameCount = 8;
+        this.Type = 0;
+        this.FlipFlag = 0;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+
+        this.CreateFlag(0);
+    }
+    event CreateFlag(flag) {
+        this.StartX = this.X;
+        this.StartY = this.Y;
+        this.StartFlip = this.FlipFlag;
+        // this.VisibilityFlag = 1;
+        switch (flag) {
+            case 0:
+                break;
+            case 1:
+                this.Type = 1;
+                this.UpdateRegionW = this.UpdateRegionH = 0x100;
+                this.RenderRegionW = this.RenderRegionH = 0x80;
+                break;
+            default:
+                this.BlendFlag = BlendMode_ADD;
+                this.TransparencyValue = 0.75;
+                this.UpdateRegionW = this.UpdateRegionH = 0x80;
+                this.RenderRegionW = this.RenderRegionH = 0x40;
+                this.SetAnimation(6, 0);
+                this.Status = this.Newtron_Status_Shot;
+
+                // Custom:
+                this.HitboxW = this.HitboxH = 12.0;
+                return;
+        }
+        this.TransparencyValue = 0.0;
+        this.UpdateRegionW = this.UpdateRegionH = 0x80;
+        if (this.Type == 1) {
+            this.SetAnimation(2, 0);
+            this.Priority = DrawGroup_FGLow_Low;
+        }
+        else {
+            this.SetAnimation(1, 0);
+            this.Priority = DrawGroup_FGHigh_High;
+        }
+        this.Status = this.Newtron_Status_StartWaitForPlayer;
+    }
+
+    event Newtron_Status_Shot() {
+        this.X += this.XSpeed;
+
+        if (Static.Entity_IsOnScreen(this, 0.0, 0.0)) {
+            this.Animate();
+            var player, shot = this;
+            with ("Player") {
+                player = this;
+                if (Static.GameObject_TestCollide(player, shot))
+                    player.Player_EnemyDeflectOrHurtPlayer(shot);
+            }
+        }
+        else {
+            this.Active = false;
+        }
+    }
+    event Newtron_Status_StartWaitForPlayer() {
+        this.HitboxW = 256.0;
+        this.HitboxH = 128.0;
+        this.Status = this.Newtron_Status_WaitForPlayer;
+        this.Newtron_Status_WaitForPlayer();
+    }
+    event Newtron_Status_WaitForPlayer() {
+        // this.HitboxW = 256.0;
+        // this.HitboxH = 128.0;
+        var player, enemy = this;
+        with ("Player") {
+            player = this;
+            if (Static.GameObject_TestCollide(player, enemy)) {
+                enemy.Status = enemy.Newtron_Status_DetectedPlayer;
+            }
+        }
+        this.Newtron_CheckForOffscreen();
+    }
+    event Newtron_Status_DetectedPlayer() {
+        // Custom:
+        this.HitboxW = 24.0;
+        this.HitboxH = 28.0;
+
+        var alpha = this.TransparencyValue;
+        if (alpha >= 0.96875) {
+            this.TransparencyValue = 1.0;
+            if (this.Type == 1) {
+                this.Status = this.Newtron_Status_Falling;
+                this.SetAnimation(3, 0);
+            }
+            else {
+                this.Status = this.Newtron_Status_ReadyToShoot;
+            }
+        }
+        else {
+            this.TransparencyValue = alpha + 0.015625;
+            if (this.Type == 1) {
+                this.Newtron_FaceClosestPlayer();
+            }
+        }
+
+        this.Animate();
+        this.Newtron_CheckForOffscreen();
+    }
+    event Newtron_Status_Falling() {
+        this.Newtron_FaceClosestPlayer();
+
+        if (this.CurrentFrame >= 2) {
+            var yspeed = this.YSpeed;
+            this.Y += yspeed;
+            this.YSpeed = yspeed + 0.21875;
+
+            if (Static.Entity_MoveToTileCollision(this, 0x0000, 0, 0, 0.0, 8.0, 8.0)) {
+                this.YSpeed = 0.0;
+                this.XSpeed = 2.0;
+                if (this.FlipFlag)
+                    this.XSpeed = -2.0;
+
+                this.SetAnimation(4, 0);
+                this.Status = this.Newtron_Status_Moving;
+            }
+        }
+
+        this.Animate();
+        this.Newtron_HandlePlayerBreak();
+        this.Newtron_CheckForOffscreen();
+    }
+    event Newtron_Status_Moving() {
+        this.X += this.XSpeed;
+        Static.Entity_MoveToTileCollision(this, 0x0000, 0, 0, 0.0, 8.0, 8.0);
+        this.Animate();
+        this.Newtron_HandlePlayerBreak();
+        this.Newtron_CheckForOffscreen();
+    }
+    event Newtron_Status_ReadyToShoot() {
+        this.Timer++;
+        switch (this.Timer) {
+            case 30: {
+                this.ResetAnimation(1, 0);
+                var shot = Instance.Create("Newtron", this.X + (this.FlipFlag ? -20.0 : 20.0), this.Y - 8.0);
+                shot.CreateFlag(2);
+                shot.XSpeed = this.FlipFlag ? -2.0 : 2.0;
+                break;
+            }
+            case 45:
+                this.ResetAnimation(0, 0);
+                break;
+            case 90:
+                this.Status = this.Newtron_Status_Fadeout;
+                break;
+        }
+
+        this.Animate();
+        this.Newtron_HandlePlayerBreak();
+        this.Newtron_CheckForOffscreen();
+    }
+    event Newtron_Status_Fadeout() {
+        this.Animate();
+        this.Newtron_CheckForOffscreen();
+
+        var alpha = this.TransparencyValue;
+        if (alpha <= 0.0)
+            this.Active = false;
+        else
+            this.TransparencyValue = alpha - 0.015625;
+    }
+
+    event Newtron_FaceClosestPlayer() {
+        var player, enemy = this, dist = -1.0, pDist;
+        with ("Player") {
+            player = this;
+            pDist = Math.Abs(player.X - enemy.X);
+            if (dist < 0.0 || pDist < dist) {
+                dist = pDist;
+                enemy.FlipFlag = player.X < enemy.X;
+            }
+        }
+    }
+    event Newtron_HandlePlayerBreak() {
+        var player, enemy = this;
+        with ("Player") {
+            player = this;
+            if (player.Player_BreakableCollide(enemy))
+                player.Player_BreakEnemy(enemy, 1);
+        }
+    }
+    event Newtron_CheckForOffscreen() {
+        // this.UseGroundSpeed
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH) &&
+            !Static.Position_IsOnScreen(this.StartX, this.StartY, this.RenderRegionW, this.RenderRegionH)) {
+            this.X = this.StartX;
+            this.Y = this.StartY;
+            this.XSpeed =
+            this.YSpeed = 0.0;
+            this.Timer = 0;
+            this.Create();
+        }
+    }
+
+    event Reset() {
+        this.Create();
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+    event Render() {
+        if (!this.OnScreen)
+            return;
+
+        var xx = Math.Floor(this.X);
+        var yy = Math.Floor(this.Y);
+        var fX = (this.FlipFlag & 1);
+        var fY = (this.FlipFlag & 2);
+        Draw.SetBlendMode(this.BlendFlag);
+        Draw.SetTextureBlend(true);
+        Draw.SetBlendColor(1.0, 1.0, 1.0, this.TransparencyValue);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, xx, yy, fX, fY);
+        if (this.Status == this.Newtron_Status_Moving)
+            Draw.Sprite(this.Sprite, 5, (Scene_Frame >> 1) & 3, xx, yy, fX, fY);
+        Draw.SetTextureBlend(false);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+}

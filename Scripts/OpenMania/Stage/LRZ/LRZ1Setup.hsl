@@ -1,0 +1,193 @@
+var LRZ1Setup_DeformFG = [
+    -1,
+     0,
+     0,
+    -1,
+    -1,
+     0,
+     0,
+     0,
+     0,
+    -1,
+    -1,
+     0,
+     0,
+     0,
+     0,
+    -1,
+     0,
+     0,
+     0,
+     0,
+    -1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+];
+var LRZ1Setup_DeformBG = [
+    -2,
+    -2,
+    -2,
+     0,
+    -2,
+     0,
+    -4,
+    -2,
+     0,
+    -4,
+    -4,
+    -1,
+     0,
+     0,
+    -3,
+    -4,
+    -4,
+    -1,
+    -4,
+    -4,
+    -3,
+    -4,
+    -1,
+     0,
+     0,
+     0,
+    -3,
+    -1,
+    -1,
+    -1,
+    -2,
+     0,
+];
+
+class LRZ1Setup {
+    event Create(flag) {
+        this.LavaTimer = 0;
+        this.LavaCooldownTimer = 0;
+
+        this.FG_Low_Index = Scene.GetLayerIndex("FG Low");
+        // Scene.SetLayerVisible(2, true);
+
+        var layerIndex_FGLow = this.LayerIndex_FGLow = Scene.GetLayerIndex("FG Low");
+        var layerIndex_FGHigh = this.LayerIndex_FGHigh = Scene.GetLayerIndex("FG High");
+        var layerIndex_Background1 = this.LayerIndex_Background1 = Scene.GetLayerIndex("Background 1");
+        var layerIndex_Background2 = this.LayerIndex_Background2 = Scene.GetLayerIndex("Background 2");
+
+        for (var i = 0, iM, dvF, dvB; i < 0x400; i++) {
+            iM = i & 0x1F;
+            dvF = LRZ1Setup_DeformFG[iM];
+            dvB = LRZ1Setup_DeformBG[iM];
+            Scene.SetLayerTileDeforms(layerIndex_FGLow, i, dvF, 0.0);
+            Scene.SetLayerTileDeforms(layerIndex_FGHigh, i, dvF, 0.0);
+            Scene.SetLayerTileDeforms(layerIndex_Background1, i, dvB, 0.0);
+            Scene.SetLayerTileDeforms(layerIndex_Background2, i, dvB, 0.0);
+        }
+
+        Scene.SetLayerTileDeformSplitLine(layerIndex_FGLow, 0.0);
+        Scene.SetLayerTileDeformSplitLine(layerIndex_FGHigh, 0.0);
+        Scene.SetLayerTileDeformSplitLine(layerIndex_Background1, 0.0);
+        Scene.SetLayerTileDeformSplitLine(layerIndex_Background2, 0.0);
+
+        this.DeformOffset_FG =
+        this.DeformOffset_Background = 0.0;
+    }
+
+    event Update() {
+        this.LavaTimer += 24;
+        if (this.LavaTimer >= 0x100) {
+            this.LavaTimer -= 0x100;
+            Palette.RotateColorsRight(1, 0xD0, 4);
+            Palette.RotateColorsRight(2, 0xD0, 4);
+            Palette.RotateColorsRight(3, 0xD0, 4);
+            Palette.RotateColorsRight(4, 0xD0, 4);
+        }
+        // Lava pulsating
+        if (this.LavaCooldownTimer <= 0) {
+            var cos = Static.HexCosHighPrec((Scene_Frame & 0x1FF) << 1);
+
+            if (cos >= 0.0)
+                Palette.MixPalettes(5, 1, 4, cos, 0xD0, 4);
+            else
+                Palette.MixPalettes(5, 1, 3, -cos, 0xD0, 4);
+            Palette.RotateColorsRight(3, 0xD0, 4);
+            Palette.RotateColorsRight(4, 0xD0, 4);
+
+            if (cos >= 0.0)
+                Palette.MixPalettes(6, 2, 4, cos, 0xD0, 4);
+            else
+                Palette.MixPalettes(6, 2, 3, -cos, 0xD0, 4);
+            Palette.RotateColorsLeft(3, 0xD0, 4);
+            Palette.RotateColorsLeft(4, 0xD0, 4);
+
+            Palette.MixPalettes(0, 5, 6, this.LavaTimer / 256.0, 0xD0, 4);
+        }
+        // Lava cooling
+        else {
+            if (this.LavaCooldownTimer == 1) {
+                Palette.CopyColors(0, 0xD0, 1, 0xD0, 5);
+            }
+
+            Palette.MixPalettes(0, 1, 7, this.LavaCooldownTimer / 256.0, 0xD0, 5);
+            if (this.LavaCooldownTimer < 256)
+                this.LavaCooldownTimer += 2;
+            else
+                this.LavaCooldownTimer = 256;
+        }
+
+        // Wall blinkies
+        var pulse = Static.HexSin((Scene_Frame << 1) & 0xFF);
+        Palette.MixPalettes(0, 1, 2, pulse * 0.5 + 0.5, 0x8C, 2);
+        pulse = Static.HexSin(((Scene_Frame << 1) + 0x80) & 0xFF);
+        Palette.MixPalettes(0, 1, 2, pulse * 0.5 + 0.5, 0x8E, 2);
+        pulse = Static.HexSin(Scene_Frame & 0xFF);
+        Palette.MixPalettes(0, 1, 2, pulse * 0.5 + 0.5, 0x9C, 3);
+
+        // Hurt player on lava
+        if (!this.LavaCooldownTimer) {
+            var player, fgLowIndex = this.FG_Low_Index;
+            with ("Player") {
+                player = this;
+                if (player.Ground && player.Shield != ShieldType_FIRE) {
+                    var bottom = player.HitboxOffY + player.HitboxH * 0.5;
+                    for (var i = 0; i < 2; i++) {
+                        var tileBehaviorFlag = Scene.GetTileID(fgLowIndex + i, Number.AsInteger(player.X) >> 4, Number.AsInteger(player.Y + bottom) >> 4);
+                            tileBehaviorFlag = TileInfo.GetBehaviorFlag(tileBehaviorFlag, player.PlaneIndex);
+                        if (tileBehaviorFlag) {
+                            player.Player_AttemptHurtPlayer(player);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Layer deforms
+        if (!(Scene_Frame & 3)) {
+            var val = this.DeformOffset_Background++;
+            Scene.SetLayerTileDeformOffsets(this.LayerIndex_Background1, val, 0.0);
+            Scene.SetLayerTileDeformOffsets(this.LayerIndex_Background2, val, 0.0);
+        }
+        if (!(Scene_Frame & 1)) {
+            var val = this.DeformOffset_FG++;
+            Scene.SetLayerTileDeformOffsets(this.LayerIndex_FGLow, val, 0.0);
+            Scene.SetLayerTileDeformOffsets(this.LayerIndex_FGHigh, val, 0.0);
+        }
+    }
+    event UpdateLate() {
+        var y = View.GetY(0);
+        var val = 128.0 - ((y * y * 8.0) / 0x10000);
+        if (val > 0.0)
+            val = 0.0;
+        val *= 2.0;
+
+        Scene.SetLayerOffsetPosition(this.LayerIndex_Background1, 0.0, val);
+        Scene.SetLayerOffsetPosition(this.LayerIndex_Background2, 0.0, val);
+    }
+}

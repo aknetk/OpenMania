@@ -1,0 +1,436 @@
+class PetalPile {
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        if (String.Contains(Scene.GetName(), "PSZ2"))
+            this.Sprite = Resources.LoadSprite("Sprites/PSZ2/Petal.bin", SCOPE_GAME);
+        else
+            this.Sprite = Resources.LoadSprite("Sprites/PSZ1/Petal.bin", SCOPE_GAME);
+
+        this.SFX_Petals = Resources.LoadSound("SoundFX/PSZ/Petals.wav", SCOPE_GAME);
+        this.Status = null;
+        this.RenderStatus = null;
+
+        // Setup
+        this.AutoPhysics = false;
+        this.LeafPattern = 0;
+        this.TileLayer = 0;
+        this.TileLayerIndex = 0;
+        this.PileSizeW = 48.0;
+        this.PileSizeH = 8.0;
+        this.MaxSpeedX = 1.8;
+        this.MaxSpeedY = 0.0;
+        this.EmitterMode = 0;
+        this.IsPile = true;
+        this.PlayerHalfGSP = 0.0;
+        this.FlipDirection = 0;
+        this.KeepTiles = false;
+        this.Force = 0.0;
+        if (this.PropertyExists("leafPattern"))
+            this.LeafPattern = this.PropertyGet("leafPattern");
+        if (this.PropertyExists("tileLayer"))
+            this.TileLayer = this.PropertyGet("tileLayer");
+        if (this.PropertyExists("emitterMode"))
+            this.EmitterMode = this.PropertyGet("emitterMode");
+        if (this.PropertyExists("pileSize")) {
+            var pileSize = this.PropertyGet("pileSize");
+            this.PileSizeW = pileSize[0];
+            this.PileSizeH = pileSize[1];
+        }
+        if (this.PropertyExists("maxSpeed")) {
+            var maxSpeed = this.PropertyGet("maxSpeed");
+            this.MaxSpeedX = maxSpeed[0];
+            this.MaxSpeedY = maxSpeed[1];
+        }
+
+        if (this.PropertyExists("Width") && this.PropertyExists("Height")) {
+            this.PileSizeW = this.PropertyGet("Width");
+            this.PileSizeH = this.PropertyGet("Height");
+
+            this.X += this.PileSizeW * 0.5;
+            this.Y += this.PileSizeH * 0.5;
+        }
+
+        // Create
+        this.Priority = DrawGroup_FGHigh_High;
+        this.UpdateRegionW =
+        this.UpdateRegionH = 32.0;
+        this.RenderRegionW =
+        this.RenderRegionH = 32.0;
+
+        var layer = "FG High";
+        if (this.TileLayer)
+            layer = "FG Low";
+        this.TileLayerIndex = Scene.GetLayerIndex(layer);
+
+        this.SetAnimation(0, 0);
+        this.Status = this.PetalPile_Status_Init;
+    }
+
+    // Petal Pile Statuses
+    PetalPile_Status_Init() {
+        this.HitboxW = this.PileSizeW;
+        this.HitboxH = this.PileSizeH;
+        if (!this.KeepTiles)
+            this.Status = this.PetalPile_Status_WaitForPlayer;
+        else
+            this.Status = this.PetalPile_Status_ReleasePetals;
+
+        this.Status();
+    }
+    PetalPile_Status_WaitForPlayer() {
+        var absMaxSpeedX = Math.Abs(this.MaxSpeedX);
+        var finished = false;
+
+        var player, petalPile = this;
+        with ("Player") {
+            player = this;
+            if (player.IsSubPlayer)
+                continue;
+
+            if (Static.GameObject_TestCollide(player, petalPile)) {
+                var gsp = player.GroundSpeed;
+                var absGSP = Math.Abs(gsp);
+                var playerStatus = player.Status;
+                if (absGSP >= 6.0 ||
+                    player.YSpeed > 6.0 ||
+                    player.YSpeed < -7.0 ||
+                    playerStatus == player.Player_StatusSpinDash ||
+                    playerStatus == player.Player_StatusSonic_DropDash) {
+                    var doEmit = 0.0;
+                    if (playerStatus == player.Player_StatusSpinDash ||
+                        playerStatus == player.Player_StatusSonic_DropDash ||
+                        absGSP >= 6.0)
+                        doEmit = 1.0;
+
+                    petalPile.FlipDirection = doEmit * (player.Flip ? 1.0 : -1.0);
+
+                    var speed = 0xB5555;
+                    if (playerStatus == player.Player_StatusSpinDash ||
+                        playerStatus == player.Player_StatusSonic_DropDash)
+                        speed = 0xF5555;
+                    petalPile.Force = speed / 65536.0;
+                    petalPile.PlayerHalfGSP = player.GroundSpeed * 0.5;
+                    petalPile.Emit(player);
+                    finished = true;
+                    break;
+                }
+
+                if (!petalPile.EmitterMode && absGSP > absMaxSpeedX && absGSP < 6.0)
+                    player.GroundSpeed -= ((absGSP - absMaxSpeedX) * 0.5) * Math.Sign(gsp);
+            }
+        }
+
+        if (finished)
+            return;
+
+        var explosion;
+        with ("Explosion") {
+            explosion = this;
+            explosion.HitboxW =
+            explosion.HitboxH = 16.0;
+            if (Static.Entity_CollideWithObject(petalPile, explosion)) {
+                petalPile.FlipDirection = 0.0;
+                petalPile.Force = 0xF5555 / 65536.0;
+                petalPile.Emit(explosion);
+            }
+        }
+    }
+    Emit(comparisonObject) {
+        var petalPile = this;
+        petalPile.EmitX = comparisonObject.X - petalPile.X;
+        petalPile.Unk_0x88 = 0;
+        Sound.Play(petalPile.SFX_Petals);
+        petalPile.Status = petalPile.PetalPile_Status_ReleasePetals;
+    }
+    PetalPile_Status_ReleasePetals() {
+        var emitX = 0.0;
+        var emitY = 0.0;
+        var flipDirection = this.FlipDirection;
+        switch (flipDirection) {
+            case 0.0:
+                emitX = this.X + this.EmitX;
+                break;
+            case -1.0:
+                emitX = this.X + this.HitboxW * 0.5 + this.HitboxOffX + 16.0; // Right
+                break;
+            case 1.0:
+                emitX = this.X - this.HitboxW * 0.5 + this.HitboxOffX - 16.0; // Left
+                break;
+        }
+        emitY = this.Y + this.HitboxH * 0.5 + this.HitboxOffY + 32.0;
+
+        var petalVectors = Array.Create(16 << 1, 0.0);
+        var petalCount = this.PetalPile_CreatePetalVectors(petalVectors);
+
+        if (petalCount) {
+            var petalPileX = this.X;
+            var relEmitX = petalPileX - emitX;
+
+            var maxValue = 0.0;
+            for (var i = 0; i < petalCount; i++) {
+                var vectorXValue = petalVectors[i << 1 | 0];
+                if (maxValue < vectorXValue)
+                    maxValue = vectorXValue;
+            }
+
+            for (var i = 0; i < petalCount; i++) {
+                var posVectorX = petalVectors[i << 1 | 0] + this.X;
+                var posVectorY = petalVectors[i << 1 | 1] + this.Y;
+
+                relEmitX = posVectorX - emitX;
+
+                var angle = Math.Atan(relEmitX, posVectorY - emitY);
+                var petal = Instance.Create("PetalPile", posVectorX, posVectorY, 0);
+                petal.Status = petal.PetalPile_Status_PetalInit;
+                petal.RenderStatus = petal.PetalPile_RenderStatus_Petal;
+
+                var flipDirection = this.FlipDirection;
+                var force = this.Force * 0.5;
+                if (flipDirection) {
+                    var absRelEmitX = Math.Abs(relEmitX);
+                    petal.FlipFlag = flipDirection < 0;
+                    petal.PlayerHalfGSP = this.PlayerHalfGSP;
+
+                    force = this.Force * absRelEmitX / maxValue * 0.25;
+                    petal.PetalTimer = Number.AsInteger((maxValue - absRelEmitX) * 0.25);
+                }
+                else {
+                    petal.PetalTimer = 0;
+                    petal.FlipFlag = Number.AsInteger(Math.RandomMax(1));
+                }
+
+                petal.SomeKindOfXSpeed = (force) * Math.Cos(angle);
+                petal.SomeKindOfYSpeed = (force * 0.5) * Math.Sin(angle) - 2.0;
+
+                var layer = DrawGroup_FGHigh_High;
+                if (this.TileLayer)
+                    layer = DrawGroup_FGLow_Low;
+
+                petal.Priority = layer;
+            }
+        }
+
+        if (this.EmitterMode) {
+            this.Status = this.PetalPile_Status_WaitForPlayerUncollide;
+        }
+        else if (!this.KeepTiles) {
+            // Remove stage tiles here
+            var layerIndex = this.TileLayerIndex;
+            var xStr = (this.X - this.PileSizeW * 0.5) / 16.0;
+            var xEnd = (this.X + this.PileSizeW * 0.5) / 16.0;
+            var yStr = (this.Y - this.PileSizeH * 0.5) / 16.0;
+            var yEnd = (this.Y + this.PileSizeH * 0.5) / 16.0;
+            for (var x = xStr; x <= xEnd; x += 1.0) {
+                for (var y = yStr; y <= yEnd; y += 1.0) {
+                    Scene.SetTile(layerIndex, x, y, 0x3FF, false, false);
+                }
+            }
+
+            this.Active = false;
+        }
+    }
+    PetalPile_CreatePetalVectors(petalVectors) {
+        var leafPattern = this.LeafPattern;
+        var leafCount = 15; // this.LeafCounts[leafPattern];
+        var dataVectors = null;
+        var minX = -1.0, maxX = 1.0, minY = -1.0, maxY = 1.0;
+        // switch (leafPattern) {
+        //     case 0: dataVectors = PetalPile_LeafData0; break;
+        //     case 1: dataVectors = PetalPile_LeafData1; break;
+        //     case 2: dataVectors = PetalPile_LeafData2; break;
+        //     case 3: dataVectors = PetalPile_LeafData3; break;
+        //     case 4: dataVectors = PetalPile_LeafData4; break;
+        // }
+        switch (leafPattern) {
+            case 0: minX = -1.0; maxX = 1.0; minY = -1.0; maxY = 1.0; break;
+            case 1: minX = -1.0; maxX = 1.0; minY = -1.0; maxY = 1.0; break;
+            case 2: minX = -1.0; maxX = 1.0; minY = -1.0; maxY = 1.0; break;
+            case 3: minX = -1.0; maxX = 1.0; minY =  0.0; maxY = 1.0; break;
+            case 4: minX = -1.0; maxX = 1.0; minY = -1.0; maxY = 1.0; break;
+        }
+
+
+        var pileSizeX = this.PileSizeW;
+        var pileSizeY = this.PileSizeH;
+        if (pileSizeX < 2.0)
+            pileSizeX = 2.0;
+        if (pileSizeY < 2.0)
+            pileSizeY = 2.0;
+
+        var sizeWidthHalfPx = pileSizeX * 0.5;
+        var sizeHeighHalfPx = pileSizeY * 0.5;
+
+        for (var i = 0; i < leafCount; i++) {
+            var x = i << 1 | 0;
+            var y = i << 1 | 1;
+            petalVectors[x] = sizeWidthHalfPx * Math.RandomRange(minX, maxX); // dataVectors[x];
+            petalVectors[y] = sizeHeighHalfPx * Math.RandomRange(minY, maxY); // dataVectors[y];
+        }
+        return leafCount;
+    }
+    PetalPile_Status_WaitForPlayerUncollide() {
+        var finishedFunc = false;
+        var player, petalPile = this;
+        with ("Player") {
+            player = this;
+            if (Static.GameObject_TestCollide(player, petalPile)) {
+                finishedFunc = true;
+                break;
+            }
+        }
+
+        if (finishedFunc) return;
+
+        petalPile.Status = petalPile.PetalPile_Status_Init;
+    }
+
+    // Petal Statuses
+    PetalPile_Status_PetalInit() {
+        this.HitboxW = 2.0;
+        this.HitboxH = 2.0;
+        this.UpdateRegionW =
+        this.UpdateRegionH = 0.0;
+        this.RenderRegionW =
+        this.RenderRegionH = 2.0;
+        this.SetAnimation(0, 0);
+
+        this.Status = this.PetalPile_Status_Petal;
+        this.PetalPile_Status_Petal();
+    }
+    PetalPile_Status_Petal() {
+        var petalTimer = this.PetalTimer;
+        if (petalTimer <= 0) {
+            this.Status = this.PetalPile_Status_PetalKickedUp;
+            this.PetalTimer = 0;
+            this.XSpeed = this.SomeKindOfXSpeed;
+            this.YSpeed = this.SomeKindOfYSpeed;
+        }
+        else {
+            this.PetalTimer = petalTimer - 1;
+        }
+
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH)) {
+            this.Active = false;
+        }
+    }
+    PetalPile_Status_PetalKickedUp() {
+        var playerHalfGSP = this.PlayerHalfGSP;
+        if (playerHalfGSP > 0) {
+            playerHalfGSP -= 0.0625;
+            if (playerHalfGSP < 0)
+                playerHalfGSP = 0;
+            this.PlayerHalfGSP = playerHalfGSP;
+        }
+        else if (playerHalfGSP < 0) {
+            playerHalfGSP += 0.0625;
+            if (playerHalfGSP > 0)
+                playerHalfGSP = 0;
+            this.PlayerHalfGSP = playerHalfGSP;
+        }
+
+        this.X += playerHalfGSP;
+        this.YSpeed += 0.25;
+
+        var xspeed = this.XSpeed;
+        var absXSP = Math.Abs(xspeed);
+        var sub = absXSP;
+        if (sub > 0.5)
+            sub = 0.5;
+
+        if (xspeed <= 0.0)
+            this.XSpeed = xspeed + sub;
+        else
+            this.XSpeed = xspeed - sub;
+
+        if (this.YSpeed > 0.0)
+            this.YSpeed = 0.0;
+
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+
+        this.PetalTimer++;
+        if (this.PetalTimer > 3) {
+            var flip;
+            if (Math.RandomRange(0, 10) <= 6.0)
+                flip = this.FlipFlag;
+            else
+                flip = this.FlipFlag == 0;
+            this.FlipFlag = flip;
+            this.PetalTimer = 0;
+        }
+
+        if (this.YSpeed >= 0.0 && this.XSpeed == 0.0) {
+            this.Unk_0x9C = Number.AsInteger(Math.RandomMax(256));
+            this.Status = this.PetalPile_Status_PetalFallingMaybe;
+        }
+
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH)) {
+            this.Active = false;
+        }
+    }
+    PetalPile_Status_PetalFallingMaybe() {
+        var playerHalfGSP = this.PlayerHalfGSP;
+        if (playerHalfGSP > 0) {
+            playerHalfGSP -= 0.0625;
+            if (playerHalfGSP < 0)
+                playerHalfGSP = 0;
+            this.PlayerHalfGSP = playerHalfGSP;
+        }
+        else if (playerHalfGSP < 0) {
+            playerHalfGSP += 0.0625;
+            if (playerHalfGSP > 0)
+                playerHalfGSP = 0;
+            this.PlayerHalfGSP = playerHalfGSP;
+        }
+
+        this.X += playerHalfGSP;
+        this.YSpeed += 0.25;
+        if (this.YSpeed > 1.0)
+            this.YSpeed = 1.0;
+
+        var sine = Static.HexSin(this.Unk_0x9C << 2);
+        this.PetalTimer++;
+
+        this.X += sine;
+        this.XSpeed = sine;
+        this.Y += this.YSpeed;
+
+        if (this.PetalTimer > 3) {
+            var flip;
+            if (Math.RandomRange(0, 10) <= 6.0)
+                flip = this.FlipFlag;
+            else
+                flip = this.FlipFlag == 0;
+            this.FlipFlag = flip;
+            this.PetalTimer = 0;
+        }
+
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH)) {
+            this.Active = false;
+        }
+
+        this.Unk_0x9C++;
+    }
+
+    Update() {
+        if (this.Status)
+            this.Status();
+
+        if (!this.IsPile)
+            this.Animate();
+    }
+
+    PetalPile_RenderStatus_Petal() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), this.FlipFlag & 1, this.FlipFlag & 2);
+    }
+
+    Render() {
+        if (this.RenderStatus)
+            this.RenderStatus();
+    }
+}

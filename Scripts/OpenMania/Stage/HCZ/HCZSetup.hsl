@@ -1,0 +1,55 @@
+class HCZSetup {
+    event Create() {
+        this.Status = null;
+
+        if (String.Contains(Scene.GetName(), "Scene2.bin")) {
+            // Scene.SetLayerVisible(4, false);
+            // Palette.CopyColors(
+            //     // From
+            //     4, 0x80,
+            //     // To
+            //     0, 0x80,
+            //     // Count
+            //     128);
+        }
+        this.SandTimer = 0;
+        // this.Status = this.HCZSetup_Status_Act2;
+
+        this.Water = null;
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+
+    event Render() {
+        if (!this.Water) {
+            with ("Water") {
+                if (this.Type == 0) {
+                    other.Water = this;
+                    break;
+                }
+            }
+            return;
+        }
+
+        var viewH = Number.AsInteger(View.GetHeight(0));
+        Palette.SetPaletteIndexLines(0, 0, viewH);
+        Palette.SetPaletteIndexLines(1, Number.AsInteger(this.Water.Y - View.GetY(0)), viewH);
+
+        // if (!(Scene_Frame & 3)) {
+        //     Palette.RotateColorsRight(0, 0xF0, 4);
+        // }
+        //
+        // if (true) {
+        //     this.SandTimer += 6;
+        //     if (this.SandTimer >= 0x100) {
+        //         this.SandTimer -= 0x100;
+        //         Palette.RotateColorsLeft(1, 0xCC, 4);
+        //         Palette.RotateColorsLeft(2, 0xCC, 4);
+        //     }
+        //     Palette.MixPalettes(0, 1, 2, this.SandTimer / 255.0, 0xCC, 4);
+        // }
+    }
+}

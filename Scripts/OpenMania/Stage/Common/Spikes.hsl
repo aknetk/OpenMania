@@ -1,0 +1,405 @@
+class Spikes {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        // TODO: PSZ2 and FBZ specific
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Spikes.bin", SCOPE_GAME);
+        this.SFX_Spike = Resources.LoadSound("SoundFX/Global/Spike.wav", SCOPE_GAME);
+        this.SFX_SpikesMove = Resources.LoadSound("SoundFX/Global/SpikesMove.wav", SCOPE_GAME);
+        this.AutoPhysics = false;
+        this.Status = null;
+
+        // Setup
+        this.Type = 0;
+        this.Moving = false;
+        this.Count = 0;
+        this.Stagger = 0;
+        this.Timer = 0;
+        this.PlaneFilter = 0;
+        this.Retracted = false;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("moving"))
+            this.Moving = this.PropertyGet("moving");
+        if (this.PropertyExists("count"))
+            this.Count = this.PropertyGet("count");
+        if (this.PropertyExists("stagger"))
+            this.Stagger = this.PropertyGet("stagger");
+        if (this.PropertyExists("timer"))
+            this.Timer = this.PropertyGet("timer");
+        if (this.PropertyExists("planeFilter"))
+            this.PlaneFilter = this.PropertyGet("planeFilter");
+
+        this.Unk_0x70 = 0.0;
+        this.Unk_0x74 = 0.0;
+        this.Unk_0x78 = 0.0;
+
+        // Create
+        var count = this.Count;
+        if (count < 2)
+            this.Count = count = 2;
+
+        var type = this.Type;
+        var vertFlip = type & 1;
+        var horiFlip = (type >> 1) & 1;
+
+        if (this.PropertyExists("flipFlag")) {
+            var flag = this.PropertyGet("flipFlag");
+            if (flag & 1)
+                vertFlip ^= 1;
+            if (flag & 2)
+                vertFlip ^= 1;
+        }
+
+        var planeFilter = this.PlaneFilter;
+        if (planeFilter > 0 && (planeFilter - 1) & 2)
+            this.Priority = DrawGroup_FGHigh_High;
+        else
+            this.Priority = DrawGroup_FGLow_Low;
+
+        if (horiFlip) {
+            this.FlipFlag = vertFlip;
+            if (vertFlip) {
+                this.XSpeed = -8.0;
+                this.Type = 2;
+            }
+            else {
+                this.XSpeed = 8.0;
+                this.Type = 3;
+            }
+            this.HitboxW = 32.0;
+            this.HitboxH = 16.0 * count;
+            this.UpdateRegionW = this.HitboxW + 64.0;
+            this.UpdateRegionH = this.HitboxH + 64.0;
+        }
+        else {
+            this.FlipFlag = vertFlip << 1;
+            if (vertFlip) {
+                this.YSpeed = 8.0;
+                this.Type = 4;
+            }
+            else {
+                this.YSpeed = -8.0;
+                this.Type = 1;
+            }
+            this.HitboxW = 16.0 * count;
+            this.HitboxH = 32.0;
+            this.UpdateRegionW = this.HitboxW + 64.0;
+            this.UpdateRegionH = this.HitboxH + 64.0;
+        }
+
+        if (this.Moving) {
+            this.X -= 4.0 * this.XSpeed;
+            this.Y -= 4.0 * this.YSpeed;
+            this.Retracted = 1;
+        }
+
+        // Initial Status
+        this.RenderRegionW = this.HitboxW;
+        this.RenderRegionH = this.HitboxH;
+
+        this.SpriteOnScreen = false;
+    }
+
+    event Update() {
+        this.SpriteOnScreen = false;
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH))
+            return;
+        this.SpriteOnScreen = true;
+
+        var v2;
+        var retracted = this.Retracted;
+        switch (retracted) {
+            case 1:
+                if ((this.Stagger << 6) == (Scene_Frame & 0x40) && (Scene_Frame & 0x3F) == this.Timer) {
+                    this.Retracted = retracted + 1;
+                    if (this.SpriteOnScreen) {
+                        Sound.Play(this.SFX_SpikesMove);
+                    }
+                }
+                break;
+            case 2:
+                v2 = this.Unk_0x70;
+                if (v2 >= 32.0) {
+                    this.Retracted = retracted + 1;
+                }
+                else {
+                    this.Unk_0x70 = v2 + 8.0;
+                    this.X += this.XSpeed;
+                    this.Y += this.YSpeed;
+                }
+                break;
+            case 3:
+                if ((Scene_Frame & 0x3F) == this.Timer) {
+                    this.Retracted = retracted + 1;
+                    if (this.SpriteOnScreen) {
+                        Sound.Play(this.SFX_SpikesMove);
+                    }
+                }
+                break;
+            case 4:
+                v2 = this.Unk_0x70;
+                if (v2 <= 0.0) {
+                    this.Retracted = 1;
+                }
+                else {
+                    this.Unk_0x70 = v2 - 8.0;
+                    this.X -= this.XSpeed;
+                    this.Y -= this.YSpeed;
+                }
+                break;
+
+            case 5:
+                v2 = this.Unk_0x70;
+                if (v2 >= 40.0) {
+                    this.Retracted = 6;
+                }
+                else {
+                    this.Unk_0x70 = v2 + 8.0;
+                    this.X -= this.XSpeed;
+                    this.Y -= this.YSpeed;
+                }
+                break;
+        }
+
+        this.X -= this.Unk_0x74;
+        this.Y -= this.Unk_0x78;
+
+        if (this.Retracted != 1) {
+            var player, spikes;
+            with ("Player") {
+                player = this;
+                spikes = other;
+
+                var planeFilter = spikes.PlaneFilter;
+                if (planeFilter <= 0 || player.PlaneIndex == ((planeFilter - 1) & 1)) {
+                    var playerXSpeed = player.XSpeed;
+                    var playerYSpeed = player.YSpeed;
+                    var collideSide = Static.Entity_SolidCollideWithPlayer(spikes, player);
+                    if (collideSide) {
+                        if (collideSide == 4) {
+                            player.VerticalCollisionFlag |= 2;
+                        }
+                        if (collideSide == 1) {
+                            player.VerticalCollisionFlag |= 1;
+                            if (spikes.Unk_0x70 == 8.0)
+                                player.Ground = false;
+                        }
+
+                        var iceExists = false;
+                        var pressExists = false;
+
+                        var willBreak = false;
+                        // if (collideSide == 1 &&
+                        //     player.Status == player.Player_StatusMighty_HammerDrop &&
+                        //     iceExists &&
+                        //     !pressExists) {}
+
+                        switch (collideSide) {
+                            case 1:
+                                player.VerticalCollisionFlag |= 1;
+                                if (player.YSpeed >= 0.0 || spikes.Retracted == 2) {
+                                    player.X += spikes.Unk_0x74;
+                                    player.Y += spikes.Unk_0x78;
+                                    if (collideSide == spikes.Type) {
+                                        spikes.AttemptHurt(player, playerXSpeed, playerYSpeed);
+                                    }
+                                }
+                                break;
+                            case 2:
+                                player.HorizontalCollisionFlag |= 1;
+                                if (player.XSpeed >= 0.0 || spikes.Retracted == 2) {
+                                    if (collideSide == spikes.Type) {
+                                        spikes.AttemptHurt(player, playerXSpeed, playerYSpeed);
+                                    }
+                                }
+                                break;
+                            case 3:
+                                player.HorizontalCollisionFlag |= 2;
+                                if (player.XSpeed <= 0.0 || spikes.Retracted == 2) {
+                                    if (collideSide == spikes.Type) {
+                                        spikes.AttemptHurt(player, playerXSpeed, playerYSpeed);
+                                    }
+                                }
+                                break;
+                            case 4:
+                                player.VerticalCollisionFlag |= 2;
+                                if (player.YSpeed <= 0.0 || spikes.Retracted == 2) {
+                                    if (collideSide == spikes.Type) {
+                                        spikes.AttemptHurt(player, playerXSpeed, playerYSpeed);
+                                    }
+                                }
+                                break;
+
+                        }
+                    }
+                }
+            }
+        }
+
+        this.X += this.Unk_0x74;
+        this.Y += this.Unk_0x78;
+    }
+
+    event SpikeOrUnspinPlayer(player) {
+        player.XSpeed = player.Flip ? -4.5 : 4.5;
+        player.YSpeed = -4.5;
+        player.Status = player.Player_StatusJumping;
+
+        this.SlowdownPlayer(player);
+    }
+    event SlowdownPlayer(player) {
+        player.XSpeed *= 0.75;
+
+        this.PlayHitSound(player);
+    }
+    event PlayHitSound(player) {
+        player.Ground = false;
+        player.JumpAbility = 0;
+        player.MidAirFlag = 0;
+        if (player.Status == player.Player_StatusHurt) {
+            player.SetAnimation(18, 0);
+            Sound.Play(player.SFX_Spike);
+        }
+        else {
+            player.SetAnimation(48, 0);
+            Sound.Play(player.SFX_MightyUnspin);
+        }
+
+        if (player.Underwater) {
+            player.XSpeed *= 0.5;
+            player.YSpeed *= 0.5;
+        }
+    }
+    event PlayPimPom(player) {
+        if (player.CurrentAnimation != 48)
+            Sound.Play(player.SFX_PimPom);
+
+        if (player.Underwater) {
+            player.XSpeed *= 0.5;
+            player.YSpeed *= 0.5;
+        }
+    }
+    event AttemptHurt(player, xspeed, yspeed) {
+        if (player.Status == player.Player_StatusHurt ||
+            !player.Player_IsActiveStatus() ||
+            player.Invincibility ||
+            player.InvincibilityTimer > 0)
+            return;
+
+        var playerAnim = player.CurrentAnimation;
+        // If not Mighty, or is and isn't in one of these animationss...
+        if (player.Character != Character_MIGHTY || (playerAnim != 10 && playerAnim != 15 && playerAnim != 16)) {
+            var shield = player.Shield;
+
+            player.GetHurt(this.X);
+            if (player.KillFlag == 1) {
+                // player.KillFlag = 2;
+                Sound.Play(player.SFX_Spike);
+            }
+            else if (player.Status == player.Player_StatusHurt && (shield != ShieldType_NONE || player.IsSubPlayer)) {
+                Sound.Stop(player.SFX_Hurt);
+                Sound.Play(player.SFX_Spike);
+            }
+            return;
+        }
+
+        if (Math.Abs(xspeed) < 2.0) {
+            switch (this.Type) {
+                case 1:
+                    if (player.Character == Character_MIGHTY && (playerAnim != 16)) { //  || Ice_ClassInfo && !Press_ClassInfo
+                        this.SpikeOrUnspinPlayer(player);
+                        return;
+                    }
+                    player.XSpeed = player.Flip ? -4.5 : 4.5;
+                    player.YSpeed = -2.5;
+                    player.Status = player.Player_StatusHurt;
+                    player.InvincibilityTimer = 60;
+                    Sound.Stop(player.SFX_MightyDrill);
+                    this.SlowdownPlayer(player);
+                    return;
+                case 2:
+                    player.XSpeed = -4.0;
+                    player.YSpeed = -2.5;
+                    player.Status = player.Player_StatusJumping;
+                    this.PlayHitSound(player);
+                    return;
+                case 3:
+                    player.XSpeed = -4.0;
+                    player.YSpeed = 2.5;
+                    player.Status = player.Player_StatusJumping;
+                    this.PlayHitSound(player);
+                    return;
+                case 4:
+                    player.YSpeed = 2.0;
+                    player.Status = player.Player_StatusJumping;
+                    this.PlayHitSound(player);
+                    return;
+            }
+            this.PlayPimPom(player);
+            return;
+        }
+        if (this.Type != 1)
+            return;
+
+        if (playerAnim == 16) {
+            this.SpikeOrUnspinPlayer(player);
+            return;
+        }
+
+        if (yspeed > 2.5) {
+            player.YSpeed = -2.0;
+            player.Status = player.Player_StatusJumping;
+            player.Ground = false;
+            player.JumpAbility = 0;
+            player.MidAirFlag = 0;
+            Sound.Play(player.SFX_PimPom);
+        }
+        player.OnGroundCopy = true;
+        player.Status = player.Player_StatusRoll;
+        player.LateUpdateGroundStatus = player.Player_StatusRoll;
+        player.LateUpdateAirStatus = player.Player_StatusJumping;
+    }
+
+    event Render() {
+        var xx = Math.Floor(this.X);
+        var yy = Math.Floor(this.Y);
+        var fX = (this.FlipFlag & 1);
+        var fY = (this.FlipFlag & 2);
+
+        var type = this.Type;
+        var count = this.Count;
+        var countHalf = count >> 1;
+        var startX, startY;
+        switch (type) {
+            case 1: // Top side
+            case 4: // Bottom side
+                startX = xx + 16.0 - count * 8.0;
+                for (var x = startX; countHalf > 0; countHalf--) {
+                    Draw.Sprite(this.Sprite, 0, 0, x, yy, fX, fY);
+                    startX += 32.0;
+                    x += 32.0;
+                }
+                if (count & 1) {
+                    Draw.Sprite(this.Sprite, 0, 0, startX - 16.0, yy, fX, fY);
+                }
+                break;
+            case 2: // Left side
+            case 3: // Right side
+                startY = yy + 16.0 - count * 8.0;
+                for (var y = startY; countHalf > 0; countHalf--) {
+                    Draw.Sprite(this.Sprite, 1, 0, xx, y, fX, fY);
+                    startY += 32.0;
+                    y += 32.0;
+                }
+                if (count & 1) {
+                    Draw.Sprite(this.Sprite, 1, 0, xx, startY - 16.0, fX, fY);
+                }
+                break;
+        }
+    }
+}

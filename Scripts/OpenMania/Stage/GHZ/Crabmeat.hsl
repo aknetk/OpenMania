@@ -1,0 +1,173 @@
+class Crabmeat {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/GHZ/Crabmeat.bin", SCOPE_SCENE);
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.Timer = 0;
+        this.DoShot = 0;
+        this.Status = null;
+        this.BlendFlag = BlendMode_NORMAL;
+        this.TransparencyValue = 1.0;
+        this.CurrentFrameCount = 8;
+
+        this.CreateFlag(0);
+    }
+    event CreateFlag(flag) {
+        // this.VisibilityFlag = 1;
+        this.Priority = DrawGroup_FGLow_Low;
+        if (flag) {
+            this.BlendFlag = BlendMode_ADD;
+            this.TransparencyValue = 0.75;
+            // this.Priority = UpdatePriority_Normal;
+            this.UpdateRegionW = this.UpdateRegionH = 0x80;
+            this.RenderRegionW = this.RenderRegionH = 0x40;
+            this.SetAnimation(3, 0);
+            this.Status = this.Crabmeat_Status_Shot;
+
+            // Custom:
+            this.HitboxW = this.HitboxH = 12.0;
+        }
+        else {
+            this.StartX = this.X;
+            this.StartY = this.Y;
+            this.StartFlip = this.FlipFlag;
+            this.UpdateRegionW = this.UpdateRegionH = 0x100;
+            this.RenderRegionW = this.RenderRegionH = 0x80;
+            this.SetAnimation(0, 0);
+            this.Status = this.Crabmeat_Status_StartMoving;
+
+            // Custom:
+            this.HitboxW = this.HitboxH = 28.0;
+        }
+    }
+
+    event Crabmeat_Status_Shot() {
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+        this.YSpeed += 0.21875;
+
+        if (Static.Entity_IsOnScreen(this, 0.0, 0.0)) {
+            this.Animate();
+            var player, shot = this;
+            with ("Player") {
+                player = this;
+                if (Static.GameObject_TestCollide(player, shot))
+                    player.Player_EnemyDeflectOrHurtPlayer(shot);
+            }
+        }
+        else {
+            this.Active = false;
+        }
+    }
+    event Crabmeat_Status_StartMoving() {
+        this.XSpeed = -0.5;
+        this.SetAnimation(1, 0);
+
+        this.Status = this.Crabmeat_Status_Moving;
+        this.Crabmeat_Status_Moving();
+    }
+    event Crabmeat_Status_Moving() {
+        var timer = this.Timer;
+        if (timer < 128) {
+            this.Timer = timer + 1;
+            this.X += this.XSpeed;
+        }
+
+        if (timer >= 128 || !Static.Entity_MoveToTileCollision(this, 0x0000, 0, 0, 14.0 * Math.Sign(this.XSpeed), 15.0, 8.0)) {
+            this.Timer = 0;
+            if (this.DoShot == 0)
+                this.ResetAnimation(0, 0);
+            else
+                this.ResetAnimation(2, 0);
+            this.Status = this.Crabmeat_Status_WaitAndShoot;
+        }
+        this.Animate();
+        this.Crabmeat_HandlePlayerBreak();
+        this.Crabmeat_CheckForOffscreen();
+    }
+    event Crabmeat_Status_WaitAndShoot() {
+        var timer = this.Timer;
+        if (timer >= 60) {
+            var doShot = this.DoShot;
+            if (doShot == 1) {
+                var shot;
+                this.DoShot = 2;
+
+                shot = Instance.Create("Crabmeat", this.X - 16.0, this.Y);
+                shot.CreateFlag(1);
+                shot.XSpeed = -1.0;
+                shot.YSpeed = -4.0;
+
+                shot = Instance.Create("Crabmeat", this.X + 16.0, this.Y);
+                shot.CreateFlag(1);
+                shot.XSpeed = 1.0;
+                shot.YSpeed = -4.0;
+            }
+            else if (doShot == 0 || this.CurrentFrame == this.CurrentFrameCount - 1) {
+                this.DoShot = 1;
+                this.ResetAnimation(1, 0);
+                this.FlipFlag ^= 1;
+                this.XSpeed = -this.XSpeed;
+                this.Timer = 0;
+                this.Status = this.Crabmeat_Status_Moving;
+            }
+        }
+        else {
+            this.Timer = timer + 1;
+        }
+        this.Animate();
+        this.Crabmeat_HandlePlayerBreak();
+        this.Crabmeat_CheckForOffscreen();
+    }
+
+    event Crabmeat_HandlePlayerBreak() {
+        var player, enemy = this;
+        with ("Player") {
+            player = this;
+            if (player.Player_BreakableCollide(enemy))
+                player.Player_BreakEnemy(enemy, 1);
+        }
+    }
+    event Crabmeat_CheckForOffscreen() {
+        // this.UseGroundSpeed
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH) &&
+            !Static.Position_IsOnScreen(this.StartX, this.StartY, this.RenderRegionW, this.RenderRegionH)) {
+            this.X = this.StartX;
+            this.Y = this.StartY;
+            this.FlipFlag = this.StartFlip;
+            this.Timer = 0;
+            this.Create();
+        }
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+    event Render() {
+        if (!this.OnScreen)
+            return;
+
+        var xx = Math.Floor(this.X);
+        var yy = Math.Floor(this.Y);
+        var fX = (this.FlipFlag & 1);
+        var fY = (this.FlipFlag & 2);
+        if (this.BlendFlag == BlendMode_NORMAL) {
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, xx, yy, fX, fY);
+        }
+        else {
+            Draw.SetBlendMode(this.BlendFlag);
+            Draw.SetTextureBlend(true);
+            Draw.SetBlendColor(1.0, 1.0, 1.0, this.TransparencyValue);
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, xx, yy, fX, fY);
+            Draw.SetTextureBlend(false);
+            Draw.SetBlendMode(BlendMode_NORMAL);
+        }
+    }
+}

@@ -1,0 +1,623 @@
+class Ring {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Priority = DrawGroup_FGHigh_High;
+
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Ring.bin", SCOPE_GAME);
+        this.SetAnimation(0, 0);
+
+        this.PlaneFilter = 0;
+        this.MoveType = 0;
+        this.AmplitudeX = 0.0;
+        this.AmplitudeY = 0.0;
+        this.Speed = 0;
+        this.Angle = 0;
+        this.Type = 0;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("planeFilter"))
+            this.PlaneFilter = this.PropertyGet("planeFilter");
+        if (this.PropertyExists("moveType"))
+            this.MoveType = this.PropertyGet("moveType");
+        if (this.PropertyExists("amplitude")) {
+            var amp = this.PropertyGet("amplitude");
+            this.AmplitudeX = amp[0];
+            this.AmplitudeY = amp[1];
+        }
+        if (this.PropertyExists("speed"))
+            this.Speed = this.PropertyGet("speed");
+        if (this.PropertyExists("angle"))
+            this.Angle = this.PropertyGet("angle");
+
+        this.HitboxW = 16.0;
+        this.HitboxH = 16.0;
+        this.HitboxHalfW = this.HitboxW * 0.5;
+        this.HitboxHalfH = this.HitboxH * 0.5;
+        this.OffsetX = 0.0;
+        this.OffsetY = 0.0;
+        this.StartX = this.X;
+        this.StartY = this.Y;
+
+        this.RenderRegionW = 16.0;
+        this.RenderRegionH = 16.0;
+
+        this.MagnetizedTo = null;
+        this.RegatherTimer = 0;
+        this.DeathTimer = -1;
+
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.XSpeed = 0.0;
+        this.YSpeed = 0.0;
+        this.RingsToReward = 1;
+        this.PlaneIndex = 0;
+        this.ScaleX = 1.0;
+        this.ScaleY = 1.0;
+        this.TransparencyValue = 1.0;
+        this.SparkleLastFrameIndex = 0;
+
+        this.SetFrameCount();
+
+        // On Create
+        var planeFilter = this.PlaneFilter;
+        if (planeFilter > 0 && (planeFilter - 1) & 2)
+            this.Priority = DrawGroup_FGHigh_High + 1;
+        else
+            this.Priority = DrawGroup_FGLow_Low + 1;
+
+        if (this.Type == 1) {
+            // this.SpriteTransformFlag |= 1;
+            this.RingsToReward = 5;
+        }
+
+        this.Status = null;
+        this.RenderStatus = null;
+        this.UpdateRegionW = this.UpdateRegionH = 32.0;
+
+        if (flag) {
+            this.ResetAnimation(0, 0);
+        }
+        else {
+            this.ResetAnimation(this.Type, 0);
+
+            this.UpdateRegionW = this.UpdateRegionH = 32.0;
+            switch (this.MoveType) {
+                case 1:
+                    this.UpdateRegionW = Math.Abs(this.AmplitudeX) + 64.0;
+                    this.UpdateRegionH = Math.Abs(this.AmplitudeY) + 64.0;
+                    this.Status = this.Ring_Status_MovingBackForthSmooth;
+                    this.RenderStatus = this.Ring_RenderStatus_Offset;
+                    break;
+                case 2:
+                    this.UpdateRegionW = Math.Abs(this.AmplitudeX) + 64.0;
+                    this.UpdateRegionH = Math.Abs(this.AmplitudeY) + 64.0;
+                    this.Status = this.Ring_Status_MovingCircular;
+                    this.RenderStatus = this.Ring_RenderStatus_Offset;
+                    break;
+                case 3:
+                    this.UpdateRegionW = Math.Abs(this.AmplitudeX) + 64.0;
+                    this.UpdateRegionH = Math.Abs(this.AmplitudeY) + 64.0;
+                    this.Status = this.Ring_Status_MovingBackForthRigid;
+                    this.RenderStatus = this.Ring_RenderStatus_Offset;
+                    break;
+                case 4:
+                    this.UpdateRegionW = 16.0;
+                    this.UpdateRegionH = 16.0;
+                    this.Status = this.Ring_Status_MovingWithObject;
+                    this.RenderStatus = this.Ring_RenderStatus_Offset;
+                    break;
+                default:
+                    this.UpdateRegionW = 16.0;
+                    this.UpdateRegionH = 16.0;
+                    this.Status = this.Ring_Status_Stationary;
+                    this.RenderStatus = this.Ring_RenderStatus_Basic;
+                    break;
+            }
+            this.UpdateRegionW *= 2.0;
+            this.UpdateRegionH *= 2.0;
+        }
+    }
+
+    event SetFrameCount() {
+        this.FrameCount = 16;
+    }
+
+    Ring_Status_Stationary() {
+        this.Ring_HandlePlayers();
+        this.CurrentFrame = (Scene_Frame >> 2) % this.FrameCount;
+    }
+    Ring_Status_MovingBackForthSmooth() {
+        this.X = this.AmplitudeX * Static.HexSinHighPrec(this.Speed * Scene_Frame) + this.StartX;
+        this.Y = this.AmplitudeY * Static.HexSinHighPrec(this.Speed * Scene_Frame) + this.StartY;
+        this.Ring_HandlePlayers();
+        this.CurrentFrame = (Scene_Frame >> 2) % this.FrameCount;
+    }
+    Ring_Status_MovingCircular() {
+        this.X = this.AmplitudeX * Static.HexCosHighPrec(this.Speed * Scene_Frame + 4 * this.Angle) + this.StartX;
+        this.Y = this.AmplitudeY * Static.HexSinHighPrec(this.Speed * Scene_Frame + 4 * this.Angle) + this.StartY;
+        this.Ring_HandlePlayers();
+        this.CurrentFrame = (Scene_Frame >> 2) % this.FrameCount;
+    }
+    Ring_Status_MovingWithObject() {
+        this.OffsetX += this.XSpeed;
+        this.OffsetY += this.YSpeed;
+
+        var baseObjectX = this.X;
+        var baseObjectY = this.Y;
+        if (this.XSpeed <= 0.0) {
+            if (this.OffsetX < baseObjectX)
+                this.OffsetX = baseObjectX;
+        }
+        else if (this.OffsetX > baseObjectX)
+            this.OffsetX = baseObjectX;
+
+        if (this.YSpeed <= 0.0) {
+            if (this.OffsetY < baseObjectY)
+                this.OffsetY = baseObjectY;
+        }
+        else if (this.OffsetY > baseObjectY)
+            this.OffsetY = baseObjectY;
+
+        this.Ring_HandlePlayers();
+        this.CurrentFrame = (Scene_Frame >> 2) % this.FrameCount;
+    }
+    Ring_Status_MovingBackForthRigid() {
+        var amplitudeX = this.AmplitudeX * 0.5;
+        var amplitudeY = this.AmplitudeY * 0.5;
+
+        var oscill = Scene_Frame;
+        var dir = (oscill >> 9) & 1;
+
+        oscill &= 0x1FF;
+
+        if (dir == this.FlipFlag) {
+            this.OffsetX = this.X + (oscill * amplitudeX / 256.0) - amplitudeX;
+            this.OffsetY = this.Y + (oscill * amplitudeY / 256.0) - amplitudeY;
+        }
+        else {
+            this.OffsetX = this.X - (oscill * amplitudeX / 256.0) + amplitudeX;
+            this.OffsetY = this.Y - (oscill * amplitudeY / 256.0) + amplitudeY;
+        }
+        this.Ring_HandlePlayers();
+        this.CurrentFrame = (Scene_Frame >> 2) % this.FrameCount;
+    }
+    Ring_Status_Lost() {
+        this.Status = this.Ring_StatusBounceable;
+        this.Status();
+    }
+    Ring_Status_LostDecorative() {
+
+    }
+    Ring_Status_LostCombine() {
+        this.Status = this.Ring_StatusBounceableCombine;
+        this.Status();
+    }
+    // TODO: Replace these two functions with Mania-accurate versions
+    event Ring_StatusBounceable() {
+        this.UpdateRegionW = this.UpdateRegionH = 0.0;
+
+        if (this.RegatherTimer > 0) {
+            this.RegatherTimer--;
+        }
+
+        if (this.DeathTimer > 0) {
+            this.DeathTimer--;
+            if (this.DeathTimer == 0) {
+                this.Active = false;
+                return;
+            }
+        }
+
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+        this.YSpeed += 0.09375;
+
+        var sensor, halfW = this.HitboxHalfW, halfH = this.HitboxHalfH;
+        // Moving left
+        if (this.XSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 3, halfW, this.PlaneIndex, -1) )) {
+            if (sensor["Collided"]) {
+                this.X = sensor["X"] + halfW;
+                this.XSpeed = Math.Abs(this.XSpeed) * 0.25;
+            }
+        }
+        // Moving right
+        if (this.XSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 1, halfW, this.PlaneIndex, -1) )) {
+            if (sensor["Collided"]) {
+                this.X = sensor["X"] - halfW;
+                this.XSpeed = Math.Abs(this.XSpeed) * -0.25;
+            }
+        }
+        // Moving down
+        if (this.YSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 0, halfH, this.PlaneIndex, -1) )) {
+            if (sensor["Collided"]) {
+                this.Y = sensor["Y"] - halfH;
+                this.YSpeed *= -0.75;
+                if (this.YSpeed > -1.0)
+                    this.YSpeed = -1.0;
+            }
+        }
+        // Moving upwards
+        if (this.YSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 2, halfH, this.PlaneIndex, -1) )) {
+            if (sensor["Collided"]) {
+                this.Y = sensor["Y"] + halfH;
+                this.YSpeed = 0.0;
+            }
+        }
+
+        this.Ring_HandleObjectCollision(8.0, 8.0);
+
+        if (this.RegatherTimer == 0)
+            this.Ring_HandlePlayers();
+
+        this.Animate();
+    }
+    event Ring_StatusBounceableCombine() {
+        this.UpdateRegionW = this.UpdateRegionH = 0.0;
+
+        if (this.RegatherTimer > 0) {
+            this.RegatherTimer--;
+        }
+
+        if (this.DeathTimer > 0) {
+            this.DeathTimer--;
+            if (this.DeathTimer == 0) {
+                this.Active = false;
+                return;
+            }
+        }
+
+        this.X += this.XSpeed;
+        this.YSpeed += 0.0703125;
+        this.Y += this.YSpeed;
+
+        var as = this.AngleSpeed;
+        this.Angle += as >> 6;
+
+        if (this.DeathTimer > 16) {
+            var sin = Static.HexSin(this.Angle);
+            this.ScaleX = -sin * 0.25 + 0.75;
+            this.ScaleY =  sin * 0.25 + 0.75;
+        }
+        else {
+            if (this.ScaleX > this.ScaleY) {
+                this.ScaleX += 0.015625;
+                this.ScaleY -= this.ScaleY / 8.0;
+            }
+            else {
+                this.ScaleX -= this.ScaleX / 8.0;
+                this.ScaleY += 0.015625;
+            }
+        }
+
+        var sensor, halfW = this.HitboxHalfW, halfH = this.HitboxHalfH;
+        // Moving left
+        if (this.XSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 3, halfW, this.PlaneIndex, -1) )) {
+            if (sensor["Collided"]) {
+                this.X = sensor["X"] + halfW;
+                this.XSpeed = Math.Abs(this.XSpeed) * 0.25;
+            }
+        }
+        // Moving right
+        if (this.XSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 1, halfW, this.PlaneIndex, -1) )) {
+            if (sensor["Collided"]) {
+                this.X = sensor["X"] - halfW;
+                this.XSpeed = Math.Abs(this.XSpeed) * -0.25;
+            }
+        }
+        // Moving down
+        if (this.YSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 0, halfH, this.PlaneIndex, -1) )) {
+            if (sensor["Collided"]) {
+                this.Y = sensor["Y"] - halfH;
+                this.YSpeed *= -0.75;
+                if (this.YSpeed > -1.0)
+                    this.YSpeed = -1.0;
+            }
+        }
+        // Moving upwards
+        if (this.YSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 2, halfH, this.PlaneIndex, -1) )) {
+            if (sensor["Collided"]) {
+                this.Y = sensor["Y"] + halfH;
+                this.YSpeed = 0.0;
+            }
+        }
+
+        this.Ring_HandleObjectCollision(16.0, 16.0);
+
+        if (this.RegatherTimer == 0)
+            this.Ring_HandlePlayers();
+
+        // Spawn sparkles
+        if (!(this.Angle & 0xF)) {
+            var range = 16.0;
+            var count = 1;
+            for (var i = 0; i < count; i++) {
+                var x = Math.RandomRange(-range, range);
+                var y = Math.RandomRange(-range, range);
+                var ringSparkle = Instance.Create("Ring", this.X + x, this.Y + y, 0);
+                ringSparkle.Status = ringSparkle.Ring_Status_Sparkle;
+                ringSparkle.RenderStatus = ringSparkle.Ring_RenderStatus_Sparkle;
+                ringSparkle.UpdateRegionW = ringSparkle.UpdateRegionH = 0.0;
+                if (this.Priority == 1)
+                    ringSparkle.Priority = 1;
+                else
+                    ringSparkle.Priority = DrawGroup_FGHigh_High;
+                ringSparkle.ResetAnimation(i % 3 + 2, 0);
+
+                var frameCount = ringSparkle.CurrentFrameCount;
+                if (ringSparkle.CurrentAnimation == 2) {
+                    ringSparkle.TransparencyValue = 0.875;
+                    frameCount >>= 1;
+                }
+                ringSparkle.SparkleLastFrameIndex = frameCount - 1;
+                ringSparkle.AnimationSpeedMult = Math.RandomRange(6.0, 8.0) / 4.0;
+                ringSparkle.DeathTimer = i * 2;
+            }
+        }
+
+        var deathTimer = this.DeathTimer;
+        if (!(deathTimer & 7)) {
+            if (as > 0x80)
+                this.AngleSpeed = as - 8;
+        }
+
+        this.Animate();
+    }
+    Ring_Status_Magnetized() {
+        if (this.MagnetizedTo && this.MagnetizedTo.Shield == ShieldType_ELECTRIC) {
+            var sx = Math.Sign(this.MagnetizedTo.X - this.X);
+            var sy = Math.Sign(this.MagnetizedTo.Y - this.Y);
+
+            if (Math.Sign(this.XSpeed) == sx)
+                this.XSpeed += 0.1875 * sx;
+            else
+                this.XSpeed += 0.75 * sx;
+
+            if (Math.Sign(this.YSpeed) == sy)
+                this.YSpeed += 0.1875 * sy;
+            else
+                this.YSpeed += 0.75 * sy;
+
+            this.X += this.XSpeed;
+            this.Y += this.YSpeed;
+        }
+        else {
+            this.Status = this.Ring_Status_Lost;
+            this.AnimationSpeedMult = 2.0; // 64
+            this.TransparencyValue = 1.0;
+        }
+
+        this.Ring_HandlePlayers();
+        this.CurrentFrame = (Scene_Frame >> 2) % this.FrameCount;
+    }
+    Ring_Status_Sparkle() {
+        this.X += this.XSpeed;
+        this.Y += this.YSpeed;
+
+        var deathTimer = this.DeathTimer;
+        if (deathTimer <= 0) {
+            this.Animate();
+            if (this.CurrentFrame >= this.SparkleLastFrameIndex)
+                this.Active = false;
+        }
+        else {
+            this.DeathTimer = deathTimer - 1;
+        }
+    }
+
+    Ring_HandlePlayers() {
+        var disMagnet = 80.0 * 80.0;
+        var player, ring = this;
+
+        var ringX = ring.X;
+        var ringY = ring.Y;
+        // if (ring.OffsetX != 0.0) {
+        //     ring.X = ring.OffsetX;
+        //     ring.Y = ring.OffsetY;
+        // }
+        with ("Player") {
+            player = this;
+
+            // Magnetize
+            if (ring.Status != ring.Ring_Status_Magnetized && player.Shield == ShieldType_ELECTRIC) {
+                var disX = player.X - ringX; disX *= disX;
+                var disY = player.Y - ringY; disY *= disY;
+                if (disX + disY < disMagnet) {
+                    ring.Status = ring.Ring_Status_Magnetized;
+                    ring.RenderStatus = ring.Ring_RenderStatus_Basic;
+                    ring.UpdateRegionW = ring.UpdateRegionH = 0.0;
+                    ring.MagnetizedTo = player;
+                    continue;
+                }
+            }
+
+            // Collision
+            var planeIndex = ring.PlaneIndex;
+            if (planeIndex > 0 && player.PlaneIndex != ((planeIndex - 1) & 1))
+                continue;
+
+            if (Static.GameObject_TestCollide(player, ring)) {
+                if (player.IsSubPlayer) {
+                    // Find the main player
+                    with ("Player") {
+                        if (!this.IsSubPlayer) {
+                            player = this;
+                            break;
+                        }
+                    }
+                }
+
+                var amount = 1;
+                if (ring.Type == 1) {
+                    player.RingExtraLifeLevel += 100 * (ring.RingsToReward / 100);
+                    amount = ring.RingsToReward;
+                }
+
+                player.GainRings(amount);
+                Sound.Play(player.SFX_RingLeft);
+
+                // Spawn particles
+                var count = 4;
+                var range = 8.0;
+                if (ring.Type == 1) {
+                    range = 16.0;
+                    count = 8;
+                }
+                for (var i = 0; i < count; i++) {
+                    var x = Math.RandomRange(-range, range);
+                    var y = Math.RandomRange(-range, range);
+                    var ringSparkle = Instance.Create("Ring", ringX + x, ringY + y, 0);
+                    ringSparkle.Status = ringSparkle.Ring_Status_Sparkle;
+                    ringSparkle.RenderStatus = ringSparkle.Ring_RenderStatus_Sparkle;
+                    ringSparkle.UpdateRegionW = ringSparkle.UpdateRegionH = 0.0;
+                    if (ring.Priority == 1)
+                        ringSparkle.Priority = 1;
+                    else
+                        ringSparkle.Priority = DrawGroup_FGHigh_High;
+                    ringSparkle.ResetAnimation(i % 3 + 2, 0);
+
+                    var frameCount = ringSparkle.CurrentFrameCount;
+                    if (ringSparkle.CurrentAnimation == 2) {
+                        ringSparkle.TransparencyValue = 0.875;
+                        frameCount >>= 1;
+                    }
+                    ringSparkle.SparkleLastFrameIndex = frameCount - 1;
+                    ringSparkle.AnimationSpeedMult = Math.RandomRange(6.0, 8.0) / 4.0;
+                    ringSparkle.DeathTimer = i * 2;
+                }
+                ring.Active = false;
+                continue;
+            }
+        }
+
+        // if (ring.OffsetX != 0.0) {
+            // ring.X = ringX;
+            // ring.Y = ringY;
+        // }
+    }
+    Ring_HandleObjectCollision(widthHalf, heightHalf) {
+        var xspeed = this.XSpeed;
+        var yspeed = this.YSpeed;
+        var ring = this;
+
+        var collisionFlag = 0;
+        with ("Platform") {
+            if (!this.OnScreen)
+                continue;
+            collisionFlag |= 1 << ring.Ring_CheckPlatformCollision(this);
+        }
+        with ("Crate") {
+            if (!this.OnScreen)
+                continue;
+            collisionFlag |= 1 << ring.Ring_CheckPlatformCollision(this);
+        }
+        with ("Spikes") {
+            if (!this.OnScreen)
+                continue;
+            collisionFlag |= 1 << Static.Entity_SolidCollideWithObject(this, ring, 1);
+        }
+
+        if (xspeed <= 0) {
+            if ((collisionFlag & 8))
+                this.XSpeed = -xspeed;
+        }
+        else {
+            if ((collisionFlag & 4))
+                this.XSpeed = -xspeed;
+        }
+
+        if (yspeed <= 0) {
+            if ((collisionFlag & 16))
+                this.YSpeed = -yspeed;
+        }
+        else {
+            if ((collisionFlag & 2)) {
+                this.YSpeed = -yspeed * 0.75;
+                if (this.YSpeed > -1.0)
+                    this.YSpeed = -1.0;
+            }
+        }
+    }
+    Ring_CheckPlatformCollision(platform) {
+        var ring = this;
+        var collided = 0;
+        var platformStatus = platform.Status;
+        if (platformStatus != platform.Platform_Status_TimedFalling_WaitForOffscreen &&
+            platformStatus != platform.Platform_Status_TimedFalling_Resetting) {
+            platform.X = platform.FinalX - platform.DeltaX;
+            platform.Y = platform.FinalY - platform.DeltaY;
+            switch (platform.Collision) {
+                case 0:
+                    if (platform.FrameID >= 0)
+                        platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 0);
+                    collided = Static.Entity_TopSolidCollideWithObject(platform, ring, 1);
+                    break;
+                case 1:
+                case 5:
+                case 6:
+                case 7:
+                case 8:
+                case 9:
+                case 0xA:
+                case 0xB:
+                case 0xC:
+                case 0xD:
+                case 0xE:
+                case 0xF:
+                    if (platform.FrameID >= 0)
+                        platform.GetHitboxFromSprite(platform.Sprite, platform.CurrentAnimation, platform.CurrentFrame, 1);
+                    collided = Static.Entity_SolidCollideWithObject(platform, ring, 1);
+                    break;
+                case 2:
+                    collided = 0;
+                    if (Static.Entity_CollideWithObject(platform, ring)) {
+
+                    }
+                default:
+                    break;
+            }
+            platform.X = platform.StartX;
+            platform.Y = platform.StartY;
+            if (collided == 2 || collided == 3)
+                ring.XSpeed -= platform.XSpeed;
+        }
+        return collided;
+    }
+
+    event Update() {
+        if (this.Status)
+            this.Status();
+    }
+
+    event Ring_RenderStatus_Basic() {
+        if (this.DeathTimer >= 0 && this.DeathTimer < 64 && ((this.DeathTimer >> 1) & 1) == 0)
+            return;
+
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false, this.ScaleX, this.ScaleY, 0.0);
+    }
+    event Ring_RenderStatus_Offset() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), this.CurrentFrame > 8, false);
+    }
+    event Ring_RenderStatus_Sparkle() {
+        var x = Math.Floor(this.X);
+        var y = Math.Floor(this.Y);
+        var frame = this.CurrentFrame;
+        if (this.TransparencyValue == 0.875) {
+            Draw.SetTextureBlend(true);
+            Draw.SetBlendColor(1.0, 1.0, 1.0, this.TransparencyValue);
+            Draw.SetBlendMode(BlendMode_ADD);
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, frame + 16, x, y, false, false);
+            Draw.SetBlendMode(BlendMode_NORMAL);
+            Draw.SetTextureBlend(false);
+        }
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, frame, x, y, false, false);
+    }
+
+    event Render() {
+        if (this.RenderStatus)
+            this.RenderStatus();
+    }
+}

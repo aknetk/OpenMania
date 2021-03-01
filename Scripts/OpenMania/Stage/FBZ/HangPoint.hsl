@@ -1,0 +1,535 @@
+class HangPoint {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Sprite = Resources.LoadSprite("Sprites/FBZ/HangPoint.bin", SCOPE_SCENE);
+        this.SetAnimation(0, 0);
+        this.GetHitboxFromSprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, 0);
+
+        // Setup
+        this.Speed = 0.0;
+        this.Length = 0.0;
+        this.Direction = 0;
+        if (this.PropertyExists("speed"))
+            this.Speed = this.PropertyGet("speed") * 1.0;
+        if (this.PropertyExists("length"))
+            this.Length = this.PropertyGet("length") * 1.0;
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.Direction = this.PropertyGet("direction");
+
+        // Create
+        this.PlayersGrabbed = 0;
+        this.PlayerHangXSpeed = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        this.PlayerTimer = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        this.OffsetY = 0.0;
+        this.SpeedHalf = this.Speed * 0.5;
+        this.UpdateRegionW = 64.0;
+        this.UpdateRegionH = this.Length * 2.0 + 128.0;
+        this.UpdateRegionBackupW = this.UpdateRegionW;
+        this.UpdateRegionBackupH = this.UpdateRegionH;
+        this.Priority = DrawGroup_FGLow_Low;
+
+        var movesUp = this.Direction == 1;
+        if (movesUp)
+            this.OffsetY = this.Length;
+    }
+
+    event Update() {
+        var playersNotMoving = true;
+
+        if (this.PlayersGrabbed == 2) {
+            var player, index = -1, hangPoint = this;
+            with ("Player") {
+                player = this; index++;
+                if (index != 1) continue;
+                if (player.IsSubPlayer) {
+                    playersNotMoving = false;
+                    continue;
+                }
+            }
+        }
+
+        if (this.PlayerHangXSpeed[0] ||
+            this.PlayerHangXSpeed[1] ||
+            this.PlayerHangXSpeed[2] ||
+            this.PlayerHangXSpeed[3])
+            playersNotMoving = false;
+
+        var length = this.Length;
+        var offsetY = this.OffsetY;
+        var movesUp = this.Direction == 1;
+
+        if (this.Length > 0.0) {
+            // if (!this.PlayersGrabbed || !playersNotMoving) {
+            if (movesUp == (this.PlayersGrabbed && playersNotMoving)) {
+                // Move Up
+                if (offsetY > 0.0) {
+                    var yspeed = this.YSpeed - 0.0625;
+                    if (yspeed < -this.SpeedHalf)
+                        yspeed = -this.SpeedHalf;
+
+                    offsetY += yspeed;
+                    if (offsetY < 0.0) {
+                        offsetY = 0.0;
+                        yspeed = 0.0;
+                    }
+
+                    this.YSpeed = yspeed;
+                    this.OffsetY = offsetY;
+                }
+            }
+            else {
+                // Move Down
+                if (offsetY < length) {
+                    var yspeed = this.YSpeed + 0.0625;
+                    if (yspeed > this.SpeedHalf)
+                        yspeed = this.SpeedHalf;
+
+                    offsetY += yspeed;
+                    if (offsetY > length) {
+                        offsetY = length;
+                        yspeed = 0.0;
+                    }
+
+                    this.YSpeed = yspeed;
+                    this.OffsetY = offsetY;
+                }
+            }
+
+            if (!(this.PlayersGrabbed && playersNotMoving) && offsetY > length) {
+                var yspeed = this.YSpeed - 0.0625;
+                if (yspeed < -this.SpeedHalf)
+                    yspeed = -this.SpeedHalf;
+
+                offsetY += yspeed;
+                if (offsetY < length) {
+                    offsetY = length;
+                    yspeed = 0.0;
+                }
+
+                this.YSpeed = yspeed;
+                this.OffsetY = offsetY;
+            }
+        }
+
+        // PlayersGrabbed
+        // LLLL GGGG
+        // L: Locked
+        // G: Grabbing
+        if (!movesUp) {
+            if (offsetY >= length)
+                this.PlayersGrabbed &= 0xF;
+            else
+                this.PlayersGrabbed |= (this.PlayersGrabbed & 0xF) << 4;
+        }
+        else {
+            if (offsetY <= 0.0)
+                this.PlayersGrabbed &= 0xF;
+            else
+                this.PlayersGrabbed |= (this.PlayersGrabbed & 0xF) << 4;
+        }
+
+        /*
+        var goUp = offsetY > length;
+        if (offsetY <= length) {
+            if (!this.PlayersGrabbed || !playersNotMoving) {
+                var movesDown = this.Direction == 0;
+                var offsetY = this.OffsetY;
+                if (movesDown) {
+                    if (offsetY > 0.0) {
+                        var yspeed = this.YSpeed - 0.0625;
+                        if (yspeed < -this.SpeedHalf)
+                            yspeed = -this.SpeedHalf;
+                        this.YSpeed = yspeed;
+                        this.OffsetY = offsetY + yspeed;
+                    }
+                }
+                else if (offsetY < length) {
+                    var yspeed = this.YSpeed + 0.0625;
+                    if (yspeed > this.SpeedHalf)
+                        yspeed = this.SpeedHalf;
+
+                    offsetY += yspeed;
+                    if (offsetY > length) {
+                        offsetY = length;
+                        yspeed = 0;
+                    }
+
+                    this.YSpeed = yspeed;
+                    this.OffsetY = offsetY;
+                }
+
+                if (this.OffsetY < 0.0) {
+                    this.OffsetY = 0.0;
+                    this.YSpeed = 0.0;
+                }
+            }
+
+            if (this.Direction != 0) {
+                goUp = true;
+            }
+        }
+        // LABEL_138:
+        if (goUp) {
+            if (offsetY <= 0.0) {
+                this.PlayersGrabbed &= 0xF;
+            }
+            else {
+                var yspeed = this.YSpeed - 0.09375;
+                if (yspeed < -this.SpeedHalf)
+                    yspeed = -this.SpeedHalf;
+
+                this.YSpeed = yspeed;
+                this.PlayersGrabbed |= this.PlayersGrabbed << 4;
+                this.OffsetY = offsetY + yspeed;
+            }
+        }
+        else if (this.Direction == 0 && offsetY >= length) {
+            this.PlayersGrabbed &= 0xF;
+        }
+        else {
+            var yspeed = this.YSpeed + 0.09375;
+            if (yspeed > this.SpeedHalf)
+                yspeed = this.SpeedHalf;
+
+            offsetY += yspeed;
+            if (offsetY > length) {
+                offsetY = length;
+                yspeed = 0;
+            }
+
+            this.YSpeed = yspeed;
+            this.OffsetY = offsetY;
+            this.PlayersGrabbed |= this.PlayersGrabbed << 4;
+        }
+
+        if (this.OffsetY < 0.0) {
+            this.OffsetY = 0.0;
+            this.YSpeed = 0.0;
+        }
+        //*/
+
+
+        var hangPointX = this.X,
+            hangPointY = this.Y;
+
+        this.Y += this.OffsetY;
+
+        var player, index = -1, hangPoint = this;
+        with ("Player") {
+            player = this;
+            index++;
+
+            var timer = hangPoint.PlayerTimer[index] - 1;
+            if (timer >= 0)
+                hangPoint.PlayerTimer[index] = timer;
+
+            if (!((1 << index) & hangPoint.PlayersGrabbed)) {
+                if (player.Status != player.Player_StatusNone && hangPoint.PlayerTimer[index] == 0) {
+                    player.UpdateHitbox(0);
+
+                    var hitboxY = player.HitboxOffY, hitboxH = player.HitboxH;
+                    player.HitboxOffY = hitboxH * -0.5 + 4.0;
+                    player.HitboxH = 4.0;
+
+                    if (Static.Entity_CollideWithObject(hangPoint, player)) {
+                        player.HitboxH = hitboxH;
+                        player.HitboxOffY = hitboxY;
+
+                        player.XSpeed = 0.0;
+                        player.YSpeed = 0.0;
+                        player.GroundSpeed = 0.0;
+                        player.Ground = false;
+                        player.Angle = 0;
+                        player.Rotation = 0.0;
+                        player.X = hangPoint.X;
+                        player.Y = hangPoint.Y;
+                        player.Y +=
+                            (hangPoint.HitboxH * -0.5 + hangPoint.HitboxOffY) - (player.HitboxH * -0.5 + player.HitboxOffY) +
+                            ((hangPoint.HitboxH * 0.5 + hangPoint.HitboxOffY) - (hangPoint.HitboxH * -0.5 + hangPoint.HitboxOffY)) * 0.5;
+                        player.UseGroundSpeed = false;
+
+                        hangPoint.PlayerHangXSpeed[index] = 0.0;
+                        if (!hangPoint.PlayersGrabbed) {
+                            if (hangPoint.Direction == 1) {
+                                if (hangPoint.OffsetY <= hangPoint.Length)
+                                    hangPoint.YSpeed = 2.0;
+                            }
+                            else {
+                                hangPoint.YSpeed = 0.0;
+                            }
+                        }
+
+                        hangPoint.PlayersGrabbed |= (1 << index);
+                        player.AnimationSpeedMult = 1.0;
+                        player.SetAnimation(28, 0);
+                        player.LateUpdateAirStatus = null;
+                        player.LateUpdateGroundStatus = null;
+                        player.Status = player.Player_StatusNone;
+                        player.MaxGlideSpeed = 0; // Number.AsInteger(Math.RandomMax(2));
+                        Sound.Play(player.SFX_GlideGrab);
+
+                        hangPoint.UpdateRegionW = hangPoint.UpdateRegionH = 0.0;
+                    }
+
+                    player.HitboxH = hitboxH;
+                    player.HitboxOffY = hitboxY;
+                }
+
+                continue;
+            }
+
+            var playerStatus = player.Status;
+            if (playerStatus == player.Player_StatusHurt) {
+                player.UseGroundSpeed = true;
+                hangPoint.PlayersGrabbed &= ~(1 << index) & ~(1 << (index + 4));
+                hangPoint.PlayerHangXSpeed[index] = 0.0;
+                if (player.InputLeft || player.InputRight || player.InputDown || playerStatus == player.Player_StatusHurt)
+                    hangPoint.PlayerTimer[index] = 64;
+                else
+                    hangPoint.PlayerTimer[index] = 16;
+                continue;
+            }
+
+            if (playerStatus != player.Player_StatusNone || hangPoint.PlayerTimer[index]) {
+                hangPoint.PlayersGrabbed &= ~(1 << index);
+                if (playerStatus != player.Player_StatusStartFlyingIn &&
+                    playerStatus != player.Player_StatusDead &&
+                    playerStatus != player.Player_StatusDrown &&
+                    playerStatus != player.Player_StatusStartRespawn &&
+                    playerStatus != player.Player_StatusFlyingIn &&
+                    playerStatus != player.Player_StatusJumpingIn &&
+                    playerStatus != player.Player_StatusTransforming) {
+                    player.UseGroundSpeed = true;
+                }
+                continue;
+            }
+
+            player.XSpeed = 0.0;
+            player.YSpeed = 0.0;
+            player.GroundSpeed = 0.0;
+            player.Ground = false;
+            player.Angle = 0;
+            player.Rotation = 0.0;
+            player.X = hangPoint.X;
+            player.Y = hangPoint.Y;
+            player.Y +=
+                (hangPoint.HitboxH * -0.5 + hangPoint.HitboxOffY) - (player.HitboxH * -0.5 + player.HitboxOffY) +
+                ((hangPoint.HitboxH * 0.5 + hangPoint.HitboxOffY) - (hangPoint.HitboxH * -0.5 + hangPoint.HitboxOffY)) * 0.5;
+
+            if (hangPoint.PlayerHangXSpeed[index]) {
+                hangPoint.HangPoint_HandlePlayerGrabJump(player, index);
+                continue;
+            }
+
+            if (player.InputLeft)
+                player.Flip = true;
+
+            if (player.InputRight)
+                player.Flip = false;
+
+            if (player.InputJumpPressed) {
+                player.YSpeed = -4.0;
+                player.SetAnimation(10, 0);
+                player.AnimationSpeedMult = 0.5;
+                player.JumpAbility = 0;
+                player.MidAirFlag = 1;
+                player.Status = player.Player_StatusJumping;
+                player.UseGroundSpeed = 1;
+                hangPoint.PlayersGrabbed &= ~(1 << index) & ~(1 << (index + 4));
+
+                if (player.InputLeft ||
+                    player.InputRight ||
+                    player.InputDown ||
+                    player.Status == player.Player_StatusHurt) {
+                    hangPoint.PlayerTimer[index] = 64;
+                }
+                else {
+                    hangPoint.PlayerTimer[index] = 16;
+                }
+                continue;
+            }
+
+            // If we're not locked and can move, AND
+            //    it moves up OR (implied: if it moves down) its reached the bottom, AND
+            //    it moves down OR (implied: if it moves up) its reached the top
+            if (!((1 << (index + 4)) & hangPoint.PlayersGrabbed) &&
+                (hangPoint.Direction || hangPoint.OffsetY >= hangPoint.Length) &&
+                (!hangPoint.Direction || hangPoint.OffsetY <= 0.0) ||
+                player.IsSubPlayer) {
+                var doContinue = false;
+                if (this.InputLeft) {
+                    var hangPointNew;
+                    with ("HangPoint") {
+                        hangPointNew = this;
+                        if (hangPointNew == hangPoint)
+                            continue;
+
+                        var distX = hangPointNew.X - hangPoint.X;
+                        if (distX > -34.0 && distX < 0.0) {
+                            if (Math.Abs((hangPointNew.Y + hangPointNew.OffsetY) - (hangPoint.Y + hangPoint.OffsetY)) < 4.0) {
+                                hangPoint.PlayersGrabbed &= ~(1 << index);
+                                hangPoint.PlayerTimer[index] = 16;
+
+                                hangPointNew.PlayersGrabbed |= (1 << index);
+                                hangPointNew.PlayerHangXSpeed[index] = 32.0;
+                                hangPointNew.PlayerTimer[index] = 0;
+
+                                if (player.Character == Character_RAY) {
+                                    if (player.MaxGlideSpeed) {
+                                        player.ResetAnimation(29, 6);
+                                    }
+                                    else {
+                                        player.ResetAnimation(29, 0);
+                                    }
+                                }
+                                else {
+                                    player.SetAnimation(29, 3);
+                                }
+
+                                player.X = hangPointNew.X;
+
+                                // if (true)
+                                    hangPointNew.HangPoint_HandlePlayerGrabJump(player, index);
+
+                                hangPoint.HangPoint_HandlePlayerGrabJump(player, index);
+                                doContinue = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (this.InputRight) {
+                    var hangPointNew;
+                    with ("HangPoint") {
+                        hangPointNew = this;
+                        if (hangPointNew == hangPoint)
+                            continue;
+
+                        var distX = hangPointNew.X - hangPoint.X;
+                        if (distX > 0.0 && distX < 34.0) {
+                            if (Math.Abs((hangPointNew.Y + hangPointNew.OffsetY) - (hangPoint.Y + hangPoint.OffsetY)) < 4.0) {
+                                hangPoint.PlayersGrabbed &= ~(1 << index);
+                                hangPoint.PlayerTimer[index] = 16;
+
+                                hangPointNew.PlayersGrabbed |= (1 << index);
+                                hangPointNew.PlayerHangXSpeed[index] = -32.0;
+                                hangPointNew.PlayerTimer[index] = 0;
+
+                                if (player.Character == Character_RAY) {
+                                    if (player.MaxGlideSpeed) {
+                                        player.ResetAnimation(29, 6);
+                                    }
+                                    else {
+                                        player.ResetAnimation(29, 0);
+                                    }
+                                }
+                                else {
+                                    player.SetAnimation(29, 3);
+                                }
+
+                                player.X = hangPointNew.X;
+
+                                // if (true)
+                                    hangPointNew.HangPoint_HandlePlayerGrabJump(player, index);
+
+                                hangPoint.HangPoint_HandlePlayerGrabJump(player, index);
+                                doContinue = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (doContinue)
+                    continue;
+            }
+
+            if (player.Character != Character_RAY || player.MaxGlideSpeed != 1)
+                player.SetAnimation(28, 0);
+            else
+                player.SetAnimation(16, 0);
+        }
+
+        this.X = hangPointX;
+        this.Y = hangPointY;
+    }
+
+    event Render() {
+        var xx = Math.Floor(this.X);
+        var yy = Math.Floor(this.Y);
+        var oy = Math.Floor(this.Y + this.OffsetY);
+        var fX = (this.FlipFlag & 1);
+        var fY = (this.FlipFlag & 2);
+
+        var dist = Number.AsInteger(oy - yy);
+
+        var oyy = oy;
+        while (dist > 0) {
+            var piece = dist;
+            if (piece > 256)
+                piece = 256;
+            Draw.SpritePart(this.Sprite, 0, 1, xx, oyy, 0, 256 - piece, 16, piece, fX, fY);
+
+            oyy -= 256;
+            dist -= 256;
+        }
+
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, xx, oy, fX, fY);
+    }
+
+    event HangPoint_HandlePlayerGrabJump(player, index) {
+        var xspeed = this.PlayerHangXSpeed[index];
+        if (!xspeed)
+            return;
+
+        // NOTE: 1.333343505859375 is more accurate to fixed-point, but I think
+        //       this is close enough to the original intention.
+        var constant = 1.3333;
+        if (xspeed < 0.0) {
+            xspeed += constant;
+            if (xspeed >= 0.0) {
+                xspeed = 0.0;
+                Sound.Play(player.SFX_GlideGrab);
+                player.MaxGlideSpeed ^= 1;
+            }
+        }
+        else {
+            xspeed -= constant;
+            if (xspeed <= 0.0) {
+                xspeed = 0.0;
+                Sound.Play(player.SFX_GlideGrab);
+                player.MaxGlideSpeed ^= 1;
+            }
+        }
+        this.PlayerHangXSpeed[index] = xspeed;
+
+        player.X += Math.Floor(xspeed);
+        if (player.InputJumpPressed) {
+            player.YSpeed = -4.0;
+            player.SetAnimation(10, 0);
+
+            player.JumpAbility = 0;
+            player.AnimationSpeedMult = 48.0 / 60.0;
+            player.MidAirFlag = 1;
+            player.Status = player.Player_StatusJumping;
+            player.UseGroundSpeed = 1;
+
+            this.PlayersGrabbed &= ~(1 << index) & ~(1 << (index + 4));
+            this.PlayerHangXSpeed[index] = 0.0;
+
+            if (player.InputLeft ||
+                player.InputRight ||
+                player.InputDown ||
+                player.Status == player.Player_StatusHurt) {
+                this.PlayerTimer[index] = 64;
+            }
+            else {
+                this.PlayerTimer[index] = 16;
+            }
+        }
+    }
+
+}

@@ -1,0 +1,194 @@
+class ZipLine {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load()
+        this.Sprite = Resources.LoadSprite("Sprites/GHZ/ZipLine.bin", SCOPE_SCENE);
+        this.HitboxW = 16.0;
+        this.HitboxH = 24.0;
+        this.HitboxOffY = 12.0;
+        this.Angle = 0;
+        this.Length = 0;
+
+        if (this.PropertyExists("angle"))
+            this.Angle = this.PropertyGet("angle");
+        if (this.PropertyExists("length"))
+            this.Length = this.PropertyGet("length");
+
+        // Create()
+        // this.VisibilityFlag = 1;
+        this.SetAnimation(0, 0);
+        //
+        // this.Frame *= 4;
+        this.Priority = DrawGroup_FGLow_High;
+        this.HandleX = this.X;
+        this.HandleY = this.Y;
+        this.StartX = this.X;
+        this.StartY = this.Y;
+        this.EndX = this.X;
+        this.EndY = this.Y;
+        this.PlayersGrabbed = 0;
+        this.PlayerTimer = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.Unk_0x98 = 0;
+        this.Unk_0x9C = 0;
+
+        this.EndX += this.Length * Static.HexCos(this.Angle);
+        this.EndY += this.Length * Static.HexSin(this.Angle);
+
+        if (true) {
+            this.X = (this.StartX + this.EndX) * 0.5;
+            this.Y = (this.StartY + this.EndY) * 0.5;
+            this.UpdateRegionW = Math.Abs(this.StartX - this.EndX) + 0x80;
+            this.UpdateRegionH = Math.Abs(this.StartY - this.EndY) + 0x80;
+
+            this.RenderRegionW = this.UpdateRegionW;
+            this.RenderRegionH = this.UpdateRegionH;
+        }
+    }
+
+    event Update() {
+        var zipLineX = this.X,
+            zipLineY = this.Y;
+
+        // this.Y += this.OffsetY;
+
+        var player, index = -1, zipLine = this;
+        with ("Player") {
+            player = this;
+            index++;
+
+            zipLine.X = zipLine.HandleX;
+            zipLine.Y = zipLine.HandleY;
+
+            var timer = zipLine.PlayerTimer[index] - 1;
+            if (timer >= 0)
+                zipLine.PlayerTimer[index] = timer;
+
+            if (!((1 << index) & zipLine.PlayersGrabbed)) {
+                if (player.Status != player.Player_StatusNone && zipLine.PlayerTimer[index] == 0) {
+                    player.UpdateHitbox(0);
+
+                    if (Static.Entity_CollideWithObject(zipLine, player)) {
+                        player.GroundSpeed = player.XSpeed;
+
+                        player.XSpeed = 0.0;
+                        player.YSpeed = 0.0;
+                        player.Ground = false;
+                        player.Angle = 0;
+                        player.Rotation = 0.0;
+                        player.X = zipLine.X;
+                        player.Y = zipLine.Y;
+                        player.Y +=
+                            (zipLine.HitboxH * -0.5 + zipLine.HitboxOffY) - (player.HitboxH * -0.5 + player.HitboxOffY) +
+                            zipLine.HitboxH * 0.5;
+                        player.UseGroundSpeed = false;
+
+                        // zipLine.PlayerHangXSpeed[index] = 0.0;
+                        if (!zipLine.PlayersGrabbed) {
+                            // if (zipLine.Direction == 1) {
+                            //     if (zipLine.OffsetY <= zipLine.Length)
+                            //         zipLine.YSpeed = 2.0;
+                            // }
+                            // else {
+                            //     zipLine.YSpeed = 0.0;
+                            // }
+                        }
+
+                        zipLine.PlayersGrabbed |= (1 << index);
+                        player.AnimationSpeedMult = 1.0;
+                        player.SetAnimation(28, 0);
+                        player.LateUpdateAirStatus = null;
+                        player.LateUpdateGroundStatus = null;
+                        player.Status = player.Player_StatusNone;
+                        player.MaxGlideSpeed = 0; // Number.AsInteger(Math.RandomMax(2));
+                        Sound.Play(player.SFX_GlideGrab);
+
+                        // zipLine.UpdateRegionW = zipLine.UpdateRegionH = 0.0;
+                    }
+                }
+
+                continue;
+            }
+            else {
+                if (player.GroundSpeed < 10.0 && player.GroundSpeed > -10.0)
+                    player.GroundSpeed += Static.HexSin(zipLine.Angle) * 0.25;
+                zipLine.XSpeed = player.GroundSpeed * Static.HexCos(zipLine.Angle);
+                zipLine.YSpeed = player.GroundSpeed * Static.HexSin(zipLine.Angle);
+                zipLine.HandleX += zipLine.XSpeed;
+                zipLine.HandleY += zipLine.YSpeed;
+
+                if (player.InputJumpPressed) {
+                    zipLine.ZipLine_ReleasePlayers();
+                    Sound.Play(player.SFX_Jump);
+                    player.SetAnimation(10, 0);
+                    player.YSpeed = -4.0;
+                }
+                else if (zipLine.HandleX < zipLine.StartX) {
+                    zipLine.HandleX = zipLine.StartX;
+                    zipLine.ZipLine_ReleasePlayers();
+                }
+                else if (zipLine.HandleX > zipLine.EndX) {
+                    zipLine.HandleX = zipLine.EndX;
+                    zipLine.ZipLine_ReleasePlayers();
+                }
+                else {
+                    player.X = zipLine.HandleX;
+                    player.Y = zipLine.HandleY;
+                    player.Y +=
+                        (zipLine.HitboxH * -0.5 + zipLine.HitboxOffY) - (player.HitboxH * -0.5 + player.HitboxOffY) +
+                        zipLine.HitboxH * 0.5;
+                }
+            }
+        }
+
+        this.X = zipLineX;
+        this.Y = zipLineY;
+    }
+
+    event ZipLine_ReleasePlayers() {
+        var player, index = -1, zipLine = this;
+        with ("Player") {
+            player = this;
+            index++;
+
+            if ((1 << index) & zipLine.PlayersGrabbed) {
+                zipLine.PlayerTimer[index] = 60;
+                player.XSpeed = zipLine.XSpeed;
+                player.YSpeed = zipLine.YSpeed;
+                player.GroundSpeed = player.XSpeed;
+
+                zipLine.PlayersGrabbed &= ~(1 << index);
+                player.Ground = false;
+                player.OnGroundCopy = false;
+                player.UseGroundSpeed = true;
+                player.Status = player.Player_StatusJumping;
+            }
+        }
+    }
+
+    event Render() {
+        Draw.SetBlendColor(0.375, 0.375, 0.625, 1.0);
+        Draw.Line(this.StartX, this.StartY, this.EndX, this.EndY);
+        Draw.SetBlendColor(0.1875, 0.1875, 0.4375, 1.0);
+        Draw.Line(this.StartX, this.StartY + 1.0, this.EndX, this.EndY + 1.0);
+
+        // Draw.SetBlendColor(1.0, 0.1875, 0.0, 1.0);
+        // Draw.Rectangle(
+        //     this.HandleX + this.HitboxOffX - this.HitboxW * 0.5,
+        //     this.HandleY + this.HitboxOffY - this.HitboxH * 0.5,
+        //     this.HitboxW, this.HitboxH);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, 0, Math.Floor(this.HandleX), Math.Floor(this.HandleY), false, false);
+
+        // Draw.SetBlendColor(0.1875, 1.0, 0.0, 1.0);
+        // Draw.Rectangle(this.HandleX - 8, this.HandleY,
+        //     16, 1);
+        // Draw.Rectangle(this.HandleX, this.HandleY - 8,
+        //     1, 16);
+
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, 1, Math.Floor(this.StartX), Math.Floor(this.StartY), false, false);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, 1, Math.Floor(this.EndX), Math.Floor(this.EndY), false, false);
+    }
+}

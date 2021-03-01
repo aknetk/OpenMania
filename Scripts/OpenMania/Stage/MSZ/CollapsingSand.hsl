@@ -1,0 +1,363 @@
+class CollapsingSand {
+    event Create() {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load
+        this.Sprite = Resources.LoadSprite("Sprites/MSZ/SandCollapse.bin", SCOPE_SCENE);
+        this.SFX_SandFall = Resources.LoadSound("SoundFX/MSZ/SandFall.wav", SCOPE_GAME);
+        this.Status = null;
+        this.MoveStatus = null;
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+
+        // Setup
+        this.Visible = true;
+        this.Delay = 0;
+        this.SizeX = 0.0;
+        this.SizeY = 0.0;
+        if (this.PropertyExists("delay"))
+            this.Delay = this.PropertyGet("delay");
+        if (this.PropertyExists("size")) {
+            var size = this.PropertyGet("size");
+            this.SizeX = size[0];
+            this.SizeY = size[1];
+        }
+
+        // NOTE: Tiled support
+        if (this.PropertyExists("Width") && this.PropertyExists("Height")) {
+            this.SizeX = this.PropertyGet("Width");
+            this.SizeY = this.PropertyGet("Height");
+
+            this.X += this.SizeX * 0.5;
+            this.Y += this.SizeY * 0.5;
+        }
+
+        this.X = Math.Floor(this.X / 8.0) * 8.0;
+        this.Y = Math.Floor(this.Y / 8.0) * 8.0;
+        this.Priority = DrawGroup_FGLow_Low;
+
+        this.UpdateRegionW = 256.0;
+        this.UpdateRegionH = 256.0;
+
+        this.HitboxW = this.SizeX;
+        this.HitboxH = this.SizeY + 48.0;
+        this.HitboxOffX = 0.0;
+        this.HitboxOffY = -24.0;
+
+        this.TileCurrentX = 0;
+        this.TileCountW = 0;
+        this.TileCountH = 0;
+        this.DecayTimer = 0;
+        this.Status = this.CollapsingSand_Status_Start;
+        this.PlayerIsLeft = false;
+
+        // CUSTOM: The tile IDs (inclusive) to destroy when decaying.
+        //     Override the function CollapsingSand_GetRange if needed.
+        this.TileRangeStart = 0;
+        this.TileRangeEnd = 0;
+        this.TileEmpty = 0;
+        this.CollapsingSand_GetRange();
+    }
+
+    CollapsingSand_GetRange() {
+        this.TileRangeStart = 0x1BE;
+        this.TileRangeEnd = 0x1BE + 0x6C;
+        this.TileEmpty = 0x3FF;
+
+        if (this.PropertyExists("TileIDRangeStart") && this.PropertyExists("TileIDRangeEnd")) {
+            this.TileRangeStart = this.PropertyGet("TileIDRangeStart");
+            this.TileRangeEnd = this.PropertyGet("TileIDRangeEnd");
+        }
+        if (this.PropertyExists("TileIDEmpty")) {
+            this.TileEmpty = this.PropertyGet("TileIDEmpty");
+        }
+    }
+
+    CollapsingSand_Status_Start() {
+        var player, collapsingSand = this;
+        with ("Player") {
+            player = this;
+            if (Static.GameObject_TestCollide(player, collapsingSand) && player.Ground && player.AngleMode) {
+                collapsingSand.Status = collapsingSand.CollapsingSand_Status_StartDecay;
+                collapsingSand.PlayerIsLeft = player.X <= collapsingSand.X;
+                break;
+            }
+        }
+    }
+    CollapsingSand_Status_StartDecay() {
+        var decayTimer = this.DecayTimer;
+        if (decayTimer >= this.Delay) {
+            this.DecayTimer = 0;
+
+            this.TileCountW = Number.AsInteger(this.SizeX / 16.0);
+            this.TileCountH = Number.AsInteger(this.SizeY / 16.0);
+
+            var startPoint = this.X;
+            var sizeHalfW = this.SizeX * 0.5 - 8.0;
+            var sizeHalfH = this.SizeY * 0.5 - 8.0;
+            if (this.PlayerIsLeft) {
+                this.Status = this.CollapsingSand_Status_DecayLeft;
+                startPoint -= sizeHalfW;
+            }
+            else {
+                this.Status = this.CollapsingSand_Status_DecayRight;
+                startPoint += sizeHalfW;
+            }
+            this.TileCurrentX = Number.AsInteger(startPoint / 16.0);
+            this.TileStartX = this.TileCurrentX;
+
+            this.TileCurrentY = Number.AsInteger((this.Y + sizeHalfH) / 16.0);
+            this.TileStartY = Number.AsInteger((this.Y - sizeHalfH) / 16.0);
+
+            Sound.Play(this.SFX_SandFall);
+        }
+        else {
+            this.DecayTimer = decayTimer + 1;
+        }
+    }
+    CollapsingSand_Status_DecayLeft() {
+        if (this.DecayTimer) {
+            this.DecayTimer = (this.DecayTimer + 1) & 3;
+            return;
+        }
+
+        var tileID;
+        var removedTile;
+        var fg_low = Scene.GetLayerIndex("FG Low");
+        var fg_high = Scene.GetLayerIndex("FG High");
+        var range_s = this.TileRangeStart;
+        var range_e = this.TileRangeEnd;
+        var tileEmpty = this.TileEmpty;
+
+        if (this.TileCountW > 0) {
+            var tileX = this.TileCurrentX;
+            var tileY = this.TileCurrentY;
+
+            if (tileX >= this.TileStartX) {
+                var X = (tileX * 16.0) + 8.0;
+                var Y = (tileY * 16.0) + 8.0;
+                while (tileY >= this.TileStartY) {
+                    removedTile = false;
+
+                    tileID = Scene.GetTileID(fg_low, tileX, tileY);
+                    if (tileID >= range_s && tileID <= range_e) {
+                        Scene.SetTile(fg_low, tileX, tileY, tileEmpty, false, false);
+                        removedTile = true;
+                    }
+
+                    tileID = Scene.GetTileID(fg_high, tileX, tileY);
+                    if (tileID >= range_s && tileID <= range_e) {
+                        Scene.SetTile(fg_high, tileX, tileY, tileEmpty, false, false);
+                        removedTile = true;
+                    }
+
+                    if (removedTile) {
+                        var debris = Instance.Create("Debris", X, Y, 0);
+                        debris.Status = debris.Debris_Status_FallConstant_SpannedLife;
+                        debris.Sprite = this.Sprite;
+                        debris.Priority = DrawGroup_FGHigh_High;
+                        debris.Life = 44;
+
+                        if (tileY == this.TileCurrentY)
+                            Scene.SetTile(fg_low, tileX, tileY, 168 + (this.TileCountW & 1), false, false);
+                    }
+
+                    X -= 16.0;
+                    Y -= 16.0;
+                    tileX--;
+                    tileY--;
+                    if (tileX < this.TileStartX)
+                        break;
+                }
+            }
+
+            this.TileCurrentX++;
+            this.TileCountW--;
+            this.DecayTimer = (this.DecayTimer + 1) & 3;
+        }
+        else if (this.TileCountH > 0) {
+            var tileX = this.TileCurrentX;
+            var tileY = this.TileCurrentY;
+
+            if (tileX >= this.TileStartX) {
+                var X = (tileX * 16.0) + 8.0;
+                var Y = (tileY * 16.0) + 8.0;
+                while (tileY >= this.TileStartY) {
+                    removedTile = false;
+
+                    tileID = Scene.GetTileID(fg_low, tileX, tileY);
+                    if (tileID >= range_s && tileID <= range_e) {
+                        Scene.SetTile(fg_low, tileX, tileY, tileEmpty, false, false);
+                        removedTile = true;
+                    }
+
+                    tileID = Scene.GetTileID(fg_high, tileX, tileY);
+                    if (tileID >= range_s && tileID <= range_e) {
+                        Scene.SetTile(fg_high, tileX, tileY, tileEmpty, false, false);
+                        removedTile = true;
+                    }
+
+                    if (removedTile) {
+                        var debris = Instance.Create("Debris", X, Y, 0);
+                        debris.Status = debris.Debris_Status_FallConstant_SpannedLife;
+                        debris.Sprite = this.Sprite;
+                        debris.Priority = DrawGroup_FGHigh_High;
+                        debris.Life = 44;
+                    }
+
+                    X -= 16.0;
+                    Y -= 16.0;
+                    tileX--;
+                    tileY--;
+                    if (tileX < this.TileStartX)
+                        break;
+                }
+            }
+
+            this.TileCurrentY--;
+            this.TileCountH--;
+            this.DecayTimer = (this.DecayTimer + 1) & 3;
+        }
+        else {
+            var itemBox, sand = this;
+            with ("ItemBox") {
+                itemBox = this;
+                var absRelX = Math.Abs(itemBox.X - sand.X);
+                var absRelY = Math.Abs(itemBox.Y - sand.Y);
+                if (absRelX < sand.SizeX * 0.5 && absRelY < sand.SizeY * 0.5 && itemBox.Status == itemBox.ItemBox_StatusNormal) {
+                    itemBox.Status = itemBox.ItemBox_StatusFalling;
+                    itemBox.UpdateRegionW =
+                    itemBox.UpdateRegionH = 0.0;
+                }
+            }
+            this.Active = false;
+        }
+    }
+    CollapsingSand_Status_DecayRight() {
+        if (this.DecayTimer) {
+            this.DecayTimer = (this.DecayTimer + 1) & 3;
+            return;
+        }
+
+        var tileID;
+        var removedTile;
+        var fg_low = Scene.GetLayerIndex("FG Low");
+        var fg_high = Scene.GetLayerIndex("FG High");
+        var range_s = this.TileRangeStart;
+        var range_e = this.TileRangeEnd;
+        var tileEmpty = this.TileEmpty;
+
+        if (this.TileCountW > 0) {
+            var tileX = this.TileCurrentX;
+            var tileY = this.TileCurrentY;
+
+            if (tileX <= this.TileStartX) {
+                var X = (tileX * 16.0) + 8.0;
+                var Y = (tileY * 16.0) + 8.0;
+                while (tileY >= this.TileStartY) {
+                    removedTile = false;
+
+                    tileID = Scene.GetTileID(fg_low, tileX, tileY);
+                    if (tileID >= range_s && tileID <= range_e) {
+                        Scene.SetTile(fg_low, tileX, tileY, tileEmpty, false, false);
+                        removedTile = true;
+                    }
+
+                    tileID = Scene.GetTileID(fg_high, tileX, tileY);
+                    if (tileID >= range_s && tileID <= range_e) {
+                        Scene.SetTile(fg_high, tileX, tileY, tileEmpty, false, false);
+                        removedTile = true;
+                    }
+
+                    if (removedTile) {
+                        var debris = Instance.Create("Debris", X, Y, 0);
+                        debris.Status = debris.Debris_Status_FallConstant_SpannedLife;
+                        debris.Sprite = this.Sprite;
+                        debris.Priority = DrawGroup_FGHigh_High;
+                        debris.Life = 44;
+
+                        if (tileY == this.TileCurrentY)
+                            Scene.SetTile(fg_low, tileX, tileY, 168 + (this.TileCountW & 1), false, false);
+                    }
+
+                    X += 16.0;
+                    Y -= 16.0;
+                    tileX++;
+                    tileY--;
+                    if (tileX > this.TileStartX)
+                        break;
+                }
+            }
+
+            this.TileCurrentX--;
+            this.TileCountW--;
+            this.DecayTimer = (this.DecayTimer + 1) & 3;
+        }
+        else if (this.TileCountH > 0) {
+            var tileX = this.TileCurrentX;
+            var tileY = this.TileCurrentY;
+
+            if (tileX <= this.TileStartX) {
+                var X = (tileX * 16.0) + 8.0;
+                var Y = (tileY * 16.0) + 8.0;
+                while (tileY >= this.TileStartY) {
+                    removedTile = false;
+
+                    tileID = Scene.GetTileID(fg_low, tileX, tileY);
+                    if (tileID >= range_s && tileID <= range_e) {
+                        Scene.SetTile(fg_low, tileX, tileY, tileEmpty, false, false);
+                        removedTile = true;
+                    }
+
+                    tileID = Scene.GetTileID(fg_high, tileX, tileY);
+                    if (tileID >= range_s && tileID <= range_e) {
+                        Scene.SetTile(fg_high, tileX, tileY, tileEmpty, false, false);
+                        removedTile = true;
+                    }
+
+                    if (removedTile) {
+                        var debris = Instance.Create("Debris", X, Y, 0);
+                        debris.Status = debris.Debris_Status_FallConstant_SpannedLife;
+                        debris.Sprite = this.Sprite;
+                        debris.Priority = DrawGroup_FGHigh_High;
+                        debris.Life = 44;
+                    }
+
+                    X += 16.0;
+                    Y -= 16.0;
+                    tileX++;
+                    tileY--;
+                    if (tileX > this.TileStartX)
+                        break;
+                }
+            }
+
+            this.TileCurrentY--;
+            this.TileCountH--;
+            this.DecayTimer = (this.DecayTimer + 1) & 3;
+        }
+        else {
+            var itemBox, sand = this;
+            with ("ItemBox") {
+                itemBox = this;
+                var absRelX = Math.Abs(itemBox.X - sand.X);
+                var absRelY = Math.Abs(itemBox.Y - sand.Y);
+                if (absRelX < sand.SizeX * 0.5 && absRelY < sand.SizeY * 0.5 && itemBox.Status == itemBox.ItemBox_StatusNormal) {
+                    itemBox.Status = itemBox.ItemBox_StatusFalling;
+                }
+            }
+            this.Active = false;
+        }
+    }
+
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+    Render() {
+        // Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.FinalX), Math.Floor(this.FinalY), false, false);
+    }
+}

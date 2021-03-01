@@ -1,0 +1,149 @@
+class Turbine {
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        
+        this.Type = 0;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+
+        this.Sprite = Resources.LoadSprite("Sprites/LRZ2/Turbine.bin", SCOPE_SCENE);
+        this.SFX_Turbine = Resources.LoadSound("SoundFX/LRZ/Turbine.wav", SCOPE_SCENE);
+        this.AutoAnimate = false;
+
+        this.UpdateRegionW = this.UpdateRegionH = 128.0;
+        this.Priority = DrawGroup_FGHigh_High;
+
+        this.SetAnimation(this.Type, 0);
+
+        this.PlayerGrabbed = 0;
+        this.PlayerTimer = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.PlayerSpin = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+        this.Status = null;
+        switch (this.Type) {
+            case 0:
+                this.HitboxW = 32.0;
+                this.HitboxH = 96.0;
+                this.Status = this.Turbine_Status_Handle;
+                break;
+            case 1:
+                this.HitboxW = 12.0;
+                this.HitboxH = 88.0;
+                this.Status = this.Turbine_Status_Spike;
+                break;
+            default:
+                break;
+        }
+    }
+
+    Turbine_Status_Handle() {
+        var player, index = -1, indexFlag, turbine = this;
+        with ("Player") {
+            player = this;
+            index++;
+            indexFlag = 1 << index;
+
+            var timer = turbine.PlayerTimer[index];
+            if (timer > 0)
+                turbine.PlayerTimer[index] = timer - 1;
+
+            if (!((indexFlag & turbine.PlayerGrabbed) || turbine.PlayerTimer[index])) {
+                if (player.CurrentAnimation != 18 && player.Status == player.Player_StatusNone) {
+                    // if (player.AnimationSpeedMult == 0.0)
+                    //     player.AnimationSpeedMult = 1.0;
+                    if (!player.IsGhost)
+                        continue;
+                }
+            }
+
+            if (indexFlag & turbine.PlayerGrabbed) {
+                player.XSpeed = 0.0;
+                player.YSpeed = 0.0;
+                player.GroundSpeed = 0.0;
+                turbine.PlayerSpin[index] = (turbine.PlayerSpin[index] + 6) & 0x1FF;
+                player.X = turbine.X;
+                player.Y = turbine.Y;
+
+                var spin = turbine.PlayerSpin[index];
+                var sin = Static.HexSinMedPrec(spin);
+
+                player.Y += 46.0 * sin + 2.0;
+
+                if (((spin + 0x17F) & 0x1FF) > 0xFF)
+                    player.Priority = DrawGroup_FGLow_High;
+                else
+                    player.Priority = DrawGroup_AboveTiles;
+
+                player.AnimationSpeedMult = 0.0;
+                player.CurrentFrame = ((spin * 12) / 0x200 + 9) % 12;
+
+                if (player.InputJumpPressed) {
+                    var ysp = 12.0 * Static.HexCosMedPrec(spin);
+                    player.YSpeed = ysp;
+
+                    if (ysp < 0.0)
+                        player.SetAnimation(11, 0);
+                    else
+                        player.SetAnimation(5, 0);
+
+                    turbine.PlayerGrabbed &= ~indexFlag;
+                    player.Status = player.Player_StatusJumping;
+                    turbine.PlayerTimer[index] = 30;
+                    if (player.AnimationSpeedMult == 0.0)
+                        player.AnimationSpeedMult = 1.0;
+                }
+                else if (player.CurrentAnimation == 30 && player.Status == player.Player_StatusNone) {
+                    continue;
+                }
+
+                continue;
+            }
+
+            if (turbine.PlayerTimer[index] == 0 && Static.GameObject_TestCollide(player, turbine)) {
+                turbine.PlayerGrabbed |= indexFlag;
+                player.LateUpdateGroundStatus = null;
+                player.LateUpdateAirStatus = null;
+
+                player.XSpeed = 0.0;
+                player.YSpeed = 0.0;
+                player.GroundSpeed = 0.0;
+                player.Ground = false;
+                player.Status = player.Player_StatusNone;
+
+                player.AnimationSpeedMult = 0.0;
+                player.SetAnimation(30, 0);
+
+                if (player.Y >= turbine.Y)
+                    turbine.PlayerSpin[index] = 0x80;
+                else
+                    turbine.PlayerSpin[index] = 0x180;
+                turbine.PlayerSpin[index] += turbine.Angle & 0x3F;
+                Sound.Play(player.SFX_Grab);
+            }
+        }
+    }
+    Turbine_Status_Spike() {
+        var player, turbine = this;
+        with ("Player") {
+            player = this;
+            if (Static.GameObject_TestCollide(player, turbine) && !player.Player_DoMightyUnspin(3.0, 2, turbine, 1)) {
+                player.Player_AttemptHurtPlayer(turbine);
+            }
+        }
+    }
+
+    Update() {
+        this.Angle = 6 * (Scene_Frame & 0x1FF);
+
+        this.CurrentFrame = (this.Angle >> 3) & 7;
+
+        if (this.Status)
+            this.Status();
+    }
+
+    Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+    }
+}

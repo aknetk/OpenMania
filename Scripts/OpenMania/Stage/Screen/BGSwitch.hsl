@@ -1,0 +1,222 @@
+class BGSwitch {
+    event Create() {
+        this.BGID = -1;
+        this.SizeX = 0.0;
+        this.SizeY = 0.0;
+        if (this.PropertyExists("size")) {
+            var size = this.PropertyGet("size");
+            this.SizeX = size[0];
+            this.SizeY = size[1];
+        }
+        if (this.PropertyExists("bgID"))
+            this.BGID = this.PropertyGet("bgID");
+
+        this.HitboxW = this.SizeX * 2.0;
+        this.HitboxH = this.SizeY * 2.0;
+        this.UpdateRegionW = this.SizeX * 2.0;
+        this.UpdateRegionH = this.SizeY * 2.0;
+        this.FlipFlag = 0;
+        this.Status = null;
+        this.Act = 1;
+
+        var sceneName = Scene.GetName();
+        var start = String.IndexOf(sceneName, "/");
+        var end = String.LastIndexOf(sceneName, "/");
+        if (start < 0 || end < 0 || start == end)
+            return;
+
+        if (String.Contains(sceneName, "Scene2.bin"))
+            this.Act = 2;
+
+        var substring = String.Substring(sceneName, start + 1, end - (start + 1));
+        switch (substring) {
+            case "GHZ":
+                this.Status = this.BGSwitch_Status_GHZSwitch;
+                break;
+            case "CPZ":
+                this.Status = this.BGSwitch_Status_CPZSwitch;
+                break;
+            case "FBZ":
+                this.Status = this.BGSwitch_Status_FBZSwitch;
+                break;
+            case "TMZ1":
+                this.Status = this.BGSwitch_Status_TMZ1Switch;
+                break;
+            default:
+                print "BGSwitch Unhandled Zone: " + substring;
+                break;
+        }
+
+        if (global.SavedBG == this.BGID) {
+            global.CurrentBG = this.BGID;
+            if (this.Status)
+                this.Status();
+        }
+        else if (global.CurrentBG == this.BGID) {
+            if (this.Status)
+                this.Status();
+        }
+    }
+
+    event Update() {
+        if (this.Status) {
+            with ("Camera") {
+                var camX = this.X;
+                var camY = this.Y;
+                var bgsX = other.X;
+                var bgsY = other.Y;
+                var bgsW = other.SizeX;
+                var bgsH = other.SizeY;
+                if (Math.Abs(camX - bgsX) <= bgsW &&
+                    Math.Abs(camY - bgsY) <= bgsH) {
+                    global.CurrentBG = other.BGID;
+                    other.Status();
+                }
+            }
+        }
+    }
+
+    event BGSwitch_Status_GHZSwitch() {
+        if (this.Act == 1) {
+            switch (this.BGID) {
+                case 0:
+                    Scene.SetLayerVisible(0, true);
+                    Scene.SetLayerVisible(1, false);
+                    Scene.SetLayerVisible(2, false);
+                    Scene.SetLayerVisible(5, false);
+                    break;
+                case 1:
+                    Scene.SetLayerVisible(0, false);
+                    Scene.SetLayerVisible(1, true);
+                    Scene.SetLayerVisible(2, true);
+                    Scene.SetLayerVisible(5, false);
+                    break;
+            }
+        }
+        else {
+            switch (this.BGID) {
+                case 0:
+                    Scene.SetLayerVisible(0, true);
+                    Scene.SetLayerVisible(1, true);
+                    Scene.SetLayerVisible(2, false);
+                    Scene.SetLayerVisible(3, false);
+                    break;
+                case 1:
+                    Scene.SetLayerVisible(0, false);
+                    Scene.SetLayerVisible(1, false);
+                    Scene.SetLayerVisible(2, true);
+                    Scene.SetLayerVisible(3, true);
+                    break;
+            }
+        }
+    }
+    event BGSwitch_Status_CPZSwitch() {
+        switch (this.BGID) {
+            case 0:
+                Scene.SetLayerVisible(0, true);
+                Scene.SetLayerVisible(1, true);
+                Scene.SetLayerVisible(2, true);
+                Scene.SetLayerVisible(3, false);
+                break;
+            case 1:
+                Scene.SetLayerVisible(0, false);
+                Scene.SetLayerVisible(1, false);
+                Scene.SetLayerVisible(2, false);
+                Scene.SetLayerVisible(3, true);
+                break;
+        }
+    }
+    event BGSwitch_Status_FBZSwitch() {
+        if (this.Act == 1) {
+            // VERBOSE: Layer 0 (Background Inside): Width (32) Height (56) DrawGroup (10)
+            // VERBOSE: Layer 1 (Background Outside): Width (32) Height (16) DrawGroup (0)
+            // VERBOSE: Layer 2 (FG Low): Width (1088) Height (192) DrawGroup (1)
+            // VERBOSE: Layer 3 (FG High): Width (1088) Height (192) DrawGroup (6)
+            // VERBOSE: Layer 4 (Exterior Overlay): Width (1088) Height (192) DrawGroup (10)
+            // VERBOSE: Layer 5 (Platform): Width (32) Height (16) DrawGroup (10)
+            // VERBOSE: Layer 6 (Scratch): Width (32) Height (16) DrawGroup (10)
+
+            switch (this.BGID) {
+                case 0:
+                    Scene.SetLayerVisible(0, false);
+                    if (global.GameMode == GameModes_Mania) {
+                        Scene.SetLayerVisible(1, true);
+                    }
+                    else {
+                        Scene.SetLayerVisible(1, false);
+                        Scene.SetLayerVisible(3, true);
+                    }
+                    break;
+                case 1:
+                    Scene.SetLayerVisible(0, true);
+                    if (global.GameMode == GameModes_Mania) {
+                        Scene.SetLayerVisible(1, false);
+                    }
+                    else {
+                        Scene.SetLayerVisible(1, true);
+                        Scene.SetLayerVisible(3, false);
+                    }
+                    break;
+                case 2:
+                    Scene.SetLayerVisible(0, false);
+                    if (global.GameMode == GameModes_Mania) {
+                        Scene.SetLayerVisible(1, false);
+                    }
+                    else {
+                        Scene.SetLayerVisible(1, false);
+                        Scene.SetLayerVisible(2, false);
+                    }
+                    break;
+            }
+        }
+        else {
+            // 1 // VERBOSE: Layer 0 (BG Inside 1): Width (32) Height (32) DrawGroup (0)
+            // 1 // VERBOSE: Layer 1 (BG Inside 2): Width (32) Height (32) DrawGroup (0)
+            // 2 // VERBOSE: Layer 2 (Background Outside): Width (32) Height (16) DrawGroup (0)
+            // 0 // VERBOSE: Layer 3 (BG Storm): Width (32) Height (16) DrawGroup (10)
+            // VERBOSE: Layer 4 (FG Low): Width (1008) Height (496) DrawGroup (1)
+            // VERBOSE: Layer 5 (FG High): Width (1008) Height (496) DrawGroup (6)
+            // VERBOSE: Layer 6 (Exterior Overlay): Width (1008) Height (496) DrawGroup (6)
+            // VERBOSE: Layer 7 (Move): Width (32) Height (16) DrawGroup (10)
+
+            switch (this.BGID) {
+                case 0:
+                    Scene.SetLayerVisible(0, false);
+                    Scene.SetLayerVisible(1, false);
+                    Scene.SetLayerVisible(2, false);
+                    Scene.SetLayerVisible(3, true);
+                    break;
+                case 1:
+                    Scene.SetLayerVisible(0, true);
+                    Scene.SetLayerVisible(1, true);
+                    Scene.SetLayerVisible(2, false);
+                    Scene.SetLayerVisible(3, false);
+                    break;
+                case 2:
+                    Scene.SetLayerVisible(0, false);
+                    Scene.SetLayerVisible(1, false);
+                    Scene.SetLayerVisible(2, true);
+                    Scene.SetLayerVisible(3, false);
+                    break;
+            }
+        }
+    }
+    event BGSwitch_Status_TMZ1Switch() {
+        switch (this.BGID) {
+            case 0:
+                Scene.SetLayerVisible(0, true);
+                Scene.SetLayerVisible(1, true);
+                Scene.SetLayerVisible(2, false);
+                Scene.SetLayerVisible(3, false);
+                Scene.SetLayerVisible(4, false);
+                break;
+            case 1:
+                Scene.SetLayerVisible(0, false);
+                Scene.SetLayerVisible(1, false);
+                Scene.SetLayerVisible(2, false);
+                Scene.SetLayerVisible(3, false);
+                Scene.SetLayerVisible(4, true);
+                break;
+        }
+    }
+}

@@ -1,0 +1,71 @@
+class Launcher < Platform {
+    event Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        
+        // This code is hilariously hacked together.
+
+        super.Create();
+
+        this.Sprite = Resources.LoadSprite("Sprites/FBZ/Platform.bin", SCOPE_GAME);
+        this.ResetAnimation(1, 4);
+
+        if (this.PropertyExists("direction")) {
+            this.FlipFlag = this.PropertyGet("direction");
+        }
+        if (this.PropertyExists("flipFlag")) {
+            this.FlipFlag = this.PropertyGet("flipFlag");
+        }
+
+        this.SFX_Launch = Resources.LoadSound("SoundFX/Stage/Launch.wav", SCOPE_SCENE);
+
+        this.CollisionStatus = this.Platform_CollisionStatus_TilePlatform;
+        this.Status = null;
+
+        this.HitboxW = 2 * 16.0;
+        this.HitboxH = 1 * 16.0;
+        this.HitboxOffX = 0.0;
+        this.HitboxOffY = 0.0;
+    }
+
+    event Launcher_CollisionStatus_Launcher() {
+        var onTopFlag = this.PlayerOnTopFlag;
+
+        this.PlayerOnTopFlag = 0;
+
+        var player, launcher = this, playerIndex = -1;
+        with ("Player") {
+            playerIndex++;
+            player = this;
+
+            var originalYSpeed = player.YSpeed;
+            if (launcher.DeltaY < 0.0)
+                player.YSpeed = originalYSpeed - launcher.DeltaY;
+
+            if (Static.Entity_TopSolidCollideWithPlayer(launcher, player)) {
+                player.XSpeed =
+                player.GroundSpeed = 6.0;
+
+                if (launcher.FlipFlag) {
+                    player.XSpeed =
+                    player.GroundSpeed = -6.0;
+                }
+            }
+        }
+    }
+
+    event UpdateEarly() {
+        super.UpdateEarly();
+    }
+    event Update() {
+        super.Update();
+
+        this.Animate();
+    }
+
+    event Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.FinalX), Math.Floor(this.FinalY), false, false);
+    }
+}

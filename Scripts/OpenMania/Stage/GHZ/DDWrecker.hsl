@@ -1,0 +1,360 @@
+class DDWrecker {
+    Create(type) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        // Load()
+        this.Sprite = Resources.LoadSprite("Sprites/GHZ/DDWrecker.bin", SCOPE_SCENE);
+        this.SFX_BossHit = Resources.LoadSound("SoundFX/Stage/BossHit.wav", SCOPE_SCENE);
+        this.SFX_Explosion2 = Resources.LoadSound("SoundFX/Stage/Explosion2.wav", SCOPE_SCENE);
+        this.SFX_Drop = Resources.LoadSound("SoundFX/Stage/Drop.wav", SCOPE_SCENE);
+        this.SFX_Impact2 = Resources.LoadSound("SoundFX/Stage/Impact2.wav", SCOPE_SCENE);
+        this.SFX_Assemble = Resources.LoadSound("SoundFX/Stage/Assemble.wav", SCOPE_SCENE);
+        this.SFX_Rotate = Resources.LoadSound("SoundFX/Stage/Rotate.wav", SCOPE_SCENE);
+        this.SFX_Sharp = Resources.LoadSound("SoundFX/Stage/Sharp.wav", SCOPE_SCENE);
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+        this.ScaleX = 1.0;
+        this.ScaleY = 1.0;
+
+        this.Status = null;
+        this.AfterStatus = null;
+        this.PositionX = 0.0;
+        this.PositionY = 0.0;
+        this.Type = 0;
+        this.WaitTimer = 0;
+        this.InvulnTimer = 0;
+        this.Health = 0;
+        this.Unk_0x78 = 0;
+        this.Unk_0x7C = 0;
+        this.Unk_0x80 = 0;
+        this.Unk_0x84 = 0;
+        this.Unk_0x88 = 0;
+        this.Inst_Unk_0x8C = 0;
+        this.Inst_Chain1 = 0;
+        this.Inst_Chain2 = 0;
+        this.Inst_Chain3 = 0;
+        this.Inst_Chain4 = 0;
+        this.Inst_Unk_0x96 = 0;
+        this.Unk_0x98 = null;
+        this.Unk_0x9C = null;
+        this.Unk_0xA0 = 0;
+        this.Unk_0xA4 = 0;
+        this.Unk_0xA8 = 0;
+        this.Unk_0xAC = 0;
+        this.Mix = 0;
+
+        // Setup()
+
+        // Create()
+        if (true) {
+            if (global.GameMode >= GameModes_TimeAttack) {
+                this.Active = false;
+                return;
+            }
+            else if (type) {
+                this.Type = type;
+                this.UpdateRegionW = this.UpdateRegionH = 0.0;
+                switch (type) {
+                    // Orb
+                    case 1:
+                    case 2:
+                        this.SetAnimation(0, 0);
+                        this.HitboxW =
+                        this.HitboxH = 0x28;
+                        this.Health = 3;
+                        break;
+                    // Chain
+                    case 3:
+                        this.SetAnimation(4, 0);
+                        break;
+                    // Center
+                    case 4:
+                        this.SetAnimation(5, 0);
+                        break;
+                }
+                this.Visible = true;
+                this.Priority = DrawGroup_FGLow_Low;
+            }
+            else {
+                this.UpdateRegionW = this.UpdateRegionH = 256.0;
+                this.Visible = false;
+                this.Status = this.DDWrecker_Status_Init;
+            }
+        }
+
+        this.RenderRegionW =
+        this.RenderRegionH = 80.0;
+
+        this.Zone = null;
+    }
+
+    // States
+    DDWrecker_Status_Init() {
+        this.WaitTimer++;
+        if (this.WaitTimer >= 8) {
+            this.WaitTimer = 0;
+
+            var vx = View.GetX(0);
+            var vy = View.GetY(0);
+            var vw = View.GetWidth(0);
+            var vh = View.GetHeight(0);
+            var vwH = View.GetWidth(0) * 0.5;
+            var vhH = View.GetHeight(0) * 0.5;
+
+            this.Zone.BoundPlayerLeft[0] = true;
+            this.Zone.CameraMinX[0] = this.X - vwH;
+
+            this.Zone.BoundPlayerRight[0] = true;
+            this.Zone.CameraMaxX[0] = this.X + vwH;
+
+            this.Zone.BoundPlayerBottom[0] = true;
+            this.Zone.CameraMaxY[0] = this.Y;
+
+            // ...
+
+            this.Status = this.DDWrecker_Status_CreateChildren;
+        }
+    }
+    DDWrecker_Status_CreateChildren() {
+        var player = null;
+        with ("Player") {
+            player = this;
+            break;
+        }
+
+        if (this.WaitTimer) {
+            this.WaitTimer++;
+            if (this.WaitTimer == 60) {
+                var chain1 = Instance.Create("DDWrecker", this.X, this.Y + 64.0, 3);
+                var chain2 = Instance.Create("DDWrecker", this.X, this.Y + 64.0, 3);
+                var chain3 = Instance.Create("DDWrecker", this.X, this.Y + 64.0, 3);
+                var chain4 = Instance.Create("DDWrecker", this.X, this.Y + 64.0, 3);
+                var center = Instance.Create("DDWrecker", this.X, this.Y + 32.0, 4);
+
+                center.PositionX = this.X;
+                center.PositionY = this.Y + 32.0;
+
+                center.PositionX = this.X;
+                center.PositionY = this.Y - 128.0;
+                center.YSpeed = -9.5;
+
+                center.Status = center.DDWrecker_Status_CenterLeapIn;
+
+                // var boss_l = Instance.Create("DDWrecker", this.X, this.Y + 64.0, 1);
+                // var boss_r = Instance.Create("DDWrecker", this.X, this.Y + 64.0, 2);
+                var boss_l = Instance.Create("DDWrecker", this.X - 64.0, center.PositionY, 1);
+                var boss_r = Instance.Create("DDWrecker", this.X + 64.0, center.PositionY, 2);
+                center.SideL = boss_l;
+                center.SideR = boss_r;
+
+                this.Active = false;
+            }
+        }
+        else if (player && player.X > this.X) {
+            // Boss_MusicFadeIn(type, fade)
+            // types:
+            // 1: Invincible 139263
+            // 2: Sneakers 120960
+            // 3: BossMini 276105
+            // 4: BossHBH 70560
+            // 5: BossEggman1 282240
+            // 6: BossEggman2 264600
+            // 7: ActClear 0
+            // 8: Drowning 0
+            // 9: GameOver 0
+            // 10: Super 165375
+            // 12: HBHMischief 381405
+            // 13: 1up 0
+            var music = Instance.GetNth("MusicObject", 0);
+            if (music) {
+                // music
+                var MSC_BossMini = Resources.LoadMusic("Music/BossMini.ogg", SCOPE_SCENE);
+                Music.Loop(MSC_BossMini, true, 276105);
+            }
+            this.WaitTimer++;
+        }
+    }
+    DDWrecker_Status_CenterLeapIn() {
+        this.YSpeed += 0.25;
+        this.Y += this.YSpeed;
+
+        if (this.Y > this.PositionY && this.YSpeed > 0.0) {
+            this.Y = this.PositionY;
+            this.YSpeed = 0.0;
+            this.Unk_0x88 = 0x800;
+            this.Unk_0x80 = 0x80;
+            this.Status = this.DDWrecker_Status_CenterAssemble;
+            Sound.Play(this.SFX_Assemble);
+        }
+    }
+    DDWrecker_Status_CenterAssemble() {
+        this.Unk_0x84 = (this.Unk_0x84 + (this.Unk_0x80 >> 1)) & 0x1FF;
+        this.Unk_0x88 += (64 - this.Unk_0x88) >> 4;
+
+        this.Angle += 2;
+        this.Y = this.PositionY + Static.HexSin(this.Angle) * 4.0;
+
+        var timer = this.Unk_0x80;
+        if (timer == 0) {
+            this.WaitTimer = 30;
+            // this.Status = null;
+
+            this.Unk_0x80 = -1; // CUSTOM:
+
+            with ("DDWrecker") {
+                var type = this.Type;
+                if (type == 1 || type == 2)
+                    this.AfterStatus = this.DDWrecker_AfterStatus_Common;
+            }
+        }
+        else if (timer > 0) {
+            this.Unk_0x80 = timer - 1;
+        }
+
+        if (timer <= 0)
+        if (this.SideL.AfterStatus == null && this.SideR.AfterStatus == null) {
+            Music.Clear();
+
+            timer--;
+            this.Unk_0x80 = timer;
+            if (timer <= -180) {
+                var player = Instance.GetNth("Player", 0);
+                global.SuppressTitlecard = true;
+                global.PlayerOffsetX = player.X - 0x3CB0;
+                global.PlayerOffsetY = player.Y - 0x00B0;
+                Static.NextAct();
+                Scene.Load("Stages/GHZ/Scene2.bin");
+
+                // x: 3D06 y: 05FC -> x: 0056 y: 054C
+            }
+        }
+    }
+
+    DDWrecker_AfterStatus_Common() {
+        var player, ddwrecker = this;
+        with ("Player") {
+            player = this;
+            if (!ddwrecker.InvulnTimer && player.Player_BreakableCollide(ddwrecker) && player.Player_HitBoss(ddwrecker)) {
+                ddwrecker.DDWrecker_TakeDamage();
+                Sound.Play(ddwrecker.SFX_BossHit);
+            }
+        }
+
+        var timer = this.Unk_0x7C;
+        if (timer > 0) {
+            if (timer > 8)
+                this.Unk_0x7C = timer - 1;
+
+            this.Unk_0xA4 += this.Unk_0x7C;
+            if (this.Unk_0xA4 > 1023) {
+                this.Unk_0xA4 = 0;
+                this.Unk_0x7C = 0;
+            }
+        }
+
+        if (this.CurrentAnimation == 2) {
+            if (this.CurrentFrame == this.CurrentFrameCount - 1)
+                this.SetAnimation(0, 0);
+        }
+        else if (this.CurrentAnimation == 3 && this.CurrentFrame == 0) {
+            this.SetAnimation(2, 0);
+        }
+
+        var mix = this.Mix;
+        if (mix > 0)
+            this.Mix = mix - 16;
+    }
+
+    DDWrecker_TakeDamage() {
+        Sound.Play(this.SFX_BossHit);
+
+        this.Health--;
+        if (this.Health > 0) {
+            this.InvulnTimer = 48;
+        }
+        else {
+            this.InvulnTimer = 1;
+
+            this.Status = null;
+            this.AfterStatus = null;
+            this.WaitTimer = 0;
+            var ddwrecker, self = this;
+            with ("DDWrecker") {
+                ddwrecker = this;
+                if (self != ddwrecker) {
+                    switch (ddwrecker.Type) {
+                        case 1:
+                        case 2:
+                            if (ddwrecker.AfterStatus) {
+                                // ddwrecker.Status = ;
+                                ddwrecker.PositionY = ddwrecker.Y;
+                                // ddwrecker.XSpeed = -Unk_0x20;
+                                // ddwrecker.AfterStatus = ;
+                            }
+                            break;
+                        case 3:
+                        case 4:
+                            // if (ddwrecker.Status != ) {
+                                // ddwrecker.Status = ;
+                                ddwrecker.PositionY = ddwrecker.Y;
+                                ddwrecker.XSpeed = Math.RandomRange(-2.0, 2.0);
+                                ddwrecker.YSpeed = Math.RandomRange(-2.0, 2.0);
+                            // }
+                            break;
+                    }
+                }
+            }
+        }
+    }
+
+    Update() {
+        if (!this.Zone) {
+            this.Zone = Instance.GetNth("Zone", 0);
+            if (!this.Zone)
+                return;
+        }
+
+        if (this.Status)
+            this.Status();
+
+        this.Animate();
+
+        if (this.Type != 4) {
+            var timer = this.InvulnTimer;
+            if (timer > 0)
+                this.InvulnTimer = timer - 1;
+
+            if (this.AfterStatus)
+                this.AfterStatus();
+        }
+    }
+    Render() {
+        if (this.Type >= 1 && this.Type <= 2) {
+            var vh = Number.AsInteger(View.GetHeight(0));
+            // Set boss palette
+            //*
+            Palette.SetPaletteIndexLines(1, 0,vh);
+
+            this.FlipFlag = this.CurrentFrame >= 16;
+
+            var flash = (this.InvulnTimer & 2) == 0;
+            if (flash) {
+                Palette.MixPalettes(1, 2, 3, this.Mix / 255.0, 0x01, 0x1C);
+            }
+            else {
+                for (var index = 1; index <= 0x1C; index++) {
+                    Palette.SetColor(1, index, 0xF0F0F0);
+                }
+            }
+
+            Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, this.X, this.Y, this.FlipFlag & 1, this.FlipFlag & 2);
+            Palette.SetPaletteIndexLines(0, 0, vh);
+            return;
+        }
+
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, this.X, this.Y, this.FlipFlag & 1, this.FlipFlag & 2);
+    }
+}

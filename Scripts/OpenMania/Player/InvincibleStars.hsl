@@ -1,0 +1,168 @@
+class InvincibleStars {
+    event Create() {
+        this.Sprite = Resources.LoadSprite("Sprites/Global/Invincible.bin", SCOPE_GAME);
+        this.Player = null;
+        this.ArrPositionX = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        this.ArrPositionY = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ];
+        this.Transparency = 1.0;
+        this.Rotation1 = 0xB4;
+        this.Rotation2 = 0x00;
+        this.FrameIndex1 = 0;
+        this.FrameIndex2 = 0;
+        this.Size = 0;
+        this.Scale = 1.0;
+        this.Visible = false;
+    }
+    event Reset() {
+        this.Player = null;
+        for (var i = 0; i < 8; i++) {
+            this.ArrPositionX[i] = 0.0;
+            this.ArrPositionY[i] = 0.0;
+        }
+        this.Transparency = 1.0;
+        this.Rotation1 = 0xB4;
+        this.Rotation2 = 0x00;
+        this.FrameIndex1 = 0;
+        this.FrameIndex2 = 0;
+        this.Size = 0;
+        this.Scale = 1.0;
+        this.Visible = false;
+    }
+
+    event Update() {
+        var player = this.Player;
+        if (player) {
+            this.Visible = player.Visible || player.Status == player.Player_StatusFrozen_PGZ;
+            if (!this.Visible)
+                return;
+
+            this.FrameIndex1 = (this.FrameIndex1 + 1) % 12;
+            this.FrameIndex2 = (this.FrameIndex2 + 1) % 10;
+            Array.Shift(this.ArrPositionX, true);
+            Array.Shift(this.ArrPositionY, true);
+
+            player.UpdateHitbox(0);
+            this.ArrPositionX[0] = player.X + player.HitboxOffX;
+            this.ArrPositionY[0] = player.Y + player.HitboxOffY;
+
+            if (player.FlipFlag) {
+                this.Rotation1 += 0x200 - 0x90;
+                this.Rotation2 += 0x200 - 0x10;
+            }
+            else {
+                this.Rotation1 += 0x90;
+                this.Rotation2 += 0x10;
+            }
+            this.Rotation1 &= 0x1FF;
+            this.Rotation2 &= 0x1FF;
+
+            this.Transparency = 1.0;
+            var invincibility = player.Invincibility;
+            if (invincibility < 32)
+                this.Transparency = invincibility / 32.0;
+
+            if (this.Transparency < 0.0)
+                this.Transparency = 0.0;
+
+            this.Priority = player.Priority + 1;
+            this.Size = 11;
+        }
+    }
+    event Render() {
+        if (!this.Visible)
+            return;
+        if (!this.Transparency)
+            return;
+
+        var player = this.Player;
+        if (player) {
+            if (player.UseChibiSprite)
+                this.Scale = 1.0;
+            else
+                this.Scale = player.Scale;
+
+            Draw.SetBlendMode(BlendMode_ADD);
+            Draw.SetTextureBlend(true);
+            Draw.SetBlendColor(1.0, 1.0, 1.0, this.Transparency);
+
+            var rot1 = this.Rotation1;
+            var rot2 = this.Rotation2;
+
+            // 7
+            var index = 7;
+            var x = this.ArrPositionX[index] + Static.HexCosMedPrec(rot2 + 0x74) * 16.0;
+            var y = this.ArrPositionY[index] + Static.HexSinMedPrec(rot2 + 0x74) * 16.0;
+            Draw.Save();
+            Draw.Translate(Math.Floor(x), Math.Floor(y));
+            Draw.Scale(this.Scale, this.Scale, 1.0);
+                Draw.Sprite(this.Sprite, 3, this.FrameIndex1, 0.0, 0.0, false, false);
+            Draw.Restore();
+
+            x = this.ArrPositionX[index] + Static.HexCosMedPrec(rot2 + 0x174) * 16.0;
+            y = this.ArrPositionY[index] + Static.HexSinMedPrec(rot2 + 0x174) * 16.0;
+            Draw.Save();
+            Draw.Translate(Math.Floor(x), Math.Floor(y));
+            Draw.Scale(this.Scale, this.Scale, 1.0);
+                Draw.Sprite(this.Sprite, 3, this.FrameIndex1 + 6, 0.0, 0.0, false, false);
+            Draw.Restore();
+
+            // 5
+            index = 5;
+            x = this.ArrPositionX[index] + Static.HexCosMedPrec(rot2 + 0x000) * 16.0;
+            y = this.ArrPositionY[index] + Static.HexSinMedPrec(rot2 + 0x000) * 16.0;
+            Draw.Save();
+            Draw.Translate(Math.Floor(x), Math.Floor(y));
+            Draw.Scale(this.Scale, this.Scale, 1.0);
+                Draw.Sprite(this.Sprite, 2, this.FrameIndex1, 0.0, 0.0, false, false);
+            Draw.Restore();
+
+            x = this.ArrPositionX[index] + Static.HexCosMedPrec(rot2 + 0x100) * 16.0;
+            y = this.ArrPositionY[index] + Static.HexSinMedPrec(rot2 + 0x100) * 16.0;
+            Draw.Save();
+            Draw.Translate(Math.Floor(x), Math.Floor(y));
+            Draw.Scale(this.Scale, this.Scale, 1.0);
+                Draw.Sprite(this.Sprite, 2, this.FrameIndex1 + 6, 0.0, 0.0, false, false);
+            Draw.Restore();
+
+            // 3
+            index = 3;
+            x = this.ArrPositionX[index] + Static.HexCosMedPrec(rot2 + 0x0A8) * 16.0;
+            y = this.ArrPositionY[index] + Static.HexSinMedPrec(rot2 + 0x0A8) * 16.0;
+            Draw.Save();
+            Draw.Translate(Math.Floor(x), Math.Floor(y));
+            Draw.Scale(this.Scale, this.Scale, 1.0);
+                Draw.Sprite(this.Sprite, 1, this.FrameIndex2, 0.0, 0.0, false, false);
+            Draw.Restore();
+            x = this.ArrPositionX[index] + Static.HexCosMedPrec(rot2 + 0x1A8) * 16.0;
+            y = this.ArrPositionY[index] + Static.HexSinMedPrec(rot2 + 0x1A8) * 16.0;
+            Draw.Save();
+            Draw.Translate(Math.Floor(x), Math.Floor(y));
+            Draw.Scale(this.Scale, this.Scale, 1.0);
+                Draw.Sprite(this.Sprite, 1, this.FrameIndex2 + 5, 0.0, 0.0, false, false);
+            Draw.Restore();
+
+            // 0
+            // BUG: FrameIndex1's range is 0 to 11, but the "Star 0" animation's
+            //      frame indexes range from 0 to 10
+            index = 0;
+            x = this.ArrPositionX[index] + Static.HexCosMedPrec(rot1 + 0x000) * 16.0;
+            y = this.ArrPositionY[index] + Static.HexSinMedPrec(rot1 + 0x000) * 16.0;
+            Draw.Save();
+            Draw.Translate(Math.Floor(x), Math.Floor(y));
+            Draw.Scale(this.Scale, this.Scale, 1.0);
+                Draw.Sprite(this.Sprite, 0, this.FrameIndex2, 0.0, 0.0, false, false);
+            Draw.Restore();
+
+            x = this.ArrPositionX[index] + Static.HexCosMedPrec(rot1 + 0x100) * 16.0;
+            y = this.ArrPositionY[index] + Static.HexSinMedPrec(rot1 + 0x100) * 16.0;
+            Draw.Save();
+            Draw.Translate(Math.Floor(x), Math.Floor(y));
+            Draw.Scale(this.Scale, this.Scale, 1.0);
+                Draw.Sprite(this.Sprite, 0, this.FrameIndex2, 0.0, 0.0, false, false);
+            Draw.Restore();
+
+            Draw.SetTextureBlend(false);
+            Draw.SetBlendMode(BlendMode_NORMAL);
+        }
+    }
+}

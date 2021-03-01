@@ -1,0 +1,677 @@
+var GLOBAL_SeamlessActTransition = true;
+var GLOBAL_SeamlessActTransitionFlag = false;
+
+class HUD {
+    event Create() {
+        this.Sprite = Resources.LoadSprite("Sprites/Global/HUD.bin", SCOPE_GAME);
+        this.Priority = DrawGroup_HUD;
+        this.Ticker = 0;
+
+        this.ShowHUD = true;
+        this.HUDTimer = 0.0;
+
+        this.ResultsSprite = Resources.LoadSprite("Sprites/Global/HUD.bin", SCOPE_GAME);
+        this.DoneSpinning = false;
+        this.ShowResults = false;
+        this.ShowResultsTimer = 0;
+        this.ShowResultsTimerTotal = 0;
+        this.ShowResultsRingsTotal = 0;
+        this.ShowResultsSummedTotal = 0;
+        this.ResultsCharacter = 0;
+        this.ResultsAct = 1;
+
+        this.ShowGameOver = false;
+        this.GameOverTimer = 0;
+
+        // this.SFX_ScoreAdd = Resources.LoadSound("Sounds/General/ScoreAdd.wav", SCOPE_GAME);
+        // this.SFX_ScoreTotal = Resources.LoadSound("Sounds/General/ScoreTotal.wav", SCOPE_GAME);
+
+        this.BGM_ActClear = Resources.LoadMusic("Music/ActClear.ogg", SCOPE_GAME);
+        this.BGM_GameOver = Resources.LoadMusic("Music/GameOver.ogg", SCOPE_GAME);
+
+
+        this.ButtonsSprite = Resources.LoadSprite("Sprites/Global/Mobile Buttons.bin", SCOPE_GAME);
+        this.IsMobile = Device.IsMobile();
+
+        Texture.SetInterpolation(true);
+        this.ButtonsImage = Resources.LoadImage("Images/VirtualDPad.png", SCOPE_GAME);
+        Texture.SetInterpolation(false);
+
+        this.ShowMobileButtons = true;
+        this.ShowMobileButtonsTimer = 1.0;
+        this.JoyButtonX = 0.0;
+        this.JoyButtonY = 0.0;
+        if (this.IsMobile) {
+            // View.SetEnabled(7, true);
+            // View.SetPosition(7, -2048.0, -2048.0);
+            // View.SetUseDrawTarget(7, false);
+            // this.ViewRenderFlag = 0x81;
+        }
+
+        /*
+        Button Back (DPAD)
+            Frame (0, 0, 256, 256)
+            Frame (256, 256, 256, 120) // Up
+            Frame (256, 395, 256, 117) // Down
+            Frame (256, 256, 120, 256) // Left
+            Frame (395, 256, 117, 256) // Right
+        Button Back (Jump)
+            Frame (256, 0, 256, 256)
+        Button
+            Frame (16, 328, 168, 168) // Jump
+            Frame (160, 258, 64, 64) // Pause
+            Frame (93, 258, 64, 64) // Sonic
+
+        */
+    }
+
+    event Update() {
+        this.Ticker++;
+
+        var button_dist = 20.0;
+        var hud = this, player;
+        with ("Player") {
+            player = this;
+            if (player.IsSubPlayer)
+                continue;
+
+            if (player.InputLeft)
+                hud.JoyButtonX += (-button_dist - hud.JoyButtonX) / 4.0;
+            else if (player.InputRight)
+                hud.JoyButtonX += (button_dist - hud.JoyButtonX) / 4.0;
+            else
+                hud.JoyButtonX += (0.0 - hud.JoyButtonX) / 4.0;
+
+            if (player.InputUp)
+                hud.JoyButtonY += (-button_dist - hud.JoyButtonY) / 4.0;
+            else if (player.InputDown)
+                hud.JoyButtonY += (button_dist - hud.JoyButtonY) / 4.0;
+            else
+                hud.JoyButtonY += (0.0 - hud.JoyButtonY) / 4.0;
+            break;
+        }
+
+        if (this.ShowHUD)
+            this.HUDTimer = Math.Clamp(this.HUDTimer - 1.0 / 16.0, 0.0, 1.0);
+        else
+            this.HUDTimer = Math.Clamp(this.HUDTimer + 1.0 / 16.0, 0.0, 1.0);
+
+        if (this.ShowMobileButtons)
+            this.ShowMobileButtonsTimer = Math.Clamp(this.ShowMobileButtonsTimer + 1.0 / 20.0, 0.0, 1.0);
+        else
+            this.ShowMobileButtonsTimer = Math.Clamp(this.ShowMobileButtonsTimer - 1.0 / 20.0, 0.0, 1.0);
+
+        if (this.ShowResults) {
+            var pauseMan = Instance.GetNth("PauseManager", 0);
+            if (pauseMan) {
+                pauseMan.PauseDisabled = true;
+            }
+
+            if (this.ShowResultsTimer >= 300) {
+                // this.ControlsVisible = false;
+                if (!this.DoneSpinning) {
+                    var tryingToSkip = false;
+
+                    tryingToSkip |= Touch.IsDown(0);
+                    tryingToSkip |= Input.IsMouseButtonDown(0);
+                    var input = Instance.GetNth("InputManager", 0);
+                    if (input) {
+                        tryingToSkip |= input.Pause;
+                    }
+
+                    if (tryingToSkip) {
+                        var amountToSubtract = 100;
+                        while (this.ShowResultsTimerTotal > 0) {
+                            amountToSubtract = 100;
+                            if (amountToSubtract > this.ShowResultsTimerTotal)
+                                amountToSubtract = this.ShowResultsTimerTotal;
+
+                            this.ShowResultsTimerTotal -= amountToSubtract;
+                            this.ShowResultsSummedTotal += amountToSubtract;
+                        }
+
+                        while (this.ShowResultsRingsTotal > 0) {
+                            amountToSubtract = 100;
+                            if (amountToSubtract > this.ShowResultsRingsTotal)
+                                amountToSubtract = this.ShowResultsRingsTotal;
+
+                            this.ShowResultsRingsTotal -= amountToSubtract;
+                            this.ShowResultsSummedTotal += amountToSubtract;
+                        }
+
+                        this.DoneSpinning = true;
+                    }
+                    else {
+                        if (this.Ticker % 3 == 0) {
+                            Sound.Play(this.SFX_ScoreAdd);
+                        }
+
+                        var amountToSubtract = 100;
+                        if (this.ShowResultsTimerTotal > 0) {
+                            amountToSubtract = 100;
+                            if (amountToSubtract > this.ShowResultsTimerTotal)
+                                amountToSubtract = this.ShowResultsTimerTotal;
+
+                            this.ShowResultsTimerTotal -= amountToSubtract;
+                            this.ShowResultsSummedTotal += amountToSubtract;
+                        }
+                        if (this.ShowResultsRingsTotal > 0) {
+                            amountToSubtract = 100;
+                            if (amountToSubtract > this.ShowResultsRingsTotal)
+                                amountToSubtract = this.ShowResultsRingsTotal;
+
+                            this.ShowResultsRingsTotal -= amountToSubtract;
+                            this.ShowResultsSummedTotal += amountToSubtract;
+                        }
+
+                        this.ShowResultsTimer--;
+
+                        if (this.ShowResultsTimerTotal == 0 && this.ShowResultsRingsTotal == 0)
+                            this.DoneSpinning = true;
+                    }
+
+                    if (this.DoneSpinning) {
+                        Sound.Play(this.SFX_ScoreTotal);
+                        var player = Instance.GetNth("Player", 0);
+                        if (player) {
+                            player.GainScore(this.ShowResultsSummedTotal);
+                        }
+                    }
+                }
+            }
+
+            if (this.ShowResultsTimer < 300 + 2) {
+                with ("Player") {
+                    if (this.Ground) {
+                        // Lock player controls
+                        this.InputFullLock = true;
+                        this.DoVictory();
+                    }
+                }
+            }
+
+            // 6.5 seconds + 1
+            if (this.ShowResultsTimer >= 390 + 60) {
+                // this.ResultsScreenStart();
+                var nextact = Instance.GetNth("NextAct", 0);
+                if (nextact) {
+                    var player = Instance.GetNth("Player", 0);
+                    if (player) {
+                        if (GLOBAL_SeamlessActTransition) {
+                            GLOBAL_SeamlessActTransitionFlag = true;
+                            player.ClearGlobals();
+                            Scene.Load(nextact.ScenePath);
+                        }
+                        else {
+                            var fadeMan = Instance.GetNth("FadeManager", 0);
+                            if (fadeMan && !player.FadeStarted) {
+                                fadeMan.StartFade(60, false, false);
+                                fadeMan.FadeSupervisor = player;
+
+                                player.FadeState = 3;
+                                player.NextAct = nextact.ScenePath;
+                                player.FadeStarted = true;
+                            }
+                        }
+                    }
+                }
+
+                this.ShowResults = false;
+                if (pauseMan) {
+                    pauseMan.PauseDisabled = false;
+                }
+            }
+
+            this.ShowResultsTimer++;
+        }
+        if (this.ShowGameOver) {
+            if (this.GameOverTimer >= 480) {
+                var player = Instance.GetNth("Player", 0);
+                if (player) {
+                    var fadeMan = Instance.GetNth("FadeManager", 0);
+                    if (fadeMan && !player.FadeStarted) {
+                        fadeMan.StartFade(60, false, false);
+                        fadeMan.FadeSupervisor = player;
+
+                        player.FadeState = 3;
+                        player.NextAct = "Scenes/SEGA.tmx";
+                        player.FadeStarted = true;
+                    }
+                }
+            }
+            this.GameOverTimer++;
+        }
+    }
+
+    event ResultsScreenStart() {
+        var time = 0;
+        var rings = 0;
+        var player = Instance.GetNth("Player", 0);
+        if (player) {
+            time = player.RealTime;
+            rings = player.Rings;
+            this.ResultsCharacter = player.Character;
+        }
+
+        var titlecard = Instance.GetNth("TitleCard", 0);
+        if (titlecard)
+            this.ResultsAct = titlecard.Act;
+
+        this.ShowMobileButtons = false;
+        this.DoneSpinning = false;
+        this.ShowResults = true;
+        this.ShowResultsTimer = 0;
+        this.ShowResultsRingsTotal = rings * 100;
+        this.ShowResultsSummedTotal = 0;
+
+        Music.Clear();
+        Music.Play(this.BGM_ActClear);
+
+        // this.BGM_Miniboss = Resources.LoadMusic("Music/miniboss.ogg", SCOPE_GAME);
+        // Music.Loop(this.BGM_Miniboss, true, 115056); // 2.609 seconds
+
+        if (time < 60 * 60)
+            this.ShowResultsTimerTotal = 50000;
+        else if (time < 90 * 60)
+            this.ShowResultsTimerTotal = 10000;
+        else if (time < 120 * 60)
+            this.ShowResultsTimerTotal = 5000;
+        else if (time < 150 * 60)
+            this.ShowResultsTimerTotal = 4000;
+        else if (time < 180 * 60)
+            this.ShowResultsTimerTotal = 3000;
+        else if (time < 210 * 60)
+            this.ShowResultsTimerTotal = 1000;
+        else if (time < 599 * 60)
+            this.ShowResultsTimerTotal = 100;
+        else
+            this.ShowResultsTimerTotal = 100000;
+    }
+    event GameOverScreenStart() {
+        this.ShowHUD = false;
+        this.ShowMobileButtons = false;
+        this.ShowGameOver = true;
+        this.GameOverTimer = 0;
+
+        Music.Clear();
+        Music.Play(this.BGM_GameOver);
+    }
+
+    event ClampNormal(v, a, b) {
+        return (Math.Clamp(v, a, b) - a) / (b - a);
+    }
+
+    event DrawNumber(x, y, value, anim) {
+        var spr = this.Sprite;
+        if (value != 0) {
+            while (value) {
+                Draw.Sprite(spr, anim, (value % 10), x, y, false, false);
+                x -= 8.0;
+                value /= 10;
+            }
+        }
+        else {
+            Draw.Sprite(spr, anim, 0, x, y, false, false);
+        }
+    }
+    event DrawNumberPadded(x, y, value, anim, pad) {
+        var spr = this.Sprite;
+        while (pad) {
+            Draw.Sprite(spr, anim, (value % 10), x, y, false, false);
+            x -= 8.0;
+            value /= 10;
+            pad--;
+        }
+    }
+    event DrawNumberPaddedHex(x, y, value, anim, pad) {
+        var spr = this.Sprite;
+        while (pad) {
+            Draw.Sprite(spr, anim, (value % 16), x, y, false, false);
+            x -= 8.0;
+            value /= 16;
+            pad--;
+        }
+    }
+
+    event DrawButtonPart(x, y, scl, frame) {
+        Draw.Save();
+        Draw.Translate(x, y, 0.0);
+        Draw.Scale(scl, scl, 1.0);
+        switch (frame) {
+            case 0:
+                Draw.ImagePart(this.ButtonsImage, 0, 0, 256, 256, -128.0, -128.0);
+                break;
+            // Up
+            case 1:
+                Draw.ImagePart(this.ButtonsImage, 256, 256, 256, 120, -128.0 - 2.0, -128.0 - 1.0);
+                break;
+            // Down
+            case 2:
+                Draw.ImagePart(this.ButtonsImage, 256, 395, 256, 117, -128.0 - 2.0, 11.0 - 1.0);
+                break;
+            // Left
+            case 3:
+                Draw.ImagePart(this.ButtonsImage, 256, 256, 120, 256, -128.0 - 2.0, -128.0 - 1.0);
+                break;
+            // Right
+            case 4:
+                Draw.ImagePart(this.ButtonsImage, 395, 256, 117, 256, 11.0 - 2.0, -128.0 - 1.0);
+                break;
+            // Jump
+            case 5:
+                Draw.ImagePart(this.ButtonsImage, 256, 0, 256, 256, -128.0, -128.0);
+                break;
+            // Jump
+            case 6:
+                Draw.ImagePart(this.ButtonsImage, 16, 328, 168, 168, -84.0, -84.0);
+                break;
+            // Pause
+            case 7:
+                Draw.ImagePart(this.ButtonsImage, 160, 258, 64, 64, -32.0, -32.0);
+                break;
+            // Sonic
+            case 8:
+                Draw.ImagePart(this.ButtonsImage, 93, 258, 64, 64, -32.0, -32.0);
+                break;
+        }
+        Draw.Restore();
+    }
+
+    event RenderHUD() {
+        var player = Instance.GetNth("Player", 0);
+        if (player && !player.Active)
+            player = Instance.GetNth("Player", 1);
+        if (player && !player.Active)
+            player = Instance.GetNth("Player", 2);
+        if (player && player.Active) {
+            var vid_width = View.GetWidth(0);
+            var vid_height = View.GetHeight(0);
+            var spr = this.Sprite;
+
+            var hud_x = 16.0;
+            var hud_y = 12.0;
+
+            var top_anim = 0;
+            var num_anim = 1;
+            var num2_anim = 9;
+            var lifepic_anim = 2;
+            var lifename_anim = 3;
+
+            var score_frame = 0;
+            var time_frame = 1;
+            var rings_frame = 3;
+            var blink = ((this.Ticker >> 3) & 1);
+
+            var drawMobile = this.IsMobile;
+
+            var character = Number.AsInteger(player.Character);
+            var score = player.Score;
+            var rings = player.Rings;
+            var time = player.TimerFrames;
+            var lives = player.Lives;
+            num2_anim = player.CombineRing ? 9 : 1;
+
+            // Format time
+            if (time > 36000 - 1) // 9' 59''99
+                time = 36000 - 1;
+            var cc = ((time * 100) / 60) % 100;
+            var ss = (time / 60) % 60;
+            var mm = ((time / 60) / 60) % 10;
+
+            hud_x -= this.HUDTimer * 150.0;
+            // Score (Text)
+            Draw.Sprite(spr, 0, score_frame, hud_x, hud_y, false, false);
+            // Score (Value)
+            this.DrawNumber(hud_x + 100.0, hud_y + 14.0, score, num_anim);
+
+            if (!drawMobile) {
+                var px, py;
+                px = (Number.AsInteger(player.X) + 0x10000) & 0xFFFF;
+                py = (Number.AsInteger(player.Y) + 0x10000) & 0xFFFF;
+                this.DrawNumberPaddedHex(hud_x + vid_width - 72.0, hud_y + 14.0, px, 1, 4);
+                this.DrawNumberPaddedHex(hud_x + vid_width - 32.0, hud_y + 14.0, py, 1, 4);
+
+                px = (Number.AsInteger(View.GetX(0)) + 0x10000) & 0xFFFF;
+                py = (Number.AsInteger(View.GetY(0)) + 0x10000) & 0xFFFF;
+                this.DrawNumberPaddedHex(hud_x + vid_width - 72.0, hud_y + 30.0, px, 1, 4);
+                this.DrawNumberPaddedHex(hud_x + vid_width - 32.0, hud_y + 30.0, py, 1, 4);
+
+                // player.VerticalCollisionFlag
+
+                this.DrawNumberPaddedHex(hud_x + vid_width - 72.0, hud_y + 46.0, player.AngleMode, 1, 2);
+                // this.DrawNumberPaddedHex(hud_x + vid_width - 32.0, hud_y + 46.0, player.VerticalCollisionFlag, 1, 2);
+
+                // this.DrawNumber(hud_x + vid_width - 32.0, hud_y + 14.0, player.InputLock, num_anim);
+            }
+
+            hud_y += 16.0;
+            // Time (Text)
+            Draw.Sprite(spr, 0, time < 32400 ? time_frame : time_frame + blink, hud_x, hud_y, false, false);
+            // Time (Value)
+            this.DrawNumberPadded(hud_x + 100.0, hud_y + 14.0, cc, num_anim, 2);
+            this.DrawNumberPadded(hud_x + 75.0, hud_y + 14.0, ss, num_anim, 2);
+            this.DrawNumberPadded(hud_x + 50.0, hud_y + 14.0, mm, num_anim, 1);
+            Draw.Sprite(spr, 0, 12, hud_x + 55.0, hud_y - 2.0, false, false);
+
+            hud_y += 16.0;
+            // Rings (Text)
+            Draw.Sprite(spr, 0, rings > 0 ? rings_frame : rings_frame + blink, hud_x, hud_y, false, false);
+            // Rings (Value)
+            this.DrawNumber(hud_x + 100.0, hud_y + 14.0, rings, num2_anim);
+            if (player.CombineRing) {
+                var digits = 0;
+                var value = rings;
+                for (var i = 0; value > 0 || (value == 0 && i == 0); i++) {
+                    value /= 10;
+                    digits++;
+                }
+
+                Draw.Sprite(spr, 9, 10, hud_x + 100.0 - 8.0 * digits - 8.0, hud_y + 14.0, false, false);
+            }
+
+            hud_y = vid_height - 12.0;
+            if (drawMobile) {
+                hud_x = vid_width - 56.0 - 16.0;
+                hud_y = 12.0 + 18.0;
+
+                hud_x += this.HUDTimer * 150.0;
+            }
+
+            // Lives
+            Draw.Sprite(spr, lifepic_anim, character, hud_x, hud_y, false, false);
+            Draw.Sprite(spr, 0, 14, hud_x, hud_y, false, false);
+
+            var value;
+            lives = Number.AsInteger(Math.Min(lives, 99));
+
+            // Calculate number of digits
+            var digits = 0;
+            value = lives;
+            for (var i = 0; value > 0 || (value == 0 && i == 0); i++) {
+                value /= 10;
+                digits++;
+            }
+
+            this.DrawNumber(hud_x + 32.0 + (digits) * 8.0, hud_y, lives, num_anim);
+
+
+
+
+
+            if (this.IsMobile) {
+                var vhh = View.GetHeight(0);
+                // Draw.Save();
+                // Draw.Translate(0.0, 0.0, 0.0);
+                Draw.SetBlendColor(1.0, 1.0, 1.0, this.ShowMobileButtonsTimer);
+                Draw.SetTextureBlend(true);
+                    if (player.InputUp)
+                        Draw.Sprite(this.ButtonsSprite, 0, 1, 64.0, vhh - 64.0, false, false);
+                    else if (player.InputDown)
+                        Draw.Sprite(this.ButtonsSprite, 0, 2, 64.0, vhh - 64.0, false, false);
+                    else if (player.InputLeft)
+                        Draw.Sprite(this.ButtonsSprite, 0, 3, 64.0, vhh - 64.0, true, false);
+                    else if (player.InputRight)
+                        Draw.Sprite(this.ButtonsSprite, 0, 3, 64.0, vhh - 64.0, false, false);
+                    else
+                        Draw.Sprite(this.ButtonsSprite, 0, 0, 64.0, vhh - 64.0, false, false);
+                    Draw.Sprite(this.ButtonsSprite, 0, 4, vid_width - 64.0, vhh - 64.0, false, false);
+                Draw.SetTextureBlend(false);
+                // Draw.Restore();
+            }
+        }
+    }
+    event RenderResults() {
+        if (!this.ShowResults)
+            return;
+
+        var vid_width = View.GetWidth(0);
+        var vid_height = View.GetHeight(0);
+
+        var resultsTimer = this.ShowResultsTimer / 60.0;
+        if (this.ShowResultsTimer > 390)
+            resultsTimer = (60 - (this.ShowResultsTimer - 390)) / 60.0;
+
+        var value;
+        var anim_player_got  = Ease.OutQuad(this.ClampNormal(resultsTimer, 0.0, 0.4)) * vid_width - vid_width;
+        var anim_through_act = Ease.OutQuad(this.ClampNormal(resultsTimer, 0.2, 0.6)) * -vid_width + vid_width;
+        var anim_time_bonus  = Ease.OutQuad(this.ClampNormal(resultsTimer, 0.5, 0.8)) * -vid_width + vid_width;
+        var anim_ring_bonus  = Ease.OutQuad(this.ClampNormal(resultsTimer, 0.6, 0.9)) * -vid_width + vid_width;
+        var anim_total       = Ease.OutQuad(this.ClampNormal(resultsTimer, 0.7, 1.0)) * -vid_width + vid_width;
+
+        // Player Name
+        Draw.Sprite(this.ResultsSprite, 3, this.ResultsCharacter, vid_width / 2.0 + anim_player_got, 64.0, false, false);
+        // Got
+        Draw.Sprite(this.ResultsSprite, 4, 0, vid_width / 2.0 + anim_player_got, 64.0, false, false);
+        // Through
+        Draw.Sprite(this.ResultsSprite, 4, 1, vid_width / 2.0 + anim_through_act, 88.0, false, false);
+        // Act ?
+        Draw.Sprite(this.ResultsSprite, 5, this.ResultsAct - 1, vid_width / 2.0 + anim_through_act, 88.0, false, false);
+
+        // Time Bonus
+        Draw.Sprite(this.ResultsSprite, 0, 1, vid_width / 2.0 - 128 + anim_time_bonus, 128, false, false);
+        Draw.Sprite(this.ResultsSprite, 0, 8, vid_width / 2.0 - 128 + 40 + anim_time_bonus, 128, false, false);
+
+        // Ring Bonus
+        Draw.Sprite(this.ResultsSprite, 0, 5, vid_width / 2.0 - 128 + anim_ring_bonus, 144, false, false);
+        Draw.Sprite(this.ResultsSprite, 0, 8, vid_width / 2.0 - 128 + 40 + anim_ring_bonus, 144, false, false);
+
+        // Total
+        Draw.Sprite(this.ResultsSprite, 0, 9, vid_width / 2.0 - 112 + anim_total, 176, false, false);
+
+        // Time Bonus Value
+        value = this.ShowResultsTimerTotal;
+        for (var i = 0; i < 7 && (value > 0 || (value == 0 && i == 0)); i++) {
+            Draw.Sprite(this.ResultsSprite, 1, value % 10, vid_width / 2.0 + 112 - i * 8 - 4 + anim_time_bonus, 128 + 14, false, false);
+            value /= 10;
+        }
+
+        // Ring Bonus Value
+        value = this.ShowResultsRingsTotal;
+        for (var i = 0; i < 7 && (value > 0 || (value == 0 && i == 0)); i++) {
+            Draw.Sprite(this.ResultsSprite, 1, value % 10, vid_width / 2.0 + 112 - i * 8 - 4 + anim_ring_bonus, 144 + 14, false, false);
+            value /= 10;
+        }
+
+        // Total Value
+        value = this.ShowResultsSummedTotal;
+        for (var i = 0; i < 7 && (value > 0 || (value == 0 && i == 0)); i++) {
+            Draw.Sprite(this.ResultsSprite, 1, value % 10, vid_width / 2.0 + 112 - i * 8 - 4 + anim_total, 176 + 14, false, false);
+            value /= 10;
+        }
+    }
+    event RenderGameOver() {
+        if (!this.ShowGameOver)
+            return;
+
+        var vid_width = View.GetWidth(0);
+        var vid_height = View.GetHeight(0);
+        var resultsTimer = this.GameOverTimer / 60.0;
+
+        var anim_gameover = Ease.OutQuad(this.ClampNormal(resultsTimer, 0.0, 0.2)) * vid_width - vid_width;
+
+        Draw.SetBlendColor(0.0, 0.0, 0.0, 1.0);
+        Draw.Rectangle(vid_width / 2.0 - 20.0 * 9.0 / 2.0 - 12 + anim_gameover, vid_height / 2.0, 20 * 9 + 8, 14.0);
+
+        var lx;
+        for (var i = 0; i < 8; i++) {
+            anim_gameover = Ease.OutQuad(this.ClampNormal(resultsTimer, i * 0.2 + 0.4, i * 0.2 + 0.8)) * -vid_width + vid_width;
+            lx = vid_width / 2.0 - 20.0 * 9.0 / 2.0 + anim_gameover + i * 20;
+
+            if (i >= 4)
+                lx += 20.0;
+
+            Draw.Sprite(this.ResultsSprite, 6, i, lx, vid_height / 2.0, false, false);
+        }
+    }
+
+    event Render() {
+        if (View.GetCurrent() == 0) {
+            var viewH = Number.AsInteger(View.GetHeight(0));
+            Palette.SetPaletteIndexLines(0, 0, viewH);
+
+            Draw.Save();
+            Draw.Translate(Math.Floor(CameraX), Math.Floor(CameraY), 0.0);
+                this.RenderHUD();
+                this.RenderResults();
+                this.RenderGameOver();
+            Draw.Restore();
+        }
+
+        if (View.GetCurrent() == 7) {
+            Draw.Save();
+            Draw.Translate(Math.Floor(View.GetX(7)), Math.Floor(View.GetY(7)), 0.0);
+
+            var drawMobile = this.IsMobile;
+            var player = Instance.GetNth("Player", 0);
+            if (player && !player.Active)
+                player = Instance.GetNth("Player", 1);
+            if (player && !player.Active)
+                player = Instance.GetNth("Player", 2);
+            if (drawMobile && !Scene.IsPaused()) {
+                var scrn_w = 720.0 * View.GetWidth(7) / View.GetHeight(7);
+                var scrn_h = 720.0;
+                var scrn_scl = View.GetHeight(7) / scrn_h;
+                var scrn_yah = 0.75;
+                Draw.Save();
+                Draw.Translate(0.0, 0.0, 0.0);
+                Draw.Scale(scrn_scl, scrn_scl, 1.0);
+                Draw.SetBlendColor(1.0, 1.0, 1.0, this.ShowMobileButtonsTimer * 0.85);
+                Draw.SetTextureBlend(true);
+                    // Left DPAD
+                    this.DrawButtonPart(170.0, scrn_h - 170.0, scrn_yah, 0);
+                    if (player.InputUp)
+                        this.DrawButtonPart(170.0, scrn_h - 170.0, scrn_yah, 1);
+                    else if (player.InputDown)
+                        this.DrawButtonPart(170.0, scrn_h - 170.0, scrn_yah, 2);
+                    else if (player.InputLeft)
+                        this.DrawButtonPart(170.0, scrn_h - 170.0, scrn_yah, 3);
+                    else if (player.InputRight)
+                        this.DrawButtonPart(170.0, scrn_h - 170.0, scrn_yah, 4);
+
+                    // Right Button Back
+                    this.DrawButtonPart(scrn_w - 170.0, scrn_h - 170.0, scrn_yah * 0.9, 5);
+
+                    // DPAD Button
+                    this.DrawButtonPart(170.0 + scrn_yah * this.JoyButtonX, scrn_h - 170.0 + scrn_yah * this.JoyButtonY, scrn_yah, 6);
+
+                    // Jump Button
+                    var scale = 1.0;
+                    if (player.InputJump)
+                        scale = 0.9;
+                    this.DrawButtonPart(scrn_w - 170.0, scrn_h - 170.0, scrn_yah * scale, 6);
+
+                    // Pause Button
+                    var space = ((View.GetHeight(0) * scrn_w / scrn_h) - View.GetWidth(0)) * 0.5;
+
+                    scrn_scl = View.GetHeight(0) / scrn_h;
+                    Draw.SetBlendColor(1.0, 1.0, 1.0, this.ShowMobileButtonsTimer);
+                    this.DrawButtonPart(scrn_w - (86.0 + space) / scrn_scl, (21.0) / scrn_scl, 0.8, 7);
+                Draw.SetTextureBlend(false);
+                Draw.SetBlendColor(1.0, 1.0, 1.0, 1.0);
+                Draw.Restore();
+            }
+
+            Draw.Restore();
+        }
+    }
+}
