@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gameconfig version="0.1">
     <!-- <startscene>Stages/Logos/Scene1.bin</startscene> -->
+    <startscene>Stages/Title/Scene1.bin</startscene>
     <!-- <startscene>Stages/LSelect/Scene1.bin</startscene> -->
-    <!-- <startscene>Stages/Title/Scene1.bin</startscene> -->
     <!-- <startscene>Stages/MSZ/Scene2.bin</startscene> -->
     <!-- <startscene>Stages/HCZ/Scene2.bin</startscene> -->
     <!-- <startscene>Stages/GHZ/Scene1.bin</startscene> -->
     <!-- <startscene>Stages/GHZ/Scene2.bin</startscene> -->
     <!-- <startscene>Stages/MMZ/Scene1.bin</startscene> -->
-    <startscene>Stages/LRZ1/Scene1.bin</startscene>
+    <!-- <startscene>Stages/LRZ1/Scene1.bin</startscene> -->
     <!-- <startscene>Stages/SSZ1/Scene1.bin</startscene> -->
     <!-- <startscene>Stages/PSZ2/Scene2.bin</startscene> -->
 </gameconfig>

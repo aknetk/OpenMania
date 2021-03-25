@@ -1,0 +1,132 @@
+var CPZSetup_DeformBG = [
+    -2,
+    -2,
+    -2,
+     0,
+    -2,
+     0,
+    -4,
+    -2,
+     0,
+    -4,
+    -4,
+    -1,
+     0,
+     0,
+    -3,
+    -4,
+    -4,
+    -1,
+    -4,
+    -4,
+    -3,
+    -4,
+    -1,
+     0,
+     0,
+     0,
+    -3,
+    -1,
+    -1,
+    -1,
+    -2,
+     0,
+];
+var CPZSetup_PaletteColorIndex_Red = 0;
+var CPZSetup_PaletteColorIndex_RGB = 0;
+var CPZSetup_PaletteColorIndex_Blue1 = 0;
+var CPZSetup_PaletteColorIndex_Blue2 = 1;
+var CPZSetup_PaletteColorIndex_Blue3 = 2;
+var CPZSetup_IMG_Objects = 0;
+var CPZSetup_DeformOffsetA = 0.0;
+var CPZSetup_AniTiles_Index = 0;
+
+event CPZSetup_Load() {
+    CPZSetup_AniTiles_Index = 0;
+    CPZSetup_PaletteColorIndex_Red = 0;
+    CPZSetup_PaletteColorIndex_RGB = 0;
+
+    Water_PaletteIndex = 2;
+    CPZSetup_PaletteColorIndex_Blue1 = 0;
+    CPZSetup_PaletteColorIndex_Blue2 = 1;
+    CPZSetup_PaletteColorIndex_Blue3 = 2;
+    Instance.Create("CPZSetup", 0.0, 0.0, 0);
+    Instance.Create("CPZSetup", 0.0, 0.0, 1);
+
+    var layerIndex_Background = 0;
+    for (var i = 0, iM, dvB; i < 0x400; i++) {
+        iM = i & 0x1F;
+        dvB = CPZSetup_DeformBG[iM];
+        Scene.SetLayerTileDeforms(layerIndex_Background, i, dvB, 0.0);
+    }
+    Scene.SetLayerTileDeformSplitLine(layerIndex_Background, CPZSetup_DeformOffsetA++);
+
+    if (!Zone_IsAct2) {
+        Palette.SetColor(0, 0xFF, 0xF0F0F0);
+
+        Palette.SetColor(2, 0xFF, Palette.GetColor(2, 0x89));
+    }
+    else {
+
+    }
+}
+event CPZSetup_GlobalUpdate() {
+    // Layer Deforms
+    if (!(Scene_Frame & 7))
+        Scene.SetLayerTileDeformSplitLine(0, CPZSetup_DeformOffsetA++);
+
+    // AniTiles
+    // if (!(Scene_Frame & 3))
+    //     TileInfo.SetTile
+
+    // Palette Cycling
+    if (!(Scene_Frame & 7)) {
+        // Red
+        CPZSetup_PaletteColorIndex_Red = (CPZSetup_PaletteColorIndex_Red + 1) & 0xF;
+        Palette.SetColor(0, 0x9F, Palette.GetColor(3, CPZSetup_PaletteColorIndex_Red));
+
+        // RGB
+        CPZSetup_PaletteColorIndex_RGB = (CPZSetup_PaletteColorIndex_RGB + 1) % 21;
+        Palette.SetColor(0, 0x9E, Palette.GetColor(3, CPZSetup_PaletteColorIndex_RGB + 0x10));
+
+        // Blue 1
+        CPZSetup_PaletteColorIndex_Blue1 = (CPZSetup_PaletteColorIndex_Blue1 + 3) % 27;
+        Palette.SetColor(0, 0x8D, Palette.GetColor(3, CPZSetup_PaletteColorIndex_Blue1 + 0x30));
+
+        // Blue 2
+        CPZSetup_PaletteColorIndex_Blue2 = (CPZSetup_PaletteColorIndex_Blue2 + 3) % 27;
+        Palette.SetColor(0, 0x8E, Palette.GetColor(3, CPZSetup_PaletteColorIndex_Blue2 + 0x30));
+
+        // Blue 3
+        CPZSetup_PaletteColorIndex_Blue3 = (CPZSetup_PaletteColorIndex_Blue3 + 3) % 27;
+        Palette.SetColor(0, 0x8F, Palette.GetColor(3, CPZSetup_PaletteColorIndex_Blue3 + 0x30));
+    }
+}
+
+class CPZSetup {
+    Create(flag) {
+        this.Status = null;
+        switch (flag) {
+            case 0:
+                this.Priority = 0;
+                this.Status = this.CPZSetup_DrawGroupFunction_SetWaterPaletteLinesAndDeformLine;
+                break;
+            case 1:
+                this.Priority = DrawGroup_HUD - 1;
+                this.Status = this.CPZSetup_DrawGroupFunction_ResetPaletteLines;
+                break;
+        }
+    }
+    CPZSetup_DrawGroupFunction_SetWaterPaletteLinesAndDeformLine() {
+        var viewH = Number.AsInteger(View.GetHeight(0));
+        Palette.SetPaletteIndexLines(Water_PaletteIndex, Number.AsInteger(Water_CurrentWaterLevel - View.GetY(0)), viewH);
+    }
+    CPZSetup_DrawGroupFunction_ResetPaletteLines() {
+        var viewH = Number.AsInteger(View.GetHeight(0));
+        Palette.SetPaletteIndexLines(0, 0, viewH);
+    }
+    Render() {
+        if (this.Status)
+            this.Status();
+    }
+}

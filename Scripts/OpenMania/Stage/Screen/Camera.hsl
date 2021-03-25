@@ -218,8 +218,7 @@ class Camera {
         this.ClampedShakenX = finalX + widthHalf;
         this.ClampedShakenY = finalY + heightHalf;
 
-        CameraX = finalX;
-        CameraY = finalY;
+        View.SetPosition(viewIndex, finalX, finalY);
     }
 
     event HandleHoriMove() {
@@ -278,7 +277,12 @@ class Camera {
         }
     }
 
-    event SetShake(x, y) {
+    /**
+     * SetShake - makes the camera shake
+     * @param {Integer} x - X value
+     * @param {Integer} y - Y value
+     */
+    SetShake(x, y) {
         this.ShakeX = x;
         this.ShakeY = y;
     }

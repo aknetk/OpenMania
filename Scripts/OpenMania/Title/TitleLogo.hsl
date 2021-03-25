@@ -1,0 +1,155 @@
+var TitleLogo_SFX_Plus;
+var TitleLogo_SPR_Logo;
+var TitleLogo_SPR_PlusLogo;
+event TitleLogo_Load() {
+    TitleLogo_SPR_Logo = Resources.LoadSprite("Sprites/Title/Logo.bin", SCOPE_SCENE);
+    if (global.HasDLC)
+        TitleLogo_SPR_PlusLogo = Resources.LoadSprite("Sprites/Title/PlusLogo.bin", SCOPE_SCENE);
+    TitleLogo_SFX_Plus = Resources.LoadSound("SoundFX/Stage/Plus.wav", SCOPE_SCENE);
+}
+
+class TitleLogo {
+    Setup() {
+        this.Type = 0;
+        this.ShowLogos = false;
+        this.GenericTimer = 0;
+        this.StartY = this.Y;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+    }
+    Create(flag) {
+        this.Setup();
+
+        this.DoUpdate = false;
+        this.ViewRenderFlag = 0;
+
+        this.Priority = 4;
+        this.Sprite = Resources.LoadSprite("Sprites/Title/Logo.bin", SCOPE_SCENE);
+        this.SetAnimation(0, 0);
+
+        this.Status = null;
+        this.RenderStatus = null;
+        this.AutoAnimate = false;
+
+        switch (this.Type) {
+            case 0:
+                this.SetAnimation(0, 0);
+                break;
+            case 1:
+                this.SetAnimation(1, 0);
+                this.Status = this.TitleLogo_Status_Ribbon;
+                break;
+            case 6:
+                this.Status = this.TitleLogo_Status_PressButton;
+                break;
+            case 7:
+                if (global.HasDLC) {
+                    this.Sprite = Resources.LoadSprite("Sprites/Title/PlusLogo.bin", SCOPE_SCENE);
+                    this.SetAnimation(0, 0);
+                    this.StartY = this.Y;
+                }
+                else
+                    this.Active = false;
+                break;
+            default:
+                this.SetAnimation(this.Type + 2, 0);
+                break;
+        }
+
+        switch (this.Type) {
+            case 0:
+            case 1:
+            case 2:
+            case 4:
+            case 5:
+            case 6:
+            case 7:
+                this.DoUpdate = false;
+                this.ViewRenderFlag = 0;
+                break;
+            default:
+                this.DoUpdate = true;
+                this.ViewRenderFlag = 1;
+                break;
+        }
+
+    }
+    Update() {
+        if (!this.DoUpdate)
+            return;
+
+        if (this.Status)
+            this.Status();
+    }
+    TitleLogo_SetPressButtonLocalization() {
+        this.SetAnimation(8, 0);
+    }
+    TitleLogo_Status_Ribbon() {
+        this.Animate();
+    }
+    TitleLogo_Status_PressButton() {
+        this.GenericTimer++;
+    }
+    TitleLogo_Status_Plus() {
+        this.Animate();
+
+        this.Y += this.YSpeed;
+        this.YSpeed += 0.21875;
+
+
+        if (this.YSpeed > 0) {
+            if (this.Y >= this.StartY) {
+                this.Y = this.StartY;
+                this.YSpeed *= -0.5;
+
+                this.GenericTimer--;
+                if (this.GenericTimer < 0) {
+                    this.GenericTimer = 0;
+                    if (this.Type == 7)
+                        this.Status = this.TitleLogo_Status_WaitForLogoShine;
+                    else if (this.Type == 1)
+                        this.Status = this.TitleLogo_Status_Ribbon;
+                    else
+                        this.Status = null;
+                }
+            }
+        }
+    }
+    TitleLogo_Status_WaitForLogoShine() {
+
+    }
+    TitleLogo_Status_PlusLogoShine() {
+
+    }
+
+    Render() {
+        var sprite = this.Sprite,
+            anim = this.CurrentAnimation,
+            frame = this.CurrentFrame,
+            x = Math.Floor(this.X),
+            y = Math.Floor(this.Y);
+        Draw.ClearClip();
+        switch (this.Type) {
+            case 0:
+                Draw.Sprite(sprite, anim, frame, x, y, false, false);
+                Draw.Sprite(sprite, anim, frame, x, y, true, false);
+                break;
+            case 1:
+                Draw.Sprite(sprite, anim, frame, x, y, false, false);
+                Draw.Sprite(sprite, anim, frame, x, y, true, false);
+                if (this.ShowLogos)
+                    Draw.Sprite(sprite, 3, 0, x, y, false, false);
+                break;
+            case 6:
+                if (!(this.GenericTimer & 0x10))
+                    Draw.Sprite(sprite, anim, frame, x, y, false, false);
+                break;
+            case 7:
+                Draw.Sprite(sprite, anim, frame, x, y, false, false);
+                break;
+            default:
+                Draw.Sprite(sprite, anim, frame, x, y, false, false);
+                break;
+        }
+    }
+}

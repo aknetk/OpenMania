@@ -1,0 +1,259 @@
+var TitleSetup_SPR_Electricity = 0;
+var TitleSetup_IntroPlayOriginal = 0;
+var TitleSetup_SPR_Electricity = 0;
+var TitleSetup_SFX_MenuBleep = 0;
+var TitleSetup_SFX_MenuAccept = 0;
+var TitleSetup_SFX_Ring = 0;
+var TitleSetup_CheatInputs = [ 0, 0, 0, 0, 0, 0, 0, 0];
+event TitleSetup_Load() {
+    TitleSetup_SPR_Electricity = Resources.LoadSprite("Sprites/Title/Electricity.bin", SCOPE_SCENE);
+
+    TitleSetup_SFX_MenuBleep = Resources.LoadSound("SoundFX/Global/MenuBleep.wav", SCOPE_SCENE);
+    TitleSetup_SFX_MenuAccept = Resources.LoadSound("SoundFX/Global/MenuAccept.wav", SCOPE_SCENE);
+    TitleSetup_SFX_Ring = Resources.LoadSound("SoundFX/Global/Ring.wav", SCOPE_SCENE);
+
+    Instance.Create("TitleSetup", 0, 0, 0);
+}
+
+class TitleSetup {
+    Create(flag) {
+        this.Sprite = TitleSetup_SPR_Electricity;
+        this.SetAnimation(0, 0);
+
+        // this.UpdatePriority = UpdatePriority_Always;
+        this.Color = 0;
+        this.Priority = 12;
+        this.SpriteTransformFlag = 1;
+        this.Status = this.TitleSetup_Status_Fade;
+        this.RenderStatus = this.TitleSetup_RenderStatus_Fade;
+        this.FadeValue = 0x400;
+        this.PosElectricityX = 0x100;
+        this.PosElectricityY = 0x6C;
+        this.AutoAnimate = false;
+
+        Music.Clear();
+    }
+
+    TitleSetup_CheckExtrasCheat() {
+
+    }
+
+    Update() {
+        View.SetX(0, (512.0 - View.GetWidth(0)) * 0.5);
+
+        if (this.Status)
+            this.Status();
+    }
+    TitleSetup_Status_Fade() {
+        if (this.FadeValue <= -0x400) {
+            this.FadeValue = 0;
+            this.Status = this.TitleSetup_Status_AnimateElectricity;
+            this.RenderStatus = this.TitleSetup_RenderStatus_AnimateElectricity;
+
+            var music = Instance.GetNth("MusicObject", 0);
+            if (music) music.PlayMus();
+        }
+        else {
+            this.FadeValue -= 16;
+        }
+    }
+    TitleSetup_Status_AnimateElectricity() {
+        this.Animate();
+
+        if (this.CurrentFrame == 31) {
+            var titleLogo;
+            with ("TitleLogo") {
+                titleLogo = this;
+                switch (titleLogo.Type) {
+                    case 0:
+                    case 1:
+                        titleLogo.DoUpdate = true;
+                        titleLogo.ViewRenderFlag = 1;
+                        break;
+                    case 3:
+                        titleLogo.Active = false;
+                        titleLogo.ViewRenderFlag = 0;
+                        break;
+                }
+            }
+            this.Status = this.TitleSetup_Status_FinishAnimateElectricity;
+        }
+    }
+    TitleSetup_Status_FinishAnimateElectricity() {
+        this.Animate();
+
+        if (this.CurrentFrame == this.CurrentFrameCount - 1) {
+            var titleLogo;
+            with ("TitleLogo") {
+                titleLogo = this;
+                switch (titleLogo.Type) {
+                    case 6:
+                        break;
+                    case 7:
+                        titleLogo.Y -= 32.0;
+                        break;
+                    case 1:
+                        titleLogo.ShowLogos = true;
+                        titleLogo.SetAnimation(2, 0);
+                    default:
+                        titleLogo.DoUpdate = true;
+                        titleLogo.ViewRenderFlag = 1;
+                        break;
+                }
+            }
+
+            var titleSonic;
+            with ("TitleSonic") {
+                titleSonic = this;
+                titleSonic.DoUpdate = true;
+                titleSonic.ViewRenderFlag = 1;
+            }
+
+            TitleBG_SetupLayersMode7_And_ShowSprites();
+
+            this.FadeValue = 0x300;
+            this.Status = this.TitleSetup_Status_WhiteFade;
+            this.RenderStatus = this.TitleSetup_RenderStatus_WhiteFade;
+        }
+    }
+    TitleSetup_Status_WhiteFade() {
+        this.TitleSetup_CheckExtrasCheat();
+
+        if (this.FadeValue <= 0) {
+            this.RenderStatus = null;
+            if (global.HasDLC)
+                this.Status = this.TitleSetup_Status_HandleDLC;
+            else
+                this.Status = this.TitleSetup_Status_HandleNoDLC;
+        }
+        else {
+            this.FadeValue -= 16;
+        }
+    }
+    TitleSetup_Status_HandleNoDLC() {
+        if (this.FadeValue < 120)
+            this.TitleSetup_CheckExtrasCheat();
+
+        this.FadeValue++;
+        if (this.FadeValue == 120) {
+            var titleLogo;
+            with ("TitleLogo") {
+                titleLogo = this;
+                switch (titleLogo.Type) {
+                    case 6:
+                        titleLogo.DoUpdate = true;
+                        titleLogo.ViewRenderFlag = 1;
+                        titleLogo.TitleLogo_SetPressButtonLocalization();
+                        break;
+                }
+            }
+            this.FadeValue = 0;
+            this.Status = this.TitleSetup_Status_WaitForPlayerInput;
+        }
+    }
+    TitleSetup_Status_HandleDLC() {
+        if (this.FadeValue < 120)
+            this.TitleSetup_CheckExtrasCheat();
+
+        this.FadeValue++;
+        if (this.FadeValue == 120) {
+            var titleLogo;
+            with ("TitleLogo") {
+                titleLogo = this;
+                switch (titleLogo.Type) {
+                    case 1:
+                    case 2:
+                        titleLogo.StartY = titleLogo.Y - 7.0;
+                        titleLogo.YSpeed = -3.0;
+                        titleLogo.GenericTimer = 2;
+                        titleLogo.Status = titleLogo.TitleLogo_Status_Plus;
+                        Sound.Play(TitleLogo_SFX_Plus);
+                        break;
+                    case 6:
+                        titleLogo.Y += 8.0;
+                        break;
+                    case 7:
+                        titleLogo.DoUpdate = true;
+                        titleLogo.ViewRenderFlag = 1;
+                        titleLogo.GenericTimer = 2;
+                        titleLogo.Y -= 4.0;
+                        titleLogo.Status = titleLogo.TitleLogo_Status_Plus;
+                        break;
+                }
+            }
+
+            this.FadeValue = 0;
+            this.Status = this.TitleSetup_Status_HandleNoDLC;
+        }
+    }
+    TitleSetup_Status_WaitForPlayerInput() {
+        var input = Instance.GetNth("InputManager", 0);
+        if (input) {
+            if (Touch.IsPressed(0) || input.AnyPressed) {
+                Sound.Play(TitleSetup_SFX_MenuAccept);
+                Music.Clear();
+                this.FadeValue = 0;
+                this.Status = this.TitleSetup_Status_FadeToMenu;
+                this.RenderStatus = this.TitleSetup_RenderStatus_Fade;
+            }
+        }
+    }
+    TitleSetup_Status_FadeToMenu() {
+        if (this.FadeValue >= 1024)
+            Scene.Load("Stages/LSelect/Scene1.bin");
+        else
+            this.FadeValue += 8;
+    }
+    Render() {
+        if (this.RenderStatus)
+            this.RenderStatus();
+    }
+    TitleSetup_RenderStatus_Fade() {
+        var vx = View.GetX(0),
+            vw = View.GetWidth(0),
+            vh = View.GetHeight(0);
+        var tr = this.FadeValue,
+            tg = this.FadeValue - 128,
+            tb = this.FadeValue - 256;
+
+        if (tr < 0x00) tr = 0x00;
+        else if (tr > 0xFF) tr = 0xFF;
+        if (tg < 0x00) tg = 0x00;
+        else if (tg > 0xFF) tg = 0xFF;
+        if (tb < 0x00) tb = 0x00;
+        else if (tb > 0xFF) tb = 0xFF;
+
+        tr ^= 0xFF;
+        tg ^= 0xFF;
+        tb ^= 0xFF;
+
+        Draw.SetBlendMode(BlendMode_SUBTRACT);
+        Draw.SetBlendColor(tr / 255.0, tg / 255.0, tb / 255.0, 1.0);
+        Draw.Rectangle(vx, 0.0, vw, vh);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+    TitleSetup_RenderStatus_AnimateElectricity() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, this.PosElectricityX, this.PosElectricityY, false, false);
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, this.PosElectricityX, this.PosElectricityY, true, false);
+    }
+    TitleSetup_RenderStatus_WhiteFade() {
+        var vx = View.GetX(0),
+            vw = View.GetWidth(0),
+            vh = View.GetHeight(0);
+        var tr = this.FadeValue,
+            tg = this.FadeValue - 128,
+            tb = this.FadeValue - 256;
+
+        if (tr < 0x00) tr = 0x00;
+        else if (tr > 0xFF) tr = 0xFF;
+        if (tg < 0x00) tg = 0x00;
+        else if (tg > 0xFF) tg = 0xFF;
+        if (tb < 0x00) tb = 0x00;
+        else if (tb > 0xFF) tb = 0xFF;
+
+        Draw.SetBlendMode(BlendMode_ADD);
+        Draw.SetBlendColor(tr / 255.0, tg / 255.0, tb / 255.0, 1.0);
+        Draw.Rectangle(vx, 0.0, vw, vh);
+        Draw.SetBlendMode(BlendMode_NORMAL);
+    }
+}

@@ -91,7 +91,7 @@ class PauseManager {
         if (!input)
             return;
 
-        if (input.PausePressed) {
+        if (input.PausePressed && global.CanPause) {
             if (!this.GamePaused)
                 this.StartPause();
             else

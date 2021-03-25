@@ -11,6 +11,19 @@ var GameModes_Encore = 1;
 var GameModes_TimeAttack = 2;
 var GameModes_Competition = 3;
 
+var Zone_IsAct2 = false;
+event Zone_Load() {
+    var sceneName = Scene.GetName();
+    var start = String.IndexOf(sceneName, "/");
+    var end = String.LastIndexOf(sceneName, "/");
+    if (start < 0 || end < 0 || start == end)
+        return;
+
+    if (String.Contains(sceneName, "Scene2.bin") ||
+        String.Contains(sceneName, "2/Scene"))
+        Zone_IsAct2 = true;
+}
+
 class Zone {
     event Create() {
         var sceneWidth = Scene.GetWidth() * 16.0;

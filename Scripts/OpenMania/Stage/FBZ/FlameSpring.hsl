@@ -26,9 +26,9 @@ class FlameSpring {
             this.PlaneFilter = this.PropertyGet("planeFilter");
 
         // Initial Status
-        this.Type = this.Type % 6;
+        // this.Type = this.Type % 6;
 
-        this.SetAnimation(this.Type, 0);
+        this.SetAnimation(1, 0);
         this.AnimationSpeedMult = 0.0;
         this.UpdateRegionW =
         this.UpdateRegionH = 64.0;
@@ -43,8 +43,8 @@ class FlameSpring {
         else
             this.Priority = DrawGroup_FGLow_Low;
 
-        var typeIsRed = this.Type & 1;
-        var typeDirection = this.Type >> 1;
+        var typeIsRed = 1;
+        var typeDirection = 0;
         var flipFlag = this.FlipFlag;
 
         // Determine

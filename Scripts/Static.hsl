@@ -41,6 +41,14 @@ class Static {
         global.CurrentLives = 3;
         global.CurrentScore = 0;
 
+        global.HasDLC = true;
+
+        global.SaveData = {
+            "SelectedCharacter": global.SelectedCharacter,
+            "TimeAttack": {},
+        };
+        this.SaveDataLoad();
+
         Palette.EnablePaletteUsage(true);
 
         this.InitGame();
@@ -49,9 +57,9 @@ class Static {
     }
 
     SetupManiaGlobals() {
-        global.GameMode = 0; // Main
+        // global.GameMode = 0; // Main
         // global.GameMode = 1; // Encore
-        // global.GameMode = 2; // TimeAttack
+        global.GameMode = 2; // TimeAttack
         // global.GameMode = 3; // Competition
         global.PlayerID = 0;
         global.SpecialCleared = 0;
@@ -100,6 +108,38 @@ class Static {
         global.RecallFlags = 0;
         global.TempFlags = 0;
         global.TimerActive = true;
+
+        global.CanPause = false;
+    }
+    SaveDataLoad() {
+        var saveData = File.ReadAllText("save:SaveData.json");
+        if (saveData) {
+            saveData = JSON.Parse(saveData);
+            if (saveData) {
+                global.SaveData = saveData;
+            }
+            else {
+                // print "Could not read save data: " + saveData;
+            }
+        }
+        else {
+            // print "No save data found!";
+        }
+    }
+    SaveDataSave() {
+        var saveData = global.SaveData;
+        if (saveData) {
+            saveData = JSON.ToString(saveData, false);
+            if (saveData) {
+                File.WriteAllText("save:SaveData.json", saveData);
+            }
+            else {
+                // print "Could convert save data to JSON: " + saveData;
+            }
+        }
+        else {
+            // print "No save data: " + saveData;
+        }
     }
 
     // Custom:

@@ -36,7 +36,7 @@ class HCZSetup {
 
         var viewH = Number.AsInteger(View.GetHeight(0));
         Palette.SetPaletteIndexLines(0, 0, viewH);
-        Palette.SetPaletteIndexLines(1, Number.AsInteger(this.Water.Y - View.GetY(0)), viewH);
+        Palette.SetPaletteIndexLines(1, Number.AsInteger(Water_CurrentWaterLevel - View.GetY(0)), viewH);
 
         // if (!(Scene_Frame & 3)) {
         //     Palette.RotateColorsRight(0, 0xF0, 4);

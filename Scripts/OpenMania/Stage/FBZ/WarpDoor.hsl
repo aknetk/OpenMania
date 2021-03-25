@@ -1,4 +1,7 @@
-var WarpDoor_DoorArray = [];
+var WarpDoor_DoorArray = null;
+event WarpDoor_Load() {
+    WarpDoor_DoorArray = Array.Create(256, null);
+}
 
 class WarpDoor {
     event Create(flag) {
@@ -6,7 +9,7 @@ class WarpDoor {
             this.Active = false;
             return;
         }
-        
+
         this.Go = 0;
         this.Width = 2;
         this.Height = 4;
@@ -15,8 +18,8 @@ class WarpDoor {
         this.DefinesBounds = 0;
         this.XBoundaryPosL = 0;
         this.XBoundaryPosR = 0;
-        this.XBoundaryPosT = 0;
-        this.XBoundaryPosB = 0;
+        this.YBoundaryPosT = 0;
+        this.YBoundaryPosB = 0;
         this.Effect = 0;
         this.WarpToCenter = 0;
         this.ForcePlayerState = 0;
@@ -37,15 +40,21 @@ class WarpDoor {
         if (this.PropertyExists("xBoundaryPosR"))
             this.XBoundaryPosR = this.PropertyGet("xBoundaryPosR");
         if (this.PropertyExists("yBoundaryPosT"))
-            this.XBoundaryPosT = this.PropertyGet("yBoundaryPosT");
+            this.YBoundaryPosT = this.PropertyGet("yBoundaryPosT");
         if (this.PropertyExists("yBoundaryPosB"))
-            this.XBoundaryPosB = this.PropertyGet("yBoundaryPosB");
+            this.YBoundaryPosB = this.PropertyGet("yBoundaryPosB");
         if (this.PropertyExists("effect"))
             this.Effect = this.PropertyGet("effect");
         if (this.PropertyExists("warpToCenter"))
             this.WarpToCenter = this.PropertyGet("warpToCenter");
         if (this.PropertyExists("forcePlayerState"))
             this.ForcePlayerState = this.PropertyGet("forcePlayerState");
+        this.Unk_0xA4 = 0;
+        this.Unk_0xA8 = 0;
+        this.Unk_0xAC = 0;
+        this.Unk_0xAE = 0;
+        this.FadeTimer = 0;
+        this.Unk_0xB4 = 0;
 
         this.Sprite = Resources.LoadSprite("Sprites/Global/PlaneSwitch.bin", SCOPE_GAME);
         this.SFX_WarpDoor = Resources.LoadSound("SoundFX/FBZ/WarpDoor.wav", SCOPE_SCENE);
@@ -67,6 +76,8 @@ class WarpDoor {
         this.UpdateRegionW =
         this.UpdateRegionH = 256.0;
         this.Priority = DrawGroup_FGHigh_High;
+
+        WarpDoor_DoorArray[this.Tag - 1] = this;
     }
 
     event WarpDoor_OnLoad_SetupBounds() {
@@ -74,18 +85,100 @@ class WarpDoor {
     }
 
     event WarpDoor_OnCreate_SetupHitboxes() {
+        if (!this.Width)
+            this.Width = 2;
+        if (!this.Height)
+            this.Height = 4;
         this.HitboxW = this.Width * 16.0;
         this.HitboxH = this.Height * 16.0;
+    }
+    WarpDoor_SnapPlayerCamerasToPlayers() {
+        var player, camera, door = this;
+        with ("Player") {
+            player = this;
+            camera = player.CameraPtr;
+            if (camera) {
+                camera.Status = camera.Camera_StatusNormal;
+                camera.X = player.X;
+                camera.Y = player.Y;
+                camera.MinFollowDistanceX = 0.0;
+                camera.SetOnJump = 0.0;
+            }
+        }
     }
 
     event UpdateEarly() {
 
     }
     event Update() {
-        this.Animate();
+        if (this.DestinationTag < 1 ||
+            this.DestinationTag > 256)
+            return;
+
+        var destWarpDoor = WarpDoor_DoorArray[this.DestinationTag - 1];
+        if (!destWarpDoor)
+            return;
+
+        // print "destWarpDoor.X: " + destWarpDoor.X;
+        // print "destWarpDoor.Y: " + destWarpDoor.Y;
+
+        var player, door = this;
+        with ("Player") {
+            if (door.Unk_0xA4)
+                continue;
+
+            player = this;
+            if (Static.GameObject_TestCollide(player, door)) {
+                print "Travel: " + door.Tag + " -> " + destWarpDoor.Tag;
+                player.X = destWarpDoor.X;
+                player.Y = destWarpDoor.Y;
+                door.WarpDoor_SnapPlayerCamerasToPlayers();
+
+                View.SetPosition(0, player.X, player.Y);
+
+                var top = destWarpDoor.YBoundaryPosT,
+                    left = destWarpDoor.XBoundaryPosL,
+                    right = destWarpDoor.XBoundaryPosR,
+                    bottom = destWarpDoor.YBoundaryPosB;
+
+                var camera = player.CameraPtr;
+                if (!top && !left && !right && !bottom) {
+                    left = top = 0.0;
+                    right = this.LevelWidth;
+                    bottom = this.LevelHeight;
+                }
+
+                var zone = player.Zone;
+                zone.BoundPlayerTop[0] = 0;
+                zone.BoundPlayerRight[0] = 0;
+                zone.BoundPlayerBottom[0] = 0;
+                zone.BoundPlayerLeft[0] = 1;
+
+                camera.MinX = zone.CameraMinX[0] = left;
+                camera.MaxX = zone.CameraMaxX[0] = right;
+                camera.MinY = zone.CameraMinY[0] = top;
+                camera.MaxY = zone.CameraMaxY[0] = bottom;
+
+                zone.MinPlayerX[0] = left;
+                zone.MaxPlayerX[0] = right;
+                zone.MinPlayerY[0] = top;
+                zone.MaxPlayerY[0] = bottom;
+
+                // WarpDoor_DelayTimer = 16;
+                // WarpDoor_CurrentDoorTagBoundsSetTo = tag;
+
+                zone.DeathZoneY[0] = bottom;
+                break;
+            }
+        }
     }
 
     event Render() {
-        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+        // Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+        //
+        // Draw.SetBlendMode(BlendMode_ADD);
+        // Draw.SetBlendColor(1.0, 0.0, 0.0, 0.5);
+        // Draw.Rectangle(this.X - this.HitboxW * 0.5, this.Y - this.HitboxH * 0.5, this.HitboxW, this.HitboxH);
+        // Draw.SetBlendMode(BlendMode_NORMAL);
     }
 }

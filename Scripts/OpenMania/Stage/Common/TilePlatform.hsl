@@ -67,8 +67,8 @@ class TilePlatform < Platform {
             }
         }
 
-        this.UpdateRegionW = this.HitboxW * 2.0;
-        this.UpdateRegionH = this.HitboxH * 2.0;
+        // this.UpdateRegionW = this.HitboxW * 2.0 + 64.0;
+        // this.UpdateRegionH = this.HitboxH * 2.0 + 64.0;
         this.RenderRegionW = this.UpdateRegionW;
         this.RenderRegionH = this.UpdateRegionH;
 

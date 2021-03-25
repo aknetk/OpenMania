@@ -2,6 +2,7 @@ class MusicObject {
     event Create() {
         // print "soundTestTitle: " + this.PropertyGet("soundTestTitle");
         // print "trackID: " + this.PropertyGet("trackID");
+        // print "trackFile: " + this.PropertyGet("trackFile");
 
         this.TrackFile = "";
         this.TrackLoop = false;
@@ -20,9 +21,16 @@ class MusicObject {
         if (!this.TrackFile || this.TrackFile == "")
             return;
 
-        if (this.PlayOnLoad) {
+        var sceneName = Scene.GetName();
+        if (!String.Contains(sceneName, "LSelect") || this.PlayOnLoad) {
             this.MusicIndex = Resources.LoadMusic("Music/" + this.TrackFile, SCOPE_SCENE);
+        }
+
+        if (this.PlayOnLoad) {
             this.PlayMus();
+        }
+        else {
+            this.Active = true;
         }
 
         if (Instance.GetCount("LevelSelect") == 0) {
@@ -35,8 +43,11 @@ class MusicObject {
 
     event PlayMus() {
         if (this.MusicIndex < 0)
+            this.MusicIndex = Resources.LoadMusic("Music/" + this.TrackFile, SCOPE_SCENE);
+
+        if (this.MusicIndex < 0)
             return;
-            
+
         if (this.TrackLoop > 0)
             Music.Loop(this.MusicIndex, true, this.TrackLoop);
         else

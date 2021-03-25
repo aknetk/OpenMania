@@ -10,7 +10,7 @@ class Ring {
         this.Sprite = Resources.LoadSprite("Sprites/Global/Ring.bin", SCOPE_GAME);
         this.SetAnimation(0, 0);
 
-        this.PlaneFilter = 0;
+        this.PlaneIndex = 0;
         this.MoveType = 0;
         this.AmplitudeX = 0.0;
         this.AmplitudeY = 0.0;
@@ -20,7 +20,7 @@ class Ring {
         if (this.PropertyExists("type"))
             this.Type = this.PropertyGet("type");
         if (this.PropertyExists("planeFilter"))
-            this.PlaneFilter = this.PropertyGet("planeFilter");
+            this.PlaneIndex = this.PropertyGet("planeFilter");
         if (this.PropertyExists("moveType"))
             this.MoveType = this.PropertyGet("moveType");
         if (this.PropertyExists("amplitude")) {
@@ -54,7 +54,6 @@ class Ring {
         this.XSpeed = 0.0;
         this.YSpeed = 0.0;
         this.RingsToReward = 1;
-        this.PlaneIndex = 0;
         this.ScaleX = 1.0;
         this.ScaleY = 1.0;
         this.TransparencyValue = 1.0;
@@ -63,7 +62,7 @@ class Ring {
         this.SetFrameCount();
 
         // On Create
-        var planeFilter = this.PlaneFilter;
+        var planeFilter = this.PlaneIndex;
         if (planeFilter > 0 && (planeFilter - 1) & 2)
             this.Priority = DrawGroup_FGHigh_High + 1;
         else
@@ -606,8 +605,8 @@ class Ring {
         var y = Math.Floor(this.Y);
         var frame = this.CurrentFrame;
         if (this.TransparencyValue == 0.875) {
-            Draw.SetTextureBlend(true);
             Draw.SetBlendColor(1.0, 1.0, 1.0, this.TransparencyValue);
+            Draw.SetTextureBlend(true);
             Draw.SetBlendMode(BlendMode_ADD);
             Draw.Sprite(this.Sprite, this.CurrentAnimation, frame + 16, x, y, false, false);
             Draw.SetBlendMode(BlendMode_NORMAL);

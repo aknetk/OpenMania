@@ -158,6 +158,7 @@ class LRZ1Setup {
                     var bottom = player.HitboxOffY + player.HitboxH * 0.5;
                     for (var i = 0; i < 2; i++) {
                         var tileBehaviorFlag = Scene.GetTileID(fgLowIndex + i, Number.AsInteger(player.X) >> 4, Number.AsInteger(player.Y + bottom) >> 4);
+                        if (tileBehaviorFlag)
                             tileBehaviorFlag = TileInfo.GetBehaviorFlag(tileBehaviorFlag, player.PlaneIndex);
                         if (tileBehaviorFlag) {
                             player.Player_AttemptHurtPlayer(player);

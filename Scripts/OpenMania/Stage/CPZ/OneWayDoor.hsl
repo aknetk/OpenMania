@@ -1,0 +1,182 @@
+var OneWayDoor_SPR_Door = -1;
+var OneWayDoor_HitboxDoorW = 16.0;
+var OneWayDoor_HitboxDoorH = 32.0;
+event OneWayDoor_Load() {
+    var sceneName = Scene.GetName();
+    if (String.Contains(sceneName, "MMZ"))
+        OneWayDoor_SPR_Door = Resources.LoadSprite("Sprites/MMZ/OneWayDoor.bin", SCOPE_SCENE);
+    else
+        OneWayDoor_SPR_Door = Resources.LoadSprite("Sprites/CPZ/OneWayDoor.bin", SCOPE_SCENE);
+    OneWayDoor_HitboxDoorW = 16.0;
+    OneWayDoor_HitboxDoorH = 32.0;
+}
+
+class OneWayDoor {
+    Setup() {
+        this.Status = null;
+        this.RenderStatus = null;
+        this.DoorPosition = 0.0;
+
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        this.Setup();
+
+        this.UpdateRegionW =
+        this.UpdateRegionH =
+        this.RenderRegionW =
+        this.RenderRegionH = 512.0;
+        this.Priority = DrawGroup_FGHigh_High - 2;
+
+        this.AutoAnimate = false;
+        this.AutoPhysics = false;
+
+        this.Status = this.OneWayDoor_Status_Open;
+
+        var sceneName = Scene.GetName();
+        if (String.Contains(sceneName, "MMZ")) {
+            this.Sprite = OneWayDoor_SPR_Door;
+            if (this.FlipFlag)
+                this.ResetAnimation(4, 0);
+            else
+                this.ResetAnimation(2, 0);
+
+            this.RenderStatus = this.OneWayDoor_RenderStatus_MMZ;
+            this.GroundSpeed = 6.0;
+        }
+        else {
+            this.Sprite = OneWayDoor_SPR_Door;
+            this.ResetAnimation(0, 0);
+
+            this.RenderStatus = this.OneWayDoor_RenderStatus_CPZ;
+            this.GroundSpeed = 8.0;
+        }
+
+        this.HitboxW = OneWayDoor_HitboxDoorW;
+        this.HitboxH = OneWayDoor_HitboxDoorH;
+    }
+
+    Update() {
+        if (this.Status)
+            this.Status();
+
+        this.Animate();
+    }
+    Render() {
+        if (this.RenderStatus)
+            this.RenderStatus();
+    }
+
+    OneWayDoor_HandlePlayers() {
+        var isMMZ2 = false;
+        var sceneName = Scene.GetName();
+        if (String.Contains(sceneName, "MMZ") && Zone_IsAct2)
+            isMMZ2 = true;
+
+        this.Status = this.OneWayDoor_Status_Open;
+
+        var player;
+        with ("Player") {
+            player = this;
+            break;
+        }
+        if (!player)
+            return;
+
+        var shouldBeOpen = false;
+        if (this.FlipFlag)
+            shouldBeOpen = player.X >= this.X;
+        else
+            shouldBeOpen = player.X <= this.X;
+
+        var door = this;
+        with ("Player") {
+            player = this;
+            var doorPos = door.DoorPosition;
+            if (door.RenderStatus == door.OneWayDoor_RenderStatus_CPZ)
+                doorPos *= 2.0;
+
+            door.Y -= doorPos;
+            door.HitboxW = OneWayDoor_HitboxDoorW;
+            door.HitboxH = OneWayDoor_HitboxDoorH;
+            door.HitboxOffX = 0.0;
+            door.HitboxOffY = -16.0;
+            Static.Entity_SolidCollideWithPlayer(door, player);
+
+            if (door.RenderStatus == door.OneWayDoor_RenderStatus_MMZ)
+                door.Y += 2.0 * doorPos;
+
+            door.HitboxW = OneWayDoor_HitboxDoorW;
+            door.HitboxH = OneWayDoor_HitboxDoorH;
+            door.HitboxOffX = 0.0;
+            door.HitboxOffY = 16.0;
+            Static.Entity_SolidCollideWithPlayer(door, player);
+
+            if (door.RenderStatus == door.OneWayDoor_RenderStatus_MMZ)
+                door.Y -= doorPos;
+            else
+                door.Y += doorPos;
+
+            if (player.XSpeed < 6.0)
+                door.HitboxW = 64.0 + 8.0;
+            else
+                door.HitboxW = 88.0 + 8.0;
+            door.HitboxH = 64.0;
+            door.HitboxOffX = door.HitboxW * -0.5 + 7.0;
+            door.HitboxOffY = 0.0;
+
+            if (Static.Entity_CollideWithObject(door, player)) {
+                if (isMMZ2 && player.IsSubPlayer && !shouldBeOpen) {
+
+                }
+                else {
+                    door.Status = door.OneWayDoor_Status_Shut;
+                }
+            }
+        }
+    }
+    OneWayDoor_Status_Open() {
+        var pos = this.DoorPosition;
+        if (pos > 0.0)
+            this.DoorPosition = pos - this.GroundSpeed;
+
+        this.OneWayDoor_HandlePlayers();
+    }
+    OneWayDoor_Status_Shut() {
+        var pos = this.DoorPosition;
+        if (pos < 32.0)
+            this.DoorPosition = pos + this.GroundSpeed;
+
+        this.OneWayDoor_HandlePlayers();
+    }
+    OneWayDoor_RenderStatus_MMZ() {
+        var sprite = this.Sprite,
+            anim = this.CurrentAnimation,
+            frame = this.CurrentFrame,
+            x = Math.Floor(this.X),
+            y = Math.Floor(this.Y),
+            doorPos = this.DoorPosition;
+
+        Draw.Sprite(sprite, anim, frame, x, y - doorPos, false, false);
+        Draw.Sprite(sprite, anim, frame, x, y + doorPos + 32.0, false, false);
+    }
+    OneWayDoor_RenderStatus_CPZ() {
+        var sprite = this.Sprite,
+            anim = this.CurrentAnimation,
+            frame = this.CurrentFrame,
+            x = Math.Floor(this.X),
+            y = Math.Floor(this.Y),
+            doorPos = this.DoorPosition * 2.0;
+
+        frame = 0;
+        Draw.Sprite(sprite, anim, frame, x, y - doorPos, false, false);
+
+        frame = 1;
+        Draw.Sprite(sprite, anim, frame, x, y - doorPos, false, false);
+    }
+}

@@ -110,7 +110,9 @@ class TitleCard {
 
         this.TitleCard_SetColors();
 
+        global.CanPause = false;
         if (global.SuppressTitlecard) {
+            global.CanPause = true;
             // var status = global.SuppressTitlecardStatus;
             // if (status) {
             //     status();
@@ -155,7 +157,6 @@ class TitleCard {
 
         // if
 
-        global.CanPause = false;
 
         this.DecorationSpinValue = -0x300;
     }

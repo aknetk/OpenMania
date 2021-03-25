@@ -70,9 +70,14 @@ class TimeAttackGate {
         this.SFX_SignPost = Resources.LoadSound("SoundFX/Global/SignPost.wav", SCOPE_SCENE);
         this.SFX_Teleport = Resources.LoadSound("SoundFX/Global/Teleport.wav", SCOPE_SCENE);
 
-        this.UpdateRegionW = this.UpdateRegionH = 128.0;
+        this.UpdateRegionW = 256.0;
+        this.UpdateRegionH = 256.0 + this.ExtendTop + this.ExtendBottom;
 
         this.Finished = false;
+
+        this.SFX_Goal = Resources.LoadSound("SoundFX/VO/Goal.wav", SCOPE_GAME);
+        this.SFX_NewRecord = Resources.LoadSound("SoundFX/VO/NewRecordMid.wav", SCOPE_GAME);
+        // this.SFX_NewRecord = Resources.LoadSound("SoundFX/VO/NewRecordTop.wav", SCOPE_GAME);
     }
 
     event Update() {
@@ -104,6 +109,24 @@ class TimeAttackGate {
 
                 if (timeAtkGate.FinishLine) {
                     if (!timeAtkGate.Finished) {
+                        var scene = Scene.GetName();
+                        var timeAtk = global.SaveData["TimeAttack"];
+                        if (!timeAtk) timeAtk = global.SaveData["TimeAttack"] = { };
+                        if (timeAtk[scene]) {
+                            if (player.TimerFrames < timeAtk[scene]) {
+                                timeAtk[scene] = player.TimerFrames;
+                                Sound.Play(timeAtkGate.SFX_NewRecord);
+                            }
+                            else {
+                                Sound.Play(timeAtkGate.SFX_Goal);
+                            }
+                        }
+                        else {
+                            timeAtk[scene] = player.TimerFrames;
+                            Sound.Play(timeAtkGate.SFX_NewRecord);
+                        }
+                        Static.SaveDataSave();
+
                         global.TimerActive = false;
                         timeAtkGate.DoFinish(0);
                     }

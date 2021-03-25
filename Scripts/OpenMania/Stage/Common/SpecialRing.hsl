@@ -38,12 +38,13 @@ class SpecialRing {
             this.PlaneFilter = this.PropertyGet("planeFilter");
     }
     Create(flag) {
-        this.Load();
-        this.Setup();
         if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
             this.Active = false;
             return;
         }
+
+        this.Load();
+        this.Setup();
 
         this.UpdateRegionW = this.UpdateRegionH = 144.0;
         this.RenderRegionW = this.UpdateRegionW;

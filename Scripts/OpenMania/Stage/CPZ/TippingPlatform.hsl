@@ -1,0 +1,179 @@
+var TippingPlatform_SPR_Staircase = -1;
+var TippingPlatform_SFX_CPZ2HitBlockStop = -1;
+event TippingPlatform_Load() {
+    TippingPlatform_SPR_Staircase = Resources.LoadSprite("Sprites/CPZ/Platform.bin", SCOPE_SCENE);
+    TippingPlatform_SFX_CPZ2HitBlockStop = Resources.LoadSound("SoundFX/CPZ/CPZ2HitBlocksStop.wav", SCOPE_SCENE);
+}
+
+class TippingPlatform {
+    Setup() {
+        this.FlipFlag = 0;
+        this.Type = 0;
+        this.Timer = 0;
+        this.Bumpable = false;
+        this.BlockPositions = Array.Create(8, 0.0);
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Setup();
+
+        this.UpdateRegionW =
+        this.UpdateRegionH =
+        this.RenderRegionW =
+        this.RenderRegionH = 512.0;
+
+        this.Priority = DrawGroup_FGLow_Low;
+
+        this.HitboxW =
+        this.HitboxH = 32.0;
+
+        this.Sprite = TippingPlatform_SPR_Staircase;
+        this.AnimationSpeedMult = 0.0;
+        this.ResetAnimation(1, 0);
+
+        this.Status = this.Staircase_Status_Flat;
+        this.RenderStatus = this.Staircase_RenderStatus_Normal;
+    }
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+    Render() {
+        if (this.RenderStatus)
+            this.RenderStatus();
+    }
+    Staircase_Status_Flat() {
+        var stair = this, player;
+
+        // Store position
+        var stairX = this.X,
+            stairY = this.Y;
+
+        this.HitboxW = this.HitboxH = 32.0;
+
+        with ("Player") {
+            player = this;
+            var collided = Static.Entity_TopSolidCollideWithPlayer(stair, player);
+        }
+
+        // Reset position
+        this.X = stairX;
+        this.Y = stairY;
+    }
+    Staircase_Status_Wait() {
+        var stair = this, player;
+
+        // Store position
+        var stairX = this.X,
+            stairY = this.Y;
+
+        with ("Player") {
+            player = this;
+            for (var i = 0; i < 8; i += 2) {
+                stair.X = stair.BlockPositions[i | 0];
+                stair.Y = stair.BlockPositions[i | 1];
+                Static.Entity_SolidCollideWithPlayer(stair, player);
+            }
+        }
+
+        // Reset position
+        this.X = stairX;
+        this.Y = stairY;
+
+        this.Timer--;
+
+        if (this.Timer <= 0) {
+            this.Timer = 128;
+            if (!Sound.IsPlaying(Staircase_SFX_CPZ2HitBlockStop))
+                Sound.Play(Staircase_SFX_CPZ2HitBlockStop);
+
+            this.Status = this.Staircase_Status_Shift;
+            this.RenderStatus = this.Staircase_RenderStatus_Normal;
+        }
+
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH))
+            this.Create(0);
+    }
+    Staircase_Status_Shift() {
+        var stair = this, player;
+
+        var shiftSpd = 0.25;
+        if (this.Type)
+            shiftSpd = -0.25;
+
+        // Store position
+        var stairX = this.X,
+            stairY = this.Y;
+
+        with ("Player") {
+            player = this;
+            for (var i = 0; i < 8; i += 2) {
+                stair.X = stair.BlockPositions[i | 0];
+                stair.Y = stair.BlockPositions[i | 1];
+                if (Static.Entity_SolidCollideWithPlayer(stair, player) == 1)
+                    player.Y += shiftSpd * (i / 2 + 1);
+            }
+        }
+
+        // Reset position
+        this.X = stairX;
+        this.Y = stairY;
+
+        this.BlockPositions[1] += shiftSpd;
+        this.BlockPositions[3] += shiftSpd * 2.0;
+        this.BlockPositions[5] += shiftSpd * 3.0;
+        this.BlockPositions[7] += shiftSpd * 4.0;
+
+        this.Timer--;
+        if (this.Timer <= 0)
+            this.Status = this.Staircase_Status_Stay;
+
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH))
+            this.Create(0);
+    }
+    Staircase_Status_Stay() {
+        var stair = this, player;
+
+        // Store position
+        var stairX = this.X,
+            stairY = this.Y;
+
+        with ("Player") {
+            player = this;
+            for (var i = 0; i < 8; i += 2) {
+                stair.X = stair.BlockPositions[i | 0];
+                stair.Y = stair.BlockPositions[i | 1];
+                if (Static.Entity_SolidCollideWithPlayer(stair, player) == 4 && player.Ground)
+                    player.KillFlag = 1;
+            }
+        }
+
+        // Reset position
+        this.X = stairX;
+        this.Y = stairY;
+
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH))
+            this.Create(0);
+    }
+    Staircase_RenderStatus_Normal() {
+        var sprite = this.Sprite,
+            anim = this.CurrentAnimation,
+            frame = this.CurrentFrame;
+
+        Draw.Sprite(sprite, anim, frame, Math.Floor(this.X), Math.Floor(this.Y), false, false);
+    }
+    Staircase_RenderStatus_Shake() {
+        var sprite = this.Sprite,
+            anim = this.CurrentAnimation,
+            frame = this.CurrentFrame;
+
+        for (var i = 0; i < 8; i += 2) {
+            var y = ((this.Timer - (i << 1)) >> 2) & 1;
+            Draw.Sprite(sprite, anim, frame, Math.Floor(this.BlockPositions[i | 0]), Math.Floor(this.BlockPositions[i | 1] + y), false, false);
+        }
+    }
+}

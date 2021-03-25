@@ -349,11 +349,13 @@ class Player {
             this.Zone = Instance.GetNth("Zone", 0);
 
 
-        // DEBUG: Debug stuff
+        // DEBUG: Debug stuff // global.GameMode == 0
         if (!Device.IsMobile() && true) {
             if (String.Contains(Scene.GetName(), "GHZ/Scene1.bin")) {
-                this.X = 0x3CE9;
-                this.Y = 0x05FC;
+                // this.X = 0x3CE9;
+                // this.Y = 0x05FC;
+                this.X = 0x2740;
+                this.Y = 0x04BA;
                 // this.X = 0x0E24;
                 // this.Y = 0x068E;
             }
@@ -362,12 +364,14 @@ class Player {
                 this.Y = 0x360;
             }
             if (String.Contains(Scene.GetName(), "CPZ/Scene1.bin")) {
-                this.X = 2126.0;
-                this.Y = 859.0;
+                // this.X = 5476.0;
+                // this.Y = 1904.0;
+                this.X = 0x2840;
+                this.Y = 0x05AC;
             }
             if (String.Contains(Scene.GetName(), "CPZ/Scene2.bin")) {
-                this.X = 7481.0;
-                this.Y = 1746.0;
+                // this.X = 0xD89;
+                // this.Y = 0x1530;
             }
             if (String.Contains(Scene.GetName(), "SPZ1")) {
                 this.X = 14784.0;
@@ -376,16 +380,20 @@ class Player {
             if (String.Contains(Scene.GetName(), "FBZ/Scene1.bin")) {
                 // this.X = 0x2FB0;
                 // this.Y = 0x0860;
-                this.X = 620.0;
-                this.Y = 1380.0;
+                // this.X = 620.0;
+                // this.Y = 1380.0;
+            }
+            if (String.Contains(Scene.GetName(), "FBZ/Scene2.bin")) {
+                this.X = 0x4F4;
+                this.Y = 0x770;
             }
             if (String.Contains(Scene.GetName(), "OOZ2")) {
                 // this.X = 1406.0;
                 // this.Y = 879.0;
             }
             if (String.Contains(Scene.GetName(), "HCZ/Scene1.bin")) {
-                this.X = 11916.0;
-                this.Y = 556.0;
+                // this.X = 11916.0;
+                // this.Y = 556.0;
             }
             if (String.Contains(Scene.GetName(), "HCZ/Scene2.bin")) {
                 // this.X = 11803.0;
@@ -400,8 +408,8 @@ class Player {
                 // this.Y = 584.0;
             }
             if (String.Contains(Scene.GetName(), "MSZ/Scene1K.bin")) {
-                // this.X = 0x2427;
-                // this.Y = 0x91C;
+                this.X = 6900.0;
+                this.Y = 2724.0;
             }
             if (String.Contains(Scene.GetName(), "MSZ/Scene2.bin")) {
                 // this.X = 3500.0;
@@ -410,16 +418,18 @@ class Player {
                 // this.Y = 954.0;
                 // this.X = 12160.0;
                 // this.Y = 128.0;
-                    this.X = 0x18A8;
-                    this.Y = 0x0610;
+                    // this.X = 0x18A8;
+                    // this.Y = 0x0610;
             }
             if (String.Contains(Scene.GetName(), "LRZ1")) {
                 // this.X = 0x26F0;
                 // this.Y = 0x284;
                 // this.X = 0x1EE7;
                 // this.Y = 0x383;
-                this.X = 0x22B0;
-                this.Y = 0x56C;
+                // this.X = 0x22B0;
+                // this.Y = 0x56C;
+                this.X = 0x3770;
+                this.Y = 0x3A0;
                 // this.X = 0x3030;
                 // this.Y = 0x0480;
                 // this.X = 19202;
@@ -442,8 +452,8 @@ class Player {
                 this.Y = 0x288;
             }
             if (String.Contains(Scene.GetName(), "PSZ1")) {
-                this.X = 0x780;
-                this.Y = 0x53C;
+                this.X = 0x15C0;
+                this.Y = 0x1E0;
             }
             if (String.Contains(Scene.GetName(), "PSZ2")) {
                 this.X = 0x9C0;
@@ -644,13 +654,19 @@ class Player {
             this.InputJump = input.Accept | input.Decline;
             this.InputJumpPressed = input.AcceptPressed | input.DeclinePressed;
 
-            if (this.SuperForm == SuperState_None && input.Extra1Pressed && !this.Ground) {
-                this.AnimationSpeedMult = 1.0;
-                this.SetAnimation(47, 0);
-                this.WaitTimer = 0;
-                this.IsTransforming = true;
-                this.SuperForm = SuperState_Transforming;
-                this.XSpeed = this.YSpeed = 0.0;
+            if (input.Extra1Pressed) {
+                if (global.GameMode == GameModes_TimeAttack) {
+                    global.SuppressTitlecard = true;
+                    Scene.Restart();
+                }
+                else if (this.SuperForm == SuperState_None && !this.Ground) {
+                    this.AnimationSpeedMult = 1.0;
+                    this.SetAnimation(47, 0);
+                    this.WaitTimer = 0;
+                    this.IsTransforming = true;
+                    this.SuperForm = SuperState_Transforming;
+                    this.XSpeed = this.YSpeed = 0.0;
+                }
             }
 
             if (input.Extra2Pressed) {
@@ -689,9 +705,15 @@ class Player {
                 }
 
                 dist = Math.Distance(vw - 64.0, buttonY, tx, ty);
-                if (dist < 48.0) {
+                if (dist < 64.0) {
                     this.InputJump         |= tD;
                     this.InputJumpPressed  |= tP;
+                }
+
+                dist = Math.Distance(64.0, 64.0, tx, ty);
+                if (dist < 48.0 && global.GameMode == GameModes_TimeAttack && tP) {
+                    global.SuppressTitlecard = true;
+                    Scene.Restart();
                 }
 
                 if (global.CanPause) {
@@ -1260,10 +1282,8 @@ class Player {
         fxfade.Priority = 15;
     }
     event Player_SetFXFade_Status_Restart() {
-        this.Wait += this.SpeedOut;
-        this.Timer = 512 - this.Wait;
-        // this.Timer = Number.AsInteger((1.0 - (this.Wait / 1024.0)) * 384.0);
-        if (this.Wait > 1024) {
+        this.Timer += this.SpeedOut;
+        if (this.Timer > 1024) {
             if (true) {
                 // global.EnableIntro = true;
                 // global.SuppressAutoMusic = true;
@@ -1274,9 +1294,8 @@ class Player {
         }
     }
     event Player_SetFXFade_Status_BackToMenu() {
-        this.Wait += this.SpeedOut;
-        this.Timer = 512 - this.Wait;
-        if (this.Wait > 1024) {
+        this.Timer += this.SpeedOut;
+        if (this.Timer > 1024) {
             if (true) {
                 // global.EnableIntro = true;
                 // global.SuppressAutoMusic = true;
@@ -2205,6 +2224,8 @@ class Player {
         }
     }
     event Player_StatusDead() {
+        global.CanPause = false;
+
         if (this.InvincibilityTimer) {
             this.InvincibilityTimer = 0;
             this.Visible = true;
@@ -2229,6 +2250,8 @@ class Player {
         }
     }
     event Player_StatusDrown() {
+        global.CanPause = false;
+
         if (this.SuperForm == 2)
             this.SuperForm = 3;
 
@@ -2758,11 +2781,11 @@ class Player {
         var timeLen = 480;
         // var timeLen = 80;
 
-        var v2 = this.YSpeed;
-        if (v2 < -1.0)
+        var yspeed = this.YSpeed;
+        if (yspeed < -1.0) {
             this.RayGlideSpeedStore = 0.03125;
-
-        if (v2 < 1.0) {
+        }
+        else if (yspeed < 1.0) {
             var val = this.RayGlideTurnValue;
             if (val >= 60)
                 this.RayGlideSpeedStore = 0.03125;
@@ -2823,7 +2846,7 @@ class Player {
             }
         }
 
-        if (this.InputJumpPressed && (!this.Underwater)) {
+        if (this.InputJumpPressed && (!this.Underwater || !mainPlayer || mainPlayer.Status != this.Player_StatusHangingFromTails)) {
             if (this.InputDown) {
                 this.AnimationSpeedMult = 1.0;
                 this.SetAnimation(10, 0);
@@ -5367,6 +5390,8 @@ class Player {
                 //     this.XSpeed = originalXSpeed;
 
                 this.Y = this.LeftCeilSensor_Y + (this.HitboxH * 0.5 + this.HitboxOffY) + 1.0;
+                if (this.YSpeed >= 0.0 && this.YSpeed < 1.0)
+                    this.Y++;
                 this.Entity_AirMovementUpwards_Angles(this.LeftCeilSensor_Angle);
             }
             else if (doSensor == 1) {
@@ -5374,6 +5399,8 @@ class Player {
                 //     this.XSpeed = originalXSpeed;
 
                 this.Y = this.RightCeilSensor_Y + (this.HitboxH * 0.5 + this.HitboxOffY) + 1.0;
+                if (this.YSpeed >= 0.0 && this.YSpeed < 1.0)
+                    this.Y++;
                 this.Entity_AirMovementUpwards_Angles(this.RightCeilSensor_Angle);
             }
         }
@@ -5465,7 +5492,6 @@ class Player {
                     gspeed *= 0.5;
 
                 this.GroundSpeed = gspeed;
-                print "this.GroundSpeed: " + this.GroundSpeed;
             }
         }
         // Upward Slope (Left)
@@ -5533,7 +5559,7 @@ class Player {
         var sensor;
         var startX = Math.Floor(this.X + x);
         var startY = Math.Floor(this.Y + y);
-        if (sensor = TileCollision.Line(startX, startY, sensorMode, len, planeIndex, this.Angle)) {
+        if (sensor = TileCollision.Line(startX, startY, sensorMode, len, planeIndex, -1)) {
             return sensor["Collided"];
         }
         return false;

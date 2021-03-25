@@ -1,15 +1,33 @@
 var Water_PlayerTimer1 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
 var Water_PlayerTimer2 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+var Water_WaterLevelChangeSpeed = 1.0;
+var Water_TargetWaterLevel = 65536.0;
+var Water_CurrentWaterLevel = 65536.0;
+var Water_BaseWaterLevel = 65536.0;
+var Water_WaterLevelIsChanging = false;
+var Water_PaletteIndex = 0;
+var Water_NoSplash = false;
+
+event Water_Load() {
+    Water_WaterLevelChangeSpeed = 1.0;
+    Water_CurrentWaterLevel =
+    Water_BaseWaterLevel = 
+    Water_TargetWaterLevel = 65536.0;
+    Water_WaterLevelIsChanging = false;
+    Water_PaletteIndex = 0;
+    Water_NoSplash = false;
+}
 
 class Water {
-    event Create(flag) {
+    Create(flag) {
         if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
             this.Active = false;
             return;
         }
 
         // Load
-        this.Sprite = Resources.LoadSprite("Sprites/Global/Water.bin", SCOPE_GAME);
+        this.Sprite =
+        this.SPR_Water = Resources.LoadSprite("Sprites/Global/Water.bin", SCOPE_GAME);
         this.AutoPhysics = false;
         this.Status = null;
         this.RenderStatus = null;
@@ -21,6 +39,7 @@ class Water {
         this.SFX_Skim = Resources.LoadSound("SoundFX/HCZ/Skim.wav", SCOPE_GAME);
 
         // Setup
+        this.BlendMode = BlendMode_NORMAL;
         this.Type = 0;
         this.NumDuds = 0;
         this.SizeX = 0.0;
@@ -35,7 +54,7 @@ class Water {
         this.A = 0.5;
         this.PriorityIndex = 0;
         this.DestroyOnTrigger = false;
-        this.Water_Unk_0x64 = null;
+        this.AttachedPlayer = null;
         this.Visible = true;
 
         this.Type = flag;
@@ -108,12 +127,12 @@ class Water {
         switch (this.Type) {
             // Set water level
             case 0:
-                if (global.GameMode == 3 && String.Contains(sceneName, "CPZ")) {
+                if (global.GameMode == GameModes_Competition && String.Contains(sceneName, "CPZ")) {
                     this.Active = false;
                 }
                 else if (this.PropertyExists("RGBA")) {
-                    this.Status = this.Water_Status_GlobalWaterBlockController;
-                    this.RenderStatus = this.Water_RenderStatus_GlobalWaterBlockController;
+                    this.Status = this.Water_Status_WaterLevelController;
+                    this.RenderStatus = this.Water_RenderStatus_WaterLevelController;
                     this.Priority = DrawGroup_HUD - 1;
 
                     if (this.PropertyExists("priority")) {
@@ -134,15 +153,16 @@ class Water {
                     }
                 }
                 else {
-                    this.A = String.Contains(sceneName, "CPZ") ? 0.375 : 0.875;
+                    this.A = String.Contains(sceneName, "AIZ") ? 0.375 : 0.875;
                     this.ResetAnimation(0, 0);
-                    this.Status = this.Water_Status_GlobalWaterBlockController;
-                    this.RenderStatus = null;
+                    this.Status = this.Water_Status_WaterLevelController;
+                    this.RenderStatus = this.Water_RenderStatus_WaterLevelController;
                 }
                 print "Water Controller at: " + this.X + ", " + this.Y;
 
-                this.CurrentWaterLevel =
-                this.BaseWaterLevel = this.Y;
+                Water_TargetWaterLevel =
+                Water_CurrentWaterLevel =
+                Water_BaseWaterLevel = this.Y;
 
                 Water_PlayerTimer1 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
                 Water_PlayerTimer2 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
@@ -206,6 +226,17 @@ class Water {
                 break;
             // Trigger To Set Water Level
             case 3:
+                this.ViewRenderFlag = 0;
+                if (this.ButtonTag > 0) {
+                    this.Water_FindWaterLevelTriggers();
+                }
+                else {
+                    this.UpdateRegionW = this.SizeX;
+                    this.UpdateRegionH = this.SizeY;
+                    this.RenderRegionW = this.UpdateRegionW;
+                    this.RenderRegionH = this.UpdateRegionH;
+                }
+                this.Status = this.Water_Status_WaterLevelTrigger;
                 break;
             // Bubble Ride
             case 5:
@@ -218,8 +249,8 @@ class Water {
                 this.ResetAnimation(1, 0);
                 this.AutoAnimate = false;
 
-                this.Status = this.Water_Status_WaterSplash;
-                this.RenderStatus = this.Water_RenderStatus_WaterSplash;
+                this.Status = this.Water_Status_Splash;
+                this.RenderStatus = this.Water_RenderStatus_Splash;
                 break;
             // Bubble
             case 7:
@@ -243,35 +274,114 @@ class Water {
 
                 this.SetAnimation(7, 0);
                 this.Status = this.Water_Status_CountdownAppear;
-                this.RenderStatus = this.Water_RenderStatus_Countdown;
+                this.RenderStatus = this.Water_RenderStatus_CountdownTimer;
                 break;
             default:
                 break;
         }
     }
 
-    event Update() {
-        if (this.Status)
-            this.Status();
-    }
-
-    event Water_DoSplash(player, waterBlock) {
+    Water_DoSplash(player, waterBlock) {
         if (true) {
             var splash;
             if (waterBlock)
                 splash = Instance.Create("Water", player.X, waterBlock.Y - waterBlock.SizeY * 0.5, 6);
             else
-                splash = Instance.Create("Water", player.X, this.CurrentWaterLevel, 6);
+                splash = Instance.Create("Water", player.X, Water_CurrentWaterLevel, 6);
+            splash.AttachedWaterBlock = waterBlock;
 
             splash.Priority = DrawGroup_HUD - 2;
             Sound.Play(this.SFX_Splash);
         }
     }
+    Water_FindWaterLevelTriggers() {
 
-    event Water_Status_GlobalWaterBlockController() {
-        var tide = this.SizeX * Static.HexSinMedPrec(2 * Scene_Frame);
+    }
+    SpawnCountdownBubble(player, number) {
+        var countdown = Instance.Create("Water", player.X, player.Y, 8);
+        if (player.Flip) {
+            countdown.X -= 6.0;
+            countdown.Angle = 256;
+        }
+        else {
+            countdown.X += 6.0;
+        }
+        countdown.BubbleBaseX = countdown.X;
+        countdown.YSpeed = -0.53125;
+        countdown.BubbleAttachedPlayer = player;
+        countdown.Priority = DrawGroup_AboveTiles;
+        countdown.Number = number;
+    }
+    Water_SpawnPlayerBreathingBubbles(player, playerIndex) {
+        var timer1 = Water_PlayerTimer1[playerIndex];
+        if (timer1 <= 0) {
+            if (Number.AsInteger(Math.RandomMax(3)) == 1)
+                Water_PlayerTimer2[playerIndex] = Number.AsInteger(Math.RandomMax(16)) + 8;
+            else
+                Water_PlayerTimer2[playerIndex] = 512;
 
-        this.CurrentWaterLevel = tide + this.BaseWaterLevel;
+            Water_PlayerTimer1[playerIndex] = 60;
+
+            var bubble = Instance.Create("Water", player.X, player.Y, 7);
+            if (player.Flip) {
+                bubble.X -= 6.0;
+                bubble.Angle = 256;
+            }
+            else {
+                bubble.X += 6.0;
+            }
+            bubble.BubbleAttachedPlayer = player;
+            bubble.BubbleBaseX = bubble.X;
+            bubble.YSpeed = -0.53125;
+            bubble.Priority = player.Priority + 1;
+        }
+        else {
+            Water_PlayerTimer1[playerIndex] = timer1 - 1;
+
+            var timer2 = Water_PlayerTimer2[playerIndex];
+            if (timer2 <= 0) {
+                var bubble = Instance.Create("Water", player.X, player.Y, 7);
+                if (player.Flip) {
+                    bubble.X -= 6.0;
+                    bubble.Angle = 256;
+                }
+                else {
+                    bubble.X += 6.0;
+                }
+                bubble.BubbleAttachedPlayer = player;
+                bubble.BubbleBaseX = bubble.X;
+                bubble.YSpeed = -0.53125;
+                bubble.Priority = player.Priority + 1;
+
+                Water_PlayerTimer2[playerIndex] = 512;
+            }
+            else {
+                Water_PlayerTimer2[playerIndex] = timer2 - 1;
+            }
+        }
+    }
+
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+    Water_Status_WaterLevelController() {
+        var tide = this.SizeX * Static.HexSinMedPrec(Scene_Frame << 1);
+
+        if (Water_BaseWaterLevel != Water_TargetWaterLevel) {
+            if (Water_BaseWaterLevel > Water_TargetWaterLevel) {
+                Water_BaseWaterLevel -= Water_WaterLevelChangeSpeed;
+                if (Water_BaseWaterLevel < Water_TargetWaterLevel)
+                    Water_BaseWaterLevel = Water_TargetWaterLevel;
+            }
+            else {
+                Water_BaseWaterLevel += Water_WaterLevelChangeSpeed;
+                if (Water_BaseWaterLevel > Water_TargetWaterLevel)
+                    Water_BaseWaterLevel = Water_TargetWaterLevel;
+            }
+        }
+
+        Water_CurrentWaterLevel = tide + Water_BaseWaterLevel;
 
         var player, water = this, playerIndex = -1;
         with ("Player") {
@@ -286,21 +396,23 @@ class Water {
 
                 var waterBlock;
                 with ("Water") {
-                    if (Static.Entity_CollideWithObject(this, player)) {
-                        waterBlock = this;
-                        inWater = true;
+                    if (this.Type == 1) {
+                        if (Static.Entity_CollideWithObject(this, player)) {
+                            waterBlock = this;
+                            inWater = true;
+                        }
                     }
                     // var doSplash = true;
                     // var changedUnderwaterness = false;
                     // if (waterBlock.Type == 1) {
                     //     if (Static.Entity_CollideWithObject(waterBlock, player) && player.Y >= waterBlock.Y - waterBlock.HitboxH * 0.5) {
-                    //         waterBlock.Water_Unk_0x64 = player;
+                    //         waterBlock.AttachedPlayer = player;
                     //         if (!player.Underwater)
                     //             changedUnderwaterness = true;
                     //         player.Underwater = true;
                     //     }
-                    //     else if (waterBlock.Water_Unk_0x64 == player) {
-                    //         waterBlock.Water_Unk_0x64 = null;
+                    //     else if (waterBlock.AttachedPlayer == player) {
+                    //         waterBlock.AttachedPlayer = null;
                     //         if (player.Underwater)
                     //             changedUnderwaterness = true;
                     //         player.Underwater = false;
@@ -310,7 +422,7 @@ class Water {
 
                 player.HitboxH = pHH;
 
-                if (player.Y > water.CurrentWaterLevel)
+                if (player.Y > Water_CurrentWaterLevel)
                     inWater = true;
 
                 // if (!player.Player_IsActiveStatus())
@@ -326,9 +438,10 @@ class Water {
                         player.LastWaterBlock = null;
                         player.Player_ResetSpeeds();
 
-                        if (player.YSpeed != 0.0 && true &&
+                        if (player.YSpeed != 0.0 &&
                             (player.Player_IsActiveStatus() || player.Status == player.Player_StatusFlyingIn)) {
-                            water.Water_DoSplash(player, lastWaterBlock);
+                            if (!Water_NoSplash)
+                                water.Water_DoSplash(player, lastWaterBlock);
 
                             if (player.YSpeed >= -4.0) {
                                 player.YSpeed *= 2.0;
@@ -345,10 +458,10 @@ class Water {
                     }
 
                     if (!player.IsSubPlayer && player.UnderwaterAirTimer >= 1080) {
-                        player.UnderwaterAirTimer = 0;
                         // Stop the drowning music
                         Music.Stop(player.BGM_Drowning);
                     }
+                    player.UnderwaterAirTimer = 0;
                 }
                 else {
                     player.LastWaterBlock = waterBlock;
@@ -356,7 +469,10 @@ class Water {
                         player.Underwater = true;
                         player.Player_ResetSpeeds();
 
-                        water.Water_DoSplash(player, waterBlock);
+                        if (player.YSpeed != 0.0) {
+                            if (!Water_NoSplash)
+                                water.Water_DoSplash(player, waterBlock);
+                        }
 
                         player.YSpeed *= 0.25;
                         player.XSpeed *= 0.5;
@@ -426,12 +542,10 @@ class Water {
                 }
             }
         }
-
-        global.CurrentWaterLevel = this.CurrentWaterLevel;
     }
-    event Water_Status_Bubbler() {
+    Water_Status_Bubbler() {
         var inWater = false;
-        if (this.Y >= global.CurrentWaterLevel) {
+        if (this.Y >= Water_CurrentWaterLevel) {
             inWater = true;
         }
         else {
@@ -492,12 +606,50 @@ class Water {
 
         this.Animate();
     }
-    event Water_Status_WaterSplash() {
+    Water_Status_WaterLevelTrigger() {
+        var activated = false;
+        var activatorEntity = this;
+
+        var bgsX = this.X;
+        var bgsY = this.Y;
+        var bgsW = this.SizeX * 0.5;
+        var bgsH = this.SizeY * 0.5;
+        with ("Player") {
+            var playerX = this.X;
+            var playerY = this.Y;
+            if (Math.Abs(playerX - bgsX) <= bgsW &&
+                Math.Abs(playerY - bgsY) <= bgsH) {
+                activated = true;
+                activatorEntity = this;
+            }
+        }
+
+        if (activated) {
+            var targetWaterLevel = 0.0;
+            if (false)
+                targetWaterLevel = this.Y;
+            else if (activatorEntity.X <= this.X)
+                targetWaterLevel = this.HeightX;
+            else
+                targetWaterLevel = this.HeightY;
+
+            Water_TargetWaterLevel = targetWaterLevel;
+            Water_WaterLevelChangeSpeed = this.Speed * 0.5;
+            if (this.DestroyOnTrigger)
+                this.Active = false;
+        }
+    }
+    Water_Status_Splash() {
+        if (this.AttachedWaterBlock)
+            this.Y = this.AttachedWaterBlock.Y - this.AttachedWaterBlock.SizeY * 0.5;
+        else
+            this.Y = Water_CurrentWaterLevel;
+
         this.Animate();
         if (this.CurrentFrame == this.CurrentFrameCount - 1)
             this.Active = false;
     }
-    event Water_Status_AirBubble() {
+    Water_Status_AirBubble() {
         var player = this.BubbleAttachedPlayer;
         if (this.CurrentAnimation == 6 && this.CurrentFrame == this.CurrentFrameCount - 1) {
             this.Active = false;
@@ -523,7 +675,7 @@ class Water {
         }
 
         var inWater = false;
-        if (this.Y >= global.CurrentWaterLevel) {
+        if (this.Y >= Water_CurrentWaterLevel) {
             inWater = true;
         }
         else {
@@ -543,16 +695,16 @@ class Water {
             var player, bubble = this;
             with ("Player") {
                 player = this;
+                if (player.Shield == ShieldType_BUBBLE || !player.Underwater)
+                    continue;
+
                 if (Static.Entity_CollideWithObject(bubble, player)) {
                     bubble.BubblerTimer = 0;
                     bubble.YSpeed = 0;
                     bubble.BubbleAttachedPlayer = player;
 
                     var playerStatus = player.Status;
-                    if (true /*playerStatus != sub_28DCC0 &&
-                        playerStatus != sub_28DC40 &&
-                        playerStatus != sub_28DD40 &&
-                        playerStatus != sub_28DDC0*/) {
+                    if (player.Player_IsActiveStatus()) {
                         player.XSpeed =
                         player.YSpeed =
                         player.GroundSpeed = 0.0;
@@ -609,7 +761,7 @@ class Water {
                 this.Active = false;
         }
     }
-    event Water_Status_CountdownAppear() {
+    Water_Status_CountdownAppear() {
         var player = this.BubbleAttachedPlayer;
         if (!player) return;
 
@@ -620,7 +772,7 @@ class Water {
         this.Animate();
 
         var inWater = false;
-        if (this.Y >= global.CurrentWaterLevel) {
+        if (this.Y >= Water_CurrentWaterLevel) {
             inWater = true;
         }
         else {
@@ -659,7 +811,7 @@ class Water {
             this.SizeY = posFloorY - Math.Floor(pinnedY);
         }
     }
-    event Water_Status_Countdown() {
+    Water_Status_Countdown() {
         this.Animate();
 
         var angle = this.Angle;
@@ -676,86 +828,33 @@ class Water {
         }
     }
 
-    event SpawnCountdownBubble(player, number) {
-        var countdown = Instance.Create("Water", player.X, player.Y, 8);
-        if (player.Flip) {
-            countdown.X -= 6.0;
-            countdown.Angle = 256;
-        }
-        else {
-            countdown.X += 6.0;
-        }
-        countdown.BubbleBaseX = countdown.X;
-        countdown.YSpeed = -0.53125;
-        countdown.BubbleAttachedPlayer = player;
-        countdown.Priority = DrawGroup_AboveTiles;
-        countdown.Number = number;
-    }
-    event Water_SpawnPlayerBreathingBubbles(player, playerIndex) {
-        var timer1 = Water_PlayerTimer1[playerIndex];
-        if (timer1 <= 0) {
-            if (Number.AsInteger(Math.RandomMax(3)) == 1)
-                Water_PlayerTimer2[playerIndex] = Number.AsInteger(Math.RandomMax(16)) + 8;
-            else
-                Water_PlayerTimer2[playerIndex] = 512;
-
-            Water_PlayerTimer1[playerIndex] = 60;
-
-            var bubble = Instance.Create("Water", player.X, player.Y, 7);
-            if (player.Flip) {
-                bubble.X -= 6.0;
-                bubble.Angle = 256;
-            }
-            else {
-                bubble.X += 6.0;
-            }
-            bubble.BubbleAttachedPlayer = player;
-            bubble.BubbleBaseX = bubble.X;
-            bubble.YSpeed = -0.53125;
-            bubble.Priority = player.Priority + 1;
-        }
-        else {
-            Water_PlayerTimer1[playerIndex] = timer1 - 1;
-
-            var timer2 = Water_PlayerTimer2[playerIndex];
-            if (timer2 <= 0) {
-                var bubble = Instance.Create("Water", player.X, player.Y, 7);
-                if (player.Flip) {
-                    bubble.X -= 6.0;
-                    bubble.Angle = 256;
-                }
-                else {
-                    bubble.X += 6.0;
-                }
-                bubble.BubbleAttachedPlayer = player;
-                bubble.BubbleBaseX = bubble.X;
-                bubble.YSpeed = -0.53125;
-                bubble.Priority = player.Priority + 1;
-
-                Water_PlayerTimer2[playerIndex] = 512;
-            }
-            else {
-                Water_PlayerTimer2[playerIndex] = timer2 - 1;
-            }
-        }
-    }
-
-    event Render() {
+    Render() {
         if (this.RenderStatus)
             this.RenderStatus();
     }
-
-    event Water_RenderStatus_GlobalWaterBlockController() {
+    Water_RenderStatus_WaterLevelController() {
         var vx = View.GetX(0),
             vy = View.GetY(0),
             vw = View.GetWidth(0),
             vh = View.GetHeight(0);
-        Draw.SetBlendMode(BlendMode_ADD);
-        Draw.SetBlendColor(this.R, this.G, this.B, this.A);
-        Draw.Rectangle(vx, Math.Max(vy, this.CurrentWaterLevel), vw, vh);
+
+        if (this.A != 0.0) {
+            Draw.SetBlendMode(BlendMode_ADD);
+            Draw.SetBlendColor(this.R, this.G, this.B, this.A);
+            Draw.Rectangle(vx, Math.Max(vy, Water_CurrentWaterLevel), vw, vh);
+            Draw.SetBlendMode(BlendMode_NORMAL);
+        }
+
+        Draw.SetBlendMode(this.BlendMode);
+        var spr = this.SPR_Water;
+        var x = Math.Floor(vx / 64.0) * 64.0 + 32.0;
+        for (var i = Number.AsInteger(vw / 64.0 + 2.0); i > 0; i--) {
+            Draw.Sprite(spr, 0, (Scene_Frame >> 2) % 10, x, Water_CurrentWaterLevel, false, false);
+            x += 64.0;
+        }
         Draw.SetBlendMode(BlendMode_NORMAL);
     }
-    event Water_RenderStatus_WaterBlock() {
+    Water_RenderStatus_WaterBlock() {
         if (!Static.Entity_IsOnScreen(this, this.SizeX, this.SizeY))
             return;
 
@@ -764,7 +863,7 @@ class Water {
         Draw.Rectangle(this.X - this.SizeX * 0.5, this.Y - this.SizeY * 0.5, this.SizeX, this.SizeY);
         Draw.SetBlendMode(BlendMode_NORMAL);
     }
-    event Water_RenderStatus_WaterSplash() {
+    Water_RenderStatus_Splash() {
         Draw.SetTextureBlend(true);
         Draw.SetBlendMode(BlendMode_ADD);
         Draw.SetBlendColor(1.0, 1.0, 1.0, 0.5);
@@ -772,7 +871,7 @@ class Water {
         Draw.SetBlendMode(BlendMode_NORMAL);
         Draw.SetTextureBlend(false);
     }
-    event Water_RenderStatus_Bubble() {
+    Water_RenderStatus_Bubble() {
         if (!this.Visible)
             return;
 
@@ -783,7 +882,7 @@ class Water {
         Draw.SetBlendMode(BlendMode_NORMAL);
         Draw.SetTextureBlend(false);
     }
-    event Water_RenderStatus_Countdown() {
+    Water_RenderStatus_CountdownTimer() {
         Draw.SetTextureBlend(true);
         Draw.SetBlendMode(BlendMode_ADD);
         Draw.SetBlendColor(1.0, 1.0, 1.0, 1.0);

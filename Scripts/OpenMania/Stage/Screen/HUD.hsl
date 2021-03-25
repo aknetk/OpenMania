@@ -412,11 +412,15 @@ class HUD {
             num2_anim = player.CombineRing ? 9 : 1;
 
             // Format time
-            if (time > 36000 - 1) // 9' 59''99
-                time = 36000 - 1;
             var cc = ((time * 100) / 60) % 100;
             var ss = (time / 60) % 60;
             var mm = ((time / 60) / 60) % 10;
+            // 9' 59''99
+            if (time >= 36000) {
+                cc = 99;
+                ss = 59;
+                mm = 9;
+            }
 
             hud_x -= this.HUDTimer * 150.0;
             // Score (Text)

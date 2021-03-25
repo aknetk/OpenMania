@@ -1,17 +1,11 @@
 class Spring {
-    event Create() {
-        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
-            this.Active = false;
-            return;
-        }
-
-        // Load
+    Load() {
         this.Sprite = Resources.LoadSprite("Sprites/Global/Springs.bin", SCOPE_GAME);
         this.SFX_Spring = Resources.LoadSound("SoundFX/Global/Spring.wav", SCOPE_GAME);
         this.AutoPhysics = false;
         this.Status = null;
-
-        // Setup
+    }
+    Setup() {
         this.Type = 0;
         this.FlipFlag = 0;
         this.OnGround = 0;
@@ -24,6 +18,16 @@ class Spring {
             this.OnGround = this.PropertyGet("onGround");
         if (this.PropertyExists("planeFilter"))
             this.PlaneFilter = this.PropertyGet("planeFilter");
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        this.Setup();
+        this.Load();
+
 
         // Initial Status
         this.Type = this.Type % 6;
@@ -94,7 +98,7 @@ class Spring {
         }
     }
 
-    event Spring_Update_Vertical() {
+    Spring_Update_Vertical() {
         var v3, v4;
         var flipFlag = this.FlipFlag;
         var spring = this, player;
@@ -106,11 +110,11 @@ class Spring {
 
             var planeFilter = spring.PlaneFilter;
             if (!planeFilter || player.PlaneIndex == ((planeFilter - 1) & 1)) {
-                if ((flipFlag & 2) == 0) {
-                    v3 = // spring.Type != 0xFF ||
+                if (flipFlag == 0) {
+                    v3 = spring.Type != 0xFF ||
                         player.YSpeed >= -5.0 ?
                             Static.Entity_SolidCollideWithPlayer(spring, player) :
-                            Static.Entity_SolidCollideWithPlayer(spring, player) == 1;
+                            Static.Entity_TopSolidCollideWithPlayer(spring, player);
                 }
                 else {
                     v3 = Static.Entity_SolidCollideWithPlayer(spring, player) == 4;
@@ -157,14 +161,14 @@ class Spring {
                     spring.AnimationSpeedMult = 1.0;
                     spring.ResetAnimation(spring.CurrentAnimation, 1);
                     if (spring.SoundCooldown == 0) {
-                        Sound.Play(this.SFX_Spring);
+                        Sound.Play(spring.SFX_Spring);
                         spring.SoundCooldown = 8;
                     }
                 }
             }
         }
     }
-    event Spring_Update_Horizontal() {
+    Spring_Update_Horizontal() {
         var v3, v4;
         var flipFlag = this.FlipFlag;
         var spring = this, player;
@@ -207,8 +211,10 @@ class Spring {
                         }
 
                         var animation = player.CurrentAnimation;
-                        if (!(animation == 10 || animation >= 7 && animation <= 9))
+                        if (!(animation == 10 || animation >= 7 && animation <= 9)) {
+                            player.AnimationSpeedMult = 1.0;
                             player.SetAnimation(5, 0);
+                        }
                     }
 
                     player.InputLock = 16;
@@ -220,14 +226,14 @@ class Spring {
                     spring.AnimationSpeedMult = 1.0;
                     spring.ResetAnimation(spring.CurrentAnimation, 1);
                     if (spring.SoundCooldown == 0) {
-                        Sound.Play(this.SFX_Spring);
+                        Sound.Play(spring.SFX_Spring);
                         spring.SoundCooldown = 8;
                     }
                 }
             }
         }
     }
-    event Spring_Update_Diagonal() {
+    Spring_Update_Diagonal() {
         var spring = this, player;
         with ("Player") {
             if (!this.Active)
@@ -261,8 +267,10 @@ class Spring {
                 else {
                     player.Status = player.Player_StatusJumping;
                     var animation = player.CurrentAnimation;
-                    if (!(animation == 5 || animation >= 7 && animation <= 9))
+                    if (!(animation == 5 || animation >= 7 && animation <= 9)) {
+                        player.AnimationSpeedMult = 1.0;
                         player.SetAnimation(5, 0);
+                    }
                 }
             }
 
@@ -289,13 +297,13 @@ class Spring {
             spring.AnimationSpeedMult = 1.0;
             spring.ResetAnimation(spring.CurrentAnimation, 1);
             if (spring.SoundCooldown == 0) {
-                Sound.Play(this.SFX_Spring);
+                Sound.Play(spring.SFX_Spring);
                 spring.SoundCooldown = 8;
             }
         }
     }
 
-    event Update() {
+    Update() {
         var cooldown = this.SoundCooldown;
         if (cooldown > 0)
             this.SoundCooldown = cooldown - 1;
@@ -303,11 +311,11 @@ class Spring {
         if (this.Status)
             this.Status();
     }
-    event OnAnimationFinish() {
+    OnAnimationFinish() {
         this.AnimationSpeedMult = 0.0;
     }
 
-    event Render() {
+    Render() {
         if (!this.OnScreen)
             return;
 

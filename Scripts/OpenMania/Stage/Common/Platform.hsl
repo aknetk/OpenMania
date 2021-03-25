@@ -8,6 +8,7 @@ var Platform_ClassInfo = [
     0.0, 0.0,
     0.0, 0.0,
 ];
+var Platform_SoundLooping = false;
 
 class Platform {
     Load() {
@@ -306,7 +307,7 @@ class Platform {
         this.HitboxHalfW = this.HitboxW / 2.0;
         this.HitboxHalfH = this.HitboxH / 2.0;
 
-        this.SoundLooping = false;
+        Platform_SoundLooping = false;
 
 
         this.Child = Array.Create(this.ChildCount);
@@ -483,16 +484,15 @@ class Platform {
         if (this.Status)
             this.Status();
 
-        if (true) {
+        if (this.Active) {
             this.PlayerAtop = false;
             this.DeltaX += Math.Floor(this.FinalX);
             this.DeltaY += Math.Floor(this.FinalY);
 
-            // TODO: complete this
-            // if (this.Status != sub_XXX && this.Status != sub_XXX) {
+            if (this.Status != this.Platform_Status_TimedFalling_WaitForOffscreen && this.Status != this.Platform_Status_TimedFalling_Resetting) {
                 if (this.CollisionStatus)
                     this.CollisionStatus();
-            // }
+            }
 
             this.X = this.StartX;
             this.Y = this.StartY;
@@ -587,62 +587,12 @@ class Platform {
     }
     // Type 6
     Platform_Status_Pushable() {
+        this.UpdateRegionW = this.UpdateRegionH = 0.0;
+
+        this.Status = this.Platform_Status_PushablePostStatus;
+        this.Platform_Status_PushablePostStatus();
+
         this.XSpeed = this.YSpeed = 0.0;
-
-        var player, platform, playerIndex, playerFlag;
-
-        platform = this;
-
-        playerIndex = -1;
-        with ("Player") {
-            playerIndex++;
-            playerFlag = 1 << playerIndex;
-            if (playerFlag & platform.PlayerOnLeftFlag)
-                platform.XSpeed += platform.Speed;
-            if (playerFlag & platform.PlayerOnRightFlag)
-                platform.XSpeed -= platform.Speed;
-        }
-
-        if (this.XSpeed != 0.0) {
-            if (!this.SoundLooping) {
-                Sound.Loop(this.SFX_Push);
-                this.SoundLooping = true;
-            }
-
-            var timeToDrop = this.PossibleTimerUntilDrop;
-            if (timeToDrop > 0) {
-                this.XSpeed = 0.0;
-                this.PossibleTimerUntilDrop = timeToDrop - 1;
-            }
-        }
-        else {
-            if (this.SoundLooping) {
-                Sound.Stop(this.SFX_Push);
-                this.SoundLooping = false;
-            }
-            if (this.PossibleTimerUntilDrop < 4)
-                this.PossibleTimerUntilDrop++;
-        }
-
-        this.FinalX += this.XSpeed;
-        this.X = this.FinalX;
-        this.Y = this.FinalY;
-
-        playerIndex = -1;
-        with ("Player") {
-            playerIndex++;
-            playerFlag = 1 << playerIndex;
-            if (playerFlag & platform.PlayerOnLeftFlag)
-                this.X = platform.FinalX + (-platform.HitboxHalfW - this.HitboxW / 2.0);
-            if (playerFlag & platform.PlayerOnRightFlag)
-                this.X = platform.FinalX + (platform.HitboxHalfW - (-this.HitboxW / 2.0) - 1.0);
-        }
-
-        // TODO: the rest here
-
-        //
-        this.FinalX = this.X;
-        this.FinalY = this.Y;
     }
     // Type 7
     Platform_Status_BackForthRigid() {
@@ -1059,6 +1009,94 @@ class Platform {
             this.XSpeed = this.YSpeed = 0.0;
         }
     }
+    Platform_Status_PushablePostStatus() {
+        var player, platform, playerIndex, playerFlag;
+
+        platform = this;
+
+        this.XSpeed = this.YSpeed = 0.0;
+
+        playerIndex = -1;
+        with ("Player") {
+            playerIndex++;
+            playerFlag = 1 << playerIndex;
+            if (playerFlag & platform.PlayerOnLeftFlag)
+                platform.XSpeed += platform.Speed;
+            if (playerFlag & platform.PlayerOnRightFlag)
+                platform.XSpeed -= platform.Speed;
+        }
+
+        if (this.XSpeed != 0.0) {
+            if (!Platform_SoundLooping) {
+                Sound.Loop(this.SFX_Push, 1);
+                Platform_SoundLooping = true;
+            }
+
+            var timeToDrop = this.PossibleTimerUntilDrop;
+            if (timeToDrop > 0) {
+                this.XSpeed = 0.0;
+                this.PossibleTimerUntilDrop = timeToDrop - 1;
+            }
+        }
+        else {
+            if (Platform_SoundLooping) {
+                Sound.Stop(this.SFX_Push);
+                Platform_SoundLooping = false;
+            }
+            if (this.PossibleTimerUntilDrop < 4)
+                this.PossibleTimerUntilDrop++;
+        }
+
+        this.FinalX += this.XSpeed;
+        this.X = this.FinalX;
+        this.Y = this.FinalY;
+
+        playerIndex = -1;
+        with ("Player") {
+            playerIndex++;
+            playerFlag = 1 << playerIndex;
+            if (playerFlag & platform.PlayerOnLeftFlag)
+                this.X = platform.FinalX + (-platform.HitboxHalfW - this.HitboxW / 2.0);
+            if (playerFlag & platform.PlayerOnRightFlag)
+                this.X = platform.FinalX + (platform.HitboxHalfW - (-this.HitboxW / 2.0) - 1.0);
+        }
+
+        // TODO: the rest here
+
+        //
+        this.FinalX = this.X;
+        this.FinalY = this.Y;
+
+        if (!Static.Entity_IsOnScreen(this, this.RenderRegionW, this.RenderRegionH)) {
+            this.Speed /= 32.0;
+            this.FinalX = this.StartX;
+            this.FinalY = this.StartY;
+            this.XSpeed = this.YSpeed = 0.0;
+            if (Platform_SoundLooping) {
+                Sound.Stop(this.SFX_Push);
+                Platform_SoundLooping = 0;
+            }
+            this.Status = this.Platform_Status_TimedFalling_Resetting;
+        }
+    }
+
+    // Support functions
+    HitboxTopChange(delta) {
+        this.HitboxH -= delta;
+        this.HitboxOffY += delta * 0.5;
+    }
+    HitboxLeftChange(delta) {
+        this.HitboxW -= delta;
+        this.HitboxOffX += delta * 0.5;
+    }
+    HitboxRightChange(delta) {
+        this.HitboxW += delta;
+        this.HitboxOffX += delta * 0.5;
+    }
+    HitboxBottomChange(delta) {
+        this.HitboxH += delta;
+        this.HitboxOffY += delta * 0.5;
+    }
 
     // Collision 0
     Platform_CollisionStatus_TopSolid() {
@@ -1156,34 +1194,103 @@ class Platform {
     }
     // Collision 2
     Platform_CollisionStatus_TilePlatform() {
-        // TODO: This is not supposed to be collidable
-        // this.Platform_CollisionStatus_Solid();
+        this.PlayerOnTopFlag = 0;
+        this.PlayerOnLeftFlag = 0;
+        this.PlayerOnRightFlag = 0;
 
-        // Move player if they are walking or climbing on the platform but wouldn't be moved
-        // by the tiles otherwise
-
-        var player, index = -1, platform = this;
+        var player, index = -1, platform = this, doMovePlayer;
         with ("Player") {
             player = this;
             index++;
             if (player.IsGhost)
                 continue;
 
-            player.UpdateHitbox(0);
+            doMovePlayer = false;
+
+            var platformHitboxW = platform.HitboxW;
+            var platformHitboxH = platform.HitboxH;
+            var platformHitboxOffX = platform.HitboxOffX;
+            var platformHitboxOffY = platform.HitboxOffY;
 
             platform.HitboxW += 32.0;
             platform.HitboxH += 32.0;
 
+            player.UpdateHitbox(0);
+
             if (Static.Entity_CollideWithObject(platform, player)) {
                 player.MoveLayer_OffsetX = platform.TileOriginX - platform.FinalX;
                 player.MoveLayer_OffsetY = platform.TileOriginY - platform.FinalY;
+                if (player.CurrentAnimation == 17 && player.Ground) {
+                    if (player.InputRight)
+                        platform.PlayerOnLeftFlag |= 1 << index;
+                    if (player.InputLeft)
+                        platform.PlayerOnRightFlag |= 1 << index;
+                }
+
+                var playerStatus = player.Status;
+                if (playerStatus == player.Player_StatusKnuckles_Climbing || playerStatus == player.Player_StatusKnuckles_GettingUp) {
+                    doMovePlayer = true;
+                    if (playerStatus == player.Player_StatusKnuckles_GettingUp)
+                        platform.HitboxTopChange(-16.0);
+
+                    if (player.X < platform.X) {
+                        platform.HitboxTopChange(16.0);
+                        platform.HitboxRightChange(-16.0);
+                    }
+                    else {
+                        platform.HitboxTopChange(16.0);
+                        platform.HitboxLeftChange(16.0);
+                    }
+                    platform.HitboxBottomChange(-16.0);
+                }
+                else {
+                    switch (player.AngleMode) {
+                        case 0:
+                            platform.HitboxRightChange(-16.0);
+                            platform.HitboxLeftChange(16.0);
+                            platform.HitboxBottomChange(-16.0);
+                            break;
+                        case 1:
+                            platform.HitboxTopChange(16.0);
+                            platform.HitboxRightChange(-16.0);
+                            platform.HitboxBottomChange(-16.0);
+                            break;
+                        case 2:
+                            platform.HitboxTopChange(16.0);
+                            platform.HitboxLeftChange(16.0);
+                            platform.HitboxRightChange(-16.0);
+                            break;
+                        case 3:
+                            platform.HitboxTopChange(16.0);
+                            platform.HitboxLeftChange(16.0);
+                            platform.HitboxBottomChange(-16.0);
+                            break;
+                    }
+                }
+
+                if (Static.Entity_CollideWithObject(platform, player) && (player.Ground || doMovePlayer)) {
+                    platform.PlayerOnTopFlag |= 1 << index;
+                    if (!player.IsSubPlayer) {
+                        platform.PlayerAtop = true;
+                        if (platform.Status == platform.Platform_Status_TimedFalling && !platform.PossibleTimerUntilDrop) {
+                            if (player.Character == Character_MIGHTY && player.Status != player.Player_StatusMighty_HammerDrop)
+                                platform.PossibleTimerUntilDrop = 1;
+                            else
+                                platform.PossibleTimerUntilDrop = 30;
+                        }
+                    }
+                    player.X += platform.DeltaX;
+                    player.Y = Math.Floor(player.Y + platform.DeltaY);
+                }
                 // print "platform.TileOriginX: " + platform.TileOriginX;
                 // print "platform.FinalX: " + platform.FinalX;
                 // print "player.MoveLayer_OffsetX: " + player.MoveLayer_OffsetX;
             }
 
-            platform.HitboxW -= 32.0;
-            platform.HitboxH -= 32.0;
+            platform.HitboxW = platformHitboxW;
+            platform.HitboxH = platformHitboxH;
+            platform.HitboxOffX = platformHitboxOffX;
+            platform.HitboxOffY = platformHitboxOffY;
         }
     }
     // Collision 3
@@ -1593,7 +1700,7 @@ class Platform {
         var platform = this;
 
         platform.PlayerAtop = true;
-        // TODO: complete this
+
         if (!((1 << playerIndex) & onTopFlag) &&
             !player.IsSubPlayer &&
             platform.Status == platform.Platform_Status_TimedFalling &&

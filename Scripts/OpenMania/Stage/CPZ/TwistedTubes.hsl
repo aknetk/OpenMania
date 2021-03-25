@@ -1,0 +1,296 @@
+var TwistedTubes_SPR_TwistedTubes = -1;
+var TwistedTubes_SFX_Travel = -1;
+var TwistedTubes_PlayersGrabbed = null;
+event TwistedTubes_Load() {
+    TwistedTubes_SPR_TwistedTubes = Resources.LoadSprite("Sprites/CPZ/TwistedTubes.bin", SCOPE_SCENE);
+    TwistedTubes_SFX_Travel = Resources.LoadSound("SoundFX/Tube/Travel.wav", SCOPE_SCENE);
+    TwistedTubes_PlayersGrabbed = Array.Create(8, 0);
+}
+
+class TwistedTubes {
+    Setup() {
+        this.Status = null;
+        this.Height = 0;
+        this.Timer = 0;
+        this.Angle = 0;
+        this.FlipFlag = 0;
+        this.GrabbedPlayer = null;
+
+        if (this.PropertyExists("height"))
+            this.Height = this.PropertyGet("height");
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        this.Setup();
+
+        if (flag) {
+            this.ViewRenderFlag = 0;
+
+            flag--;
+            var chubeControl = this;
+            with ("Player") {
+                if (this.PlayerID == flag) {
+                    chubeControl.GrabbedPlayer = this;
+                    break;
+                }
+            }
+            if (!chubeControl.GrabbedPlayer) {
+                this.Active = false;
+                return;
+            }
+
+            if (chubeControl.GrabbedPlayer.X > this.X)
+                this.Status = this.TwistedTubes_Status_EnterRight;
+            else
+                this.Status = this.TwistedTubes_Status_EnterLeft;
+        }
+        else {
+            this.Priority = DrawGroup_FGHigh_High;
+
+            this.UpdateRegionW = 256.0;
+            this.UpdateRegionH = (this.Height + 4) * 32.0;
+            this.RenderRegionW = this.UpdateRegionW;
+            this.RenderRegionH = this.UpdateRegionH;
+
+            this.Status = this.TwistedTubes_Status_Main;
+        }
+    }
+
+    Update() {
+        if (this.Status)
+            this.Status();
+    }
+    Render() {
+        var sprite = TwistedTubes_SPR_TwistedTubes,
+            anim = 0,
+            x = Math.Floor(this.X),
+            y = Math.Floor(this.Y);
+
+        Draw.Sprite(sprite, anim, 0, x, y, false, false);
+        y += 64.0;
+
+        Draw.Sprite(sprite, anim, 1, x, y, false, false);
+        Draw.Sprite(sprite, anim, 2, x, y, false, false);
+        Draw.Sprite(sprite, anim, 2, x, y, true, false);
+        y += 32.0;
+
+        for (var i = 0; i < this.Height; i++) {
+            Draw.Sprite(sprite, anim, 1, x, y, false, false);
+            Draw.Sprite(sprite, anim, 3, x, y, false, false);
+            Draw.Sprite(sprite, anim, 3, x, y, true, false);
+            y += 32.0;
+        }
+
+        Draw.Sprite(sprite, anim, 1, x, y, false, false);
+        Draw.Sprite(sprite, anim, 4, x, y, false, false);
+        Draw.Sprite(sprite, anim, 4, x, y, true, false);
+    }
+
+    SetHitboxFromRelative(left, top, right, bottom) {
+        this.HitboxW = right - left;
+        this.HitboxH = bottom - top;
+        this.HitboxOffX = (right + left) * 0.5;
+        this.HitboxOffY = (bottom + top) * 0.5;
+    }
+
+    TwistedTubes_Status_Main() {
+        var chubes = this,
+            player, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+            if (player.Status == player.Player_StatusTransportTube_CPZ)
+                continue;
+
+            chubes.SetHitboxFromRelative(-0x20, -0x10, 0x20, 0x10);
+            Static.Entity_SolidCollideWithPlayer(chubes, player);
+
+            chubes.SetHitboxFromRelative(-0x38, 0x18, -0x20, 0x40);
+            if (Static.GameObject_TestCollide(player, chubes)) {
+                var chubeControl = Instance.Create("TwistedTubes", chubes.X, chubes.Y + 48.0, player.PlayerID + 1);
+                chubeControl.Unk_0x30 = 1;
+
+                chubeControl.Height = chubes.Height + 2;
+
+                player.Status = player.Player_StatusTransportTube_CPZ;
+                player.Priority = 1;
+                player.Interactable = false;
+                player.UseGroundSpeed = false;
+                player.Ground = false;
+                player.XSpeed = 0.0;
+                player.YSpeed = 0.0;
+                player.LateUpdateAirStatus = null;
+                player.LateUpdateGroundStatus = null;
+
+                TwistedTubes_PlayersGrabbed[player.PlayerID] = true;
+
+                Sound.Play(TwistedTubes_SFX_Travel);
+
+                player.AnimationSpeedMult = 4.0;
+                player.SetAnimation(10, 0);
+            }
+
+            chubes.SetHitboxFromRelative( 0x20, 0x18,  0x38, 0x40);
+            if (Static.GameObject_TestCollide(player, chubes)) {
+                var chubeControl = Instance.Create("TwistedTubes", chubes.X, chubes.Y + 48.0, player.PlayerID + 1);
+                chubeControl.Unk_0x30 = 1;
+
+                chubeControl.Height = chubes.Height + 3;
+
+                player.Status = player.Player_StatusTransportTube_CPZ;
+                player.Priority = 1;
+                player.Interactable = false;
+                player.UseGroundSpeed = false;
+                player.Ground = false;
+                player.XSpeed = 0.0;
+                player.YSpeed = 0.0;
+                player.LateUpdateAirStatus = null;
+                player.LateUpdateGroundStatus = null;
+
+                TwistedTubes_PlayersGrabbed[player.PlayerID] = true;
+
+                Sound.Play(TwistedTubes_SFX_Travel);
+
+                player.AnimationSpeedMult = 4.0;
+                player.SetAnimation(10, 0);
+            }
+        }
+    }
+    TwistedTubes_Status_EnterLeft() {
+        var player = this.GrabbedPlayer;
+        player.X += (this.X - 56.0 - player.X) * 0.125;
+        player.Y += (this.Y - 8.0 - player.Y) * 0.125;
+
+        this.Timer++;
+        if (this.Timer == 8) {
+            this.Timer = 0;
+            this.FlipFlag = 0;
+            this.Status = this.TwistedTubes_Status_TubeMoveDownRight;
+        }
+    }
+    TwistedTubes_Status_EnterRight() {
+        var player = this.GrabbedPlayer;
+        player.X += (this.X + 56.0 - player.X) * 0.125;
+        player.Y += (this.Y - 8.0 - player.Y) * 0.125;
+
+        this.Timer++;
+        if (this.Timer == 8) {
+            this.Timer = 0;
+            this.FlipFlag = 1;
+            this.Status = this.TwistedTubes_Status_TubeMoveDownLeft;
+        }
+    }
+    TwistedTubes_Status_TubeMoveDownLeft() {
+        this.Angle += 8;
+
+        var player = this.GrabbedPlayer;
+        player.X = this.X + Static.HexCos(this.Angle) * 56.0;
+        player.Y = this.Y - Static.HexCos(this.Angle) * 16.0;
+        player.XSpeed = -4.0;
+        player.YSpeed =  1.0;
+
+        if (this.Angle >= 128) {
+            this.Y += 16.0;
+            this.Angle = 0;
+            this.Status = this.TwistedTubes_Status_TubeMoveDownCheck;
+        }
+
+        if (!player.Player_IsActiveStatus()) {
+            TwistedTubes_PlayersGrabbed[player.PlayerID] = false;
+            this.Active = false;
+        }
+    }
+    TwistedTubes_Status_TubeMoveDownCheck() {
+        this.Angle += 8;
+
+        var player = this.GrabbedPlayer;
+        player.X = this.X - Static.HexCos(this.Angle) * 56.0;
+        player.Y = this.Y - Static.HexCos(this.Angle) * 2.0;
+        player.XSpeed =  4.0;
+        player.YSpeed =  1.0;
+
+        var angle = this.Angle;
+        if (angle < 128) {
+            if (angle >= 64 && this.FlipFlag && this.Height == 1) {
+                player.Y = this.Y;
+                player.XSpeed = 12.0;
+                player.YSpeed = 0.0;
+
+                this.Status = this.TwistedTubes_Status_TubeExitRight;
+
+                TwistedTubes_PlayersGrabbed[player.PlayerID] = false;
+            }
+        }
+        else {
+            this.Height--;
+            this.Angle = 0;
+            if (this.Height) {
+                this.Y += 16.0;
+                this.Status = this.TwistedTubes_Status_TubeMoveDownLeft;
+            }
+            else {
+                player.Y = this.Y;
+                player.YSpeed = 0.0;
+
+                if (this.FlipFlag)
+                    this.Status = this.TwistedTubes_Status_TubeExitRight;
+                else
+                    this.Status = this.TwistedTubes_Status_TubeExitLeft;
+
+                TwistedTubes_PlayersGrabbed[player.PlayerID] = false;
+            }
+        }
+
+        if (!player.Player_IsActiveStatus()) {
+            TwistedTubes_PlayersGrabbed[player.PlayerID] = false;
+            this.Active = false;
+        }
+    }
+    TwistedTubes_Status_TubeMoveDownRight() {
+        this.Angle += 8;
+
+        var player = this.GrabbedPlayer;
+        player.X = this.X - Static.HexCos(this.Angle) * 56.0;
+        player.Y = this.Y - Static.HexCos(this.Angle) * 16.0;
+        player.XSpeed =  4.0;
+        player.YSpeed =  1.0;
+
+        if (this.Angle >= 128) {
+            this.Y += 32.0;
+            this.Angle = 0;
+            this.Status = this.TwistedTubes_Status_TubeMoveDownLeft;
+        }
+
+        if (!player.Player_IsActiveStatus()) {
+            TwistedTubes_PlayersGrabbed[player.PlayerID] = false;
+            this.Active = false;
+        }
+    }
+    TwistedTubes_Status_TubeExitLeft() {
+        var player = this.GrabbedPlayer;
+        player.Y = this.Y;
+
+        if (player.XSpeed > -8.0)
+            player.XSpeed -= 0.5;
+        else
+            this.Active = false;
+
+        if (!player.Player_IsActiveStatus())
+            this.Active = false;
+    }
+    TwistedTubes_Status_TubeExitRight() {
+        var player = this.GrabbedPlayer;
+        player.Y = this.Y;
+
+        if (player.XSpeed <  8.0)
+            player.XSpeed += 0.5;
+        else
+            this.Active = false;
+
+        if (!player.Player_IsActiveStatus())
+            this.Active = false;
+    }
+}

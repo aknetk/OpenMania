@@ -1,9 +1,117 @@
+var TitleBG_PaletteRotateTimer = 0;
+
+event TitleBG_Load() {
+    TitleBG_PaletteRotateTimer = 0;
+    Palette.SetColor(0, 0x37, 0x202030);
+}
+event Clouds_TileScanLineFunction() {
+    var vw = View.GetWidth(0);
+
+    var distX, distY, projectedX, projectedY, dX, dY, sX, sY;
+    var sinVal = Static.HexSin(0);
+    var cosVal = Static.HexCos(0);
+    var viewHalfW = vw * 0.5;
+    var tileSrcY = 256.0;
+    var scrollPosition = (Scene_Frame * 0.5) % 256.0;
+    var scanLine = 0;
+    var layerSize = 256.0;
+    for (var i = 160.0; i >= 32.0; i -= 1.0) {
+        distX = tileSrcY / (8.0 * i);
+        distY = distX;
+        projectedX = cosVal * distX;
+        projectedY = sinVal * distY;
+        dX = -projectedX * 2.0;
+        dY = projectedY * 2.0;
+        sX = -viewHalfW * dX + projectedY * layerSize;
+        sY = -viewHalfW * dY + projectedX * layerSize * 2.0 + scrollPosition;
+
+        Scene.SetTileScanline(scanLine, sX, sY, dX, dY);
+
+        tileSrcY -= 0.25;
+        scanLine++;
+    }
+
+    Draw.SetClip(0, 0, vw, 120);
+}
+event Island_TileScanLineFunction() {
+    var vw = View.GetWidth(0);
+
+    var dist, projectedX, projectedY, dX, dY, sX, sY;
+
+    var scanLine = 168;
+
+    var spin = -Scene_Frame;
+    var sinVal = Static.HexSinHighPrec(spin);
+    var cosVal = Static.HexCosHighPrec(spin);
+    var viewHalfW = vw * 0.5;
+    var tileSrcY = 256.0;
+    var layerSize = 160.0;
+
+    var sv = sinVal * 160.0;
+    var cv = cosVal * 160.0;
+    for (var i = 16; i < 88; i++) {
+        dist = 160.0 / (8.0 * i);
+        projectedX = cosVal * dist;
+        projectedY = sinVal * dist;
+        dX = -projectedX * 2.0;
+        dY =  projectedY * 2.0;
+        sX = -viewHalfW * dX + projectedY * 256.0 - sv + 512.0;
+        sY = -viewHalfW * dY + projectedX * 256.0 - cv + 512.0;
+
+        Scene.SetTileScanline(scanLine, sX, sY, dX, dY);
+
+        tileSrcY -= 0.25;
+        scanLine++;
+    }
+
+    Draw.SetClip(0, 168, vw, 80);
+}
+event TitleBG_SetupLayersMode7_And_ShowSprites() {
+    Scene.SetLayerVisible(0, false);
+    Scene.SetLayerVisible(1, true);
+
+    Scene.SetLayerDrawGroup(2, 0);
+    Scene.SetLayerVisible(2, true);
+    Scene.SetLayerCustomScanlineFunction(2, Clouds_TileScanLineFunction);
+    Scene.SetLayerDrawGroup(3, 1);
+    Scene.SetLayerVisible(3, true);
+    Scene.SetLayerCustomScanlineFunction(3, Island_TileScanLineFunction);
+
+    with ("TitleBG") {
+        this.ViewRenderFlag = 1;
+    }
+    with ("Title3DSprite") {
+        this.ViewRenderFlag = 1;
+    }
+
+    Palette.SetColor(0, 0x37, 0x00FF00);
+    Draw.SetCompareColor(0x00FF00);
+    // Enable sorting on the DrawGroup 2
+}
+
+event TitleBG_GlobalUpdate() {
+    TitleBG_PaletteRotateTimer++;
+    if (TitleBG_PaletteRotateTimer == 6) {
+        TitleBG_PaletteRotateTimer = 0;
+        Palette.RotateColorsRight(0, 0x8C, 4);
+    }
+}
+
 class TitleBG {
+    Setup() {
+        this.Type = 0;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+    }
     Create(flag) {
+        this.Setup();
+
+        this.DoUpdate = true;
+        this.ViewRenderFlag = 0;
+
         this.Priority = 1;
         this.Sprite = Resources.LoadSprite("Sprites/Title/Background.bin", SCOPE_SCENE);
         this.SetAnimation(0, 0);
-        this.Type = this.PropertyGet("type");
 
         this.Status = null;
         this.RenderStatus = null;
@@ -29,7 +137,7 @@ class TitleBG {
                 this.Status = this.TitleBG_Status_MountainTop;
                 break;
             case 4:
-                this.Priority = 4;
+                this.Priority = 11;
                 this.BlendFlag = BlendMode_MATCH_EQUAL;
                 this.Status = this.TitleBG_Status_WingShine;
                 break;
@@ -37,92 +145,21 @@ class TitleBG {
 
         this.SetAnimation(this.Type, 0);
 
-        Scene.SetLayerVisible(2, true);
-        Scene.SetLayerVisible(3, true);
-        Scene.SetLayerVisible(4, true);
-
-        View.SetX(0, (512.0 - View.GetWidth(0)) * 0.5);
-
-        this.UpdateEarly = Instance.GetNth("TitleBG", 0) == this;
-
-        if (this.UpdateEarly) {
-            Scene.SetLayerCustomScanlineFunction(2, this.Clouds_TileScanLineFunction);
-            Scene.SetLayerCustomScanlineFunction(3, this.Island_TileScanLineFunction);
-        }
-    }
-
-    Clouds_TileScanLineFunction() {
-        var vw = View.GetWidth(0);
-
-        var distX, distY, projectedX, projectedY, dX, dY, sX, sY;
-        var sinVal = Static.HexSin(0);
-        var cosVal = Static.HexCos(0);
-        var viewHalfW = vw * 0.5;
-        var tileSrcY = 256.0;
-        var scrollPosition = (Scene_Frame * 0.5) % 256.0;
-        var scanLine = 0;
-        var layerSize = 256.0;
-        for (var i = 160.0; i >= 32.0; i -= 1.0) {
-            distX = tileSrcY / (8.0 * i);
-            distY = distX;
-            projectedX = cosVal * distX;
-            projectedY = sinVal * distY;
-            dX = -projectedX * 2.0;
-            dY = projectedY * 2.0;
-            sX = -viewHalfW * dX + projectedY * layerSize;
-            sY = -viewHalfW * dY + projectedX * layerSize * 2.0 + scrollPosition;
-
-            Scene.SetTileScanline(scanLine, sX, sY, dX, dY);
-
-            tileSrcY -= 0.25;
-            scanLine++;
-        }
-
-        Draw.SetClip(0, 0, vw, 120);
-    }
-    Island_TileScanLineFunction() {
-        var vw = View.GetWidth(0);
-
-        var dist, projectedX, projectedY, dX, dY, sX, sY;
-
-        var scanLine = 168;
-
-        var spin = -Scene_Frame;
-        var sinVal = Static.HexSinHighPrec(spin);
-        var cosVal = Static.HexCosHighPrec(spin);
-        var viewHalfW = vw * 0.5;
-        var tileSrcY = 256.0;
-        var layerSize = 160.0;
-
-        var sv = sinVal * 160.0;
-        var cv = cosVal * 160.0;
-        for (var i = 16; i < 88; i++) {
-            dist = 160.0 / (8.0 * i);
-            projectedX = cosVal * dist;
-            projectedY = sinVal * dist;
-            dX = -projectedX * 2.0;
-            dY =  projectedY * 2.0;
-            sX = -viewHalfW * dX + projectedY * 256.0 - sv + 512.0;
-            sY = -viewHalfW * dY + projectedX * 256.0 - cv + 512.0;
-
-            Scene.SetTileScanline(scanLine, sX, sY, dX, dY);
-
-            tileSrcY -= 0.25;
-            scanLine++;
-        }
-
-        Draw.SetClip(0, 168, vw, 80);
+        // Scene.SetLayerVisible(0, true);
+        // Scene.SetLayerDrawGroup(0, 9);
+        //
+        // Scene.SetLayerVisible(1, true);
+        // Scene.SetLayerVisible(2, true);
+        // Scene.SetLayerVisible(3, true);
+        // Scene.SetLayerVisible(4, true);
     }
 
     Update() {
+        if (!this.DoUpdate)
+            return;
+
         if (this.Status)
             this.Status();
-
-        if (this.UpdateEarly) {
-            if (Scene_Frame % 6 == 0) {
-                Palette.RotateColorsLeft(0, 0x8C, 4);
-            }
-        }
     }
     TitleBG_Status_MountainTop() {
         this.X -= 1.0;

@@ -1,0 +1,160 @@
+event ChemicalPool_Load() {
+
+}
+
+class ChemicalPool {
+    Setup() {
+
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        this.Setup();
+
+
+        this.Priority = DrawGroup_FGHigh_High;
+
+        this.Width = 0;
+        this.Height = 0;
+        this.Type = 0;
+        this.NoCrush = false;
+        this.ActiveNormal = false;
+        this.TimeAttackOnly = false;
+        this.NoChibi = false;
+        if (this.PropertyExists("width"))
+            this.Width = this.PropertyGet("width");
+        if (this.PropertyExists("height"))
+            this.Height = this.PropertyGet("height");
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("noCrush"))
+            this.NoCrush = this.PropertyGet("noCrush");
+        if (this.PropertyExists("activeNormal"))
+            this.ActiveNormal = this.PropertyGet("activeNormal");
+        if (this.PropertyExists("timeAttackOnly"))
+            this.TimeAttackOnly = this.PropertyGet("timeAttackOnly");
+        if (this.PropertyExists("noChibi"))
+            this.NoChibi = this.PropertyGet("noChibi");
+
+        if (this.PropertyExists("size")) {
+            var size = this.PropertyGet("size");
+            this.Width = size[0];
+            this.Height = size[1];
+        }
+
+        // NOTE: Tiled Support
+        if (this.PropertyExists("Width") &&
+            this.PropertyExists("Height")) {
+            var width = this.PropertyGet("Width");
+            var height = this.PropertyGet("Height");
+
+            // offset if using sprited template
+            if (this.PropertyExists("width")) {
+                this.X -= 16.0;
+                this.Y -= 16.0;
+            }
+
+            this.X += width * 0.5;
+            this.Y += height * 0.5;
+
+            this.Width = (width - 16.0) / 16.0;
+            this.Height = (height - 16.0) / 16.0;
+        }
+
+        this.HitboxW = this.Width;
+        this.HitboxH = this.Height;
+        this.HitboxHalfW = this.HitboxW / 2.0;
+        this.HitboxHalfH = this.HitboxH / 2.0;
+
+        this.UpdateRegionW = this.HitboxW;
+        this.UpdateRegionH = this.HitboxH;
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+
+        switch (this.Type) {
+            case 0:
+                this.Color1 = 0x0060E0;
+                this.Color2 = 0x0008C0;
+                break;
+            case 1:
+                this.Color1 = 0x20E020;
+                this.Color2 = 0x189000;
+                break;
+            case 2:
+                this.Color1 = 0x00B8F0;
+                this.Color2 = 0x0080B0;
+                break;
+        }
+    }
+    Update() {
+        // Player detection
+        var player, block = this;
+        with ("Player") {
+            player = this;
+            switch (Static.Entity_SolidCollideWithPlayer(block, player)) {
+                case 1:
+                    if (!block.NoCrush)
+                        player.VerticalCollisionFlag |= 1;
+
+                   player.YSpeed = -20.0;
+
+                    if (player.Status != player.Player_StatusSonic_DropDash)
+                        player.Status = player.Player_StatusJumping;
+                    player.Ground = false;
+                    player.JumpAbility = 0;
+                    // player.YSpeed = -20.0;
+                    player.AnimationSpeedMult = 1.0;
+                    player.SetAnimation(10, 0);
+                    break;
+                case 2:
+                    if (!block.NoCrush)
+                        player.HorizontalCollisionFlag |= 1;
+                    break;
+                case 3:
+                    if (!block.NoCrush)
+                        player.HorizontalCollisionFlag |= 2;
+                    break;
+                case 4:
+                    if (!block.NoCrush)
+                        player.VerticalCollisionFlag |= 2;
+                    break;
+            }
+        }
+    }
+    ChemicalPool_Status_Bounce() {
+        var player, block = this;
+        with ("Player") {
+            player = this;
+            if (Static.Entity_CollideWithObject(block, player)) {
+                if (-player.YSpeed - 1.0 > -8.0)
+                    player.YSpeed = -player.YSpeed - 1.0;
+                else
+                    player.YSpeed = -8.0;
+
+                if (player.Status != player.Player_StatusSonic_DropDash)
+                    player.Status = player.Player_StatusJumping;
+                player.Ground = false;
+                player.JumpAbility = 0;
+                player.AnimationSpeedMult = 1.0;
+                player.SetAnimation(10, 0);
+            }
+        }
+    }
+    Render() {
+        var x = Math.Floor(this.X);
+        var y = Math.Floor(this.Y);
+        var x0 = x - this.HitboxHalfW;
+        var x1 = x + this.HitboxHalfW;
+        var y0 = y - this.HitboxHalfH;
+        var y1 = y - this.HitboxHalfH + 8.0;
+        var y2 = y + this.HitboxHalfH;
+
+        Draw.SetBlendColor(1.0, 1.0, 1.0, 1.0);
+        Draw.QuadBlend(x0, y0, x1, y0, x1, y1, x0, y1, this.Color1, this.Color1, this.Color2, this.Color2);
+
+        Draw.SetBlendColor(1.0, 1.0, 1.0, 0.75);
+        Draw.QuadBlend(x0, y1, x1, y1, x1, y2, x0, y2, this.Color2, this.Color2, this.Color2, this.Color2);
+    }
+}

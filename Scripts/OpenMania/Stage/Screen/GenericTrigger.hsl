@@ -1,0 +1,42 @@
+var GenericTrigger_TriggerFunctions = Array.Create(16);
+var GenericTrigger_PlayerID = 0;
+
+class GenericTrigger {
+    Setup() {
+        this.TriggerID = -1;
+        this.SizeX = 0.0;
+        this.SizeY = 0.0;
+        if (this.PropertyExists("size")) {
+            var size = this.PropertyGet("size");
+            this.SizeX = size[0];
+            this.SizeY = size[1];
+        }
+        if (this.PropertyExists("triggerID"))
+            this.TriggerID = this.PropertyGet("triggerID");
+    }
+    Create() {
+        this.Setup();
+
+        this.TriggerID &= 0xF;
+
+        this.HitboxW = this.SizeX * 2.0;
+        this.HitboxH = this.SizeY * 2.0;
+        this.UpdateRegionW = this.SizeX * 2.0;
+        this.UpdateRegionH = this.SizeY * 2.0;
+    }
+
+    Update() {
+        var trigger = this, player;
+        with ("Player") {
+            player = this;
+
+            if (Static.GameObject_TestCollide(player, trigger)) {
+                GenericTrigger_PlayerID = player.PlayerID;
+
+                var triggerStatus = GenericTrigger_TriggerFunctions[trigger.TriggerID];
+                if (triggerStatus)
+                    triggerStatus();
+            }
+        }
+    }
+}

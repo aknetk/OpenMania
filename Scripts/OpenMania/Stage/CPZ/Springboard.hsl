@@ -1,0 +1,257 @@
+var Springboard_Unk_0x04 = [ -4, -10, -8 ];
+var Springboard_PowerSteps = [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -1.0,
+    -2.0,
+    -2.0,
+    -2.0,
+    -2.0,
+    -2.0,
+    -2.0,
+    -2.0,
+    -2.0,
+    -3.0,
+    -3.0,
+    -3.0,
+    -3.0,
+    -3.0,
+    -3.0,
+    -4.0,
+    -4.0,
+];
+var Springboard_HeightMapNormal = [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    16,
+    17,
+    18,
+    19,
+    20,
+    20,
+    21,
+    21,
+    22,
+    23,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+    24,
+];
+var Springboard_HeightMapPressed = [
+    8,
+    9,
+    10,
+    11,
+    12,
+    12,
+    12,
+    12,
+    13,
+    13,
+    13,
+    13,
+    13,
+    13,
+    14,
+    14,
+    15,
+    15,
+    16,
+    16,
+    16,
+    16,
+    15,
+    15,
+    14,
+    14,
+    13,
+    13,
+];
+
+event Springboard_Load() {
+
+}
+
+class Springboard {
+    Load() {
+        this.Sprite = Resources.LoadSprite("Sprites/CPZ/Springboard.bin", SCOPE_SCENE);
+        this.SFX_Exit = Resources.LoadSound("SoundFX/Global/Spring.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        this.Force = 0;
+        this.FlipFlag = 0;
+        this.Timer = 0;
+        this.PlayerCaptureFlag = 0;
+        if (this.PropertyExists("force"))
+            this.Force = this.PropertyGet("force");
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+        this.Load();
+        this.Setup();
+
+        this.Priority = DrawGroup_FGLow_Low;
+
+        this.UpdateRegionW =
+        this.UpdateRegionH =
+        this.RegionRegionW =
+        this.RegionRegionH = 64.0;
+
+        this.Force = this.Force * 0.5 + 4.0;
+        this.ResetAnimation(0, 3);
+
+    }
+
+    Update() {
+        this.Animate();
+
+        var springBoard = this, player, index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+
+            if (player.YSpeed >= 0.0 /* && ((1 << index) & springBoard.PlayerCaptureFlag) */) {
+                var playerRelX = Math.Clamp((player.X - (springBoard.X - 28.0)) * 0.5, 0.0, 28.0);
+                if (springBoard.FlipFlag & 1)
+                    playerRelX = 28.0 - playerRelX;
+
+                springBoard.SetHitboxFromRelative(-28, -10, 28, -8);
+                if (playerRelX >= 8.0 && Static.Entity_TopSolidCollideWithPlayer(springBoard, player)) {
+                    if (springBoard.CurrentFrame == 3) {
+                    //     springBoard.ResetAnimation(0, 0);
+                    // }
+                    // else if (springBoard.CurrentFrame == 2) {
+                        var v4 = player.CurrentAnimation;
+                        if (v4 == 5 || v4 > 6 && v4 <= 9)
+                            player.AnimationAfterSpring = v4;
+                        else
+                            player.AnimationAfterSpring = 5;
+
+                        player.Status = this.Player_StatusJumping;
+
+                        player.Ground = false;
+                        player.UseGroundSpeed = true;
+
+                        player.ResetAnimation(23, 1);
+
+                        player.GroundSpeed = player.XSpeed;
+
+                        var step = Number.AsInteger(2.0 * playerRelX - 16.0);
+                        if (step > 39)
+                            step = 39;
+
+                        step = 39;
+
+                        player.YSpeed = Springboard_PowerSteps[step] - player.GravityRate - springBoard.Force;
+                        player.JumpAbility = 0;
+
+                        Sound.Play(this.SFX_Spring);
+
+                    }
+                }
+            }
+        }
+        return;
+
+        index = -1;
+        with ("Player") {
+            player = this;
+            index++;
+
+            var playerRelX = Math.Clamp((player.X - (springBoard.X - 28.0)) * 0.5, 0.0, 27.0);
+            if (springBoard.FlipFlag & 1)
+                playerRelX = 27.0 - playerRelX;
+
+            var heightMapX = Number.AsInteger(playerRelX);
+
+            var height = 0;
+            if (springBoard.CurrentFrame <= 2)
+                height = Springboard_HeightMapPressed[heightMapX];
+            else if (springBoard.CurrentFrame == 3)
+                height = Springboard_HeightMapNormal[heightMapX];
+
+            springBoard.SetHitboxFromRelative(-28, -height, 28, -8);
+
+            var gsp = player.GroundSpeed;
+            var xsp = player.XSpeed;
+
+            var collideFlag = 0;
+            if ((1 << index) & springBoard.PlayerCaptureFlag)
+                collideFlag = Static.Entity_TopSolidCollideWithPlayer(springBoard, player);
+            else
+                collideFlag = Static.Entity_SolidCollideWithPlayer(springBoard, player);
+
+            switch (collideFlag) {
+                case 2:
+                case 3:
+                    player.GroundSpeed = gsp;
+                    player.XSpeed = xsp;
+                case 1:
+                case 4:
+                    if (player.YSpeed >= 0 && ((1 << index) & springBoard.PlayerCaptureFlag)) {
+                        player.UpdateHitbox(0);
+                        player.Y = springBoard.Y - (player.HitboxH * 0.5 + player.HitboxOffY) - height;
+                    }
+                    break;
+            }
+
+            if (collideFlag) {
+                springBoard.PlayerCaptureFlag |= (1 << index);
+            }
+            else
+                springBoard.PlayerCaptureFlag &= ~(1 << index);
+
+            springBoard.GroundSensorMask = 0;
+        }
+    }
+
+    Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), (this.FlipFlag & 1), (this.FlipFlag & 2));
+    }
+
+    SetHitboxFromRelative(left, top, right, bottom) {
+        this.HitboxW = right - left;
+        this.HitboxH = bottom - top;
+        this.HitboxOffX = (right + left) * 0.5;
+        this.HitboxOffY = (bottom + top) * 0.5;
+    }
+}

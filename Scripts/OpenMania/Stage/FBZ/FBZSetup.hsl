@@ -1,3 +1,19 @@
+event FBZSetup_GenericTrigger_ShowCloudPS() {
+    with ("ParallaxSprite") {
+        this.ViewRenderFlag = 0x01;
+    }
+}
+event FBZSetup_GenericTrigger_HideCloudPS() {
+    with ("ParallaxSprite") {
+        this.ViewRenderFlag = 0;
+    }
+}
+
+event FBZSetup_Load() {
+    GenericTrigger_TriggerFunctions[0] = FBZSetup_GenericTrigger_ShowCloudPS;
+    GenericTrigger_TriggerFunctions[1] = FBZSetup_GenericTrigger_HideCloudPS;
+}
+
 class FBZSetup {
     event Create(flag) {
         Palette.SetColor(0, 0xDF, 0x0098E0);

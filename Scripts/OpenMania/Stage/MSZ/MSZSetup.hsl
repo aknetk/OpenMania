@@ -1,3 +1,82 @@
+var MSZSetup_Deform = [
+    -1,
+     0,
+     0,
+    -1,
+    -1,
+     0,
+     0,
+     0,
+     0,
+    -1,
+    -1,
+     0,
+     0,
+     0,
+     0,
+    -1,
+     0,
+     0,
+     0,
+     0,
+    -1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+];
+var MSZSetup_Static_2 = 16;
+var MSZSetup_Static_3 = 30;
+var MSZSetup_Static_4 = [
+    0x000,
+    0x100,
+    0x200,
+    0x300,
+    0x400,
+    0x500,
+    0x200,
+    0x300,
+    0x400,
+    0x500,
+    0x200,
+    0x100,
+    0x600,
+    0x700,
+];
+var MSZSetup_Static_SpinFlowerFrameDuration = [
+    16,
+    2,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    2,
+    3,
+];
+var MSZSetup_BounceBulbFrameDurations = [
+    16,
+    2,
+    4,
+    5,
+    16,
+    2,
+    4,
+    5,
+];
+
 class MSZSetup {
     event Create() {
         this.Status = null;
@@ -20,6 +99,10 @@ class MSZSetup {
 
             this.Status = this.MSZSetup_Status_Act2;
             this.SandTimer = 0;
+            this.BulbSrc = 0;
+            this.BounceBulbFrame = 0;
+            this.BounceBulbFrameTimer = 0;
+            this.SPR_AniTiles = Resources.LoadSprite("Sprites/MSZ/AniTiles.bin", SCOPE_SCENE);
         }
     }
 
@@ -41,6 +124,21 @@ class MSZSetup {
                 Palette.RotateColorsLeft(2, 0xCC, 4);
             }
             Palette.MixPalettes(0, 1, 2, this.SandTimer / 256.0, 0xCC, 4);
+        }
+
+        this.BounceBulbFrameTimer--;
+        if (this.BounceBulbFrameTimer <= 0) {
+            this.BounceBulbFrame++;
+            this.BounceBulbFrame &= 7;
+            this.BounceBulbFrameTimer = MSZSetup_BounceBulbFrameDurations[this.BounceBulbFrame];
+            for (var i = 0; i < 5; i++)
+                TileInfo.SetSpriteInfo(74 + i, this.SPR_AniTiles, 2 + i, this.BounceBulbFrame);
+        }
+
+        if (!(Scene_Frame & 3)) {
+            this.BulbSrc = (this.BulbSrc + 1) & 7;
+            TileInfo.SetSpriteInfo(89, this.SPR_AniTiles, 0, this.BulbSrc);
+            TileInfo.SetSpriteInfo(90, this.SPR_AniTiles, 1, this.BulbSrc);
         }
     }
 }

@@ -1,16 +1,15 @@
 class Launcher < Platform {
-    event Create(flag) {
-        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
-            this.Active = false;
-            return;
-        }
-        
-        // This code is hilariously hacked together.
-
-        super.Create();
+    Load() {
+        super.Load();
 
         this.Sprite = Resources.LoadSprite("Sprites/FBZ/Platform.bin", SCOPE_GAME);
-        this.ResetAnimation(1, 4);
+        this.SFX_Launch = Resources.LoadSound("SoundFX/Stage/Launch.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        super.Setup();
+
+        this.LaunchTimer = 0;
+        this.SpeedTimer = 0;
 
         if (this.PropertyExists("direction")) {
             this.FlipFlag = this.PropertyGet("direction");
@@ -18,54 +17,124 @@ class Launcher < Platform {
         if (this.PropertyExists("flipFlag")) {
             this.FlipFlag = this.PropertyGet("flipFlag");
         }
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
 
-        this.SFX_Launch = Resources.LoadSound("SoundFX/Stage/Launch.wav", SCOPE_SCENE);
+        super.Create();
 
-        this.CollisionStatus = this.Platform_CollisionStatus_TilePlatform;
-        this.Status = null;
+        this.ResetAnimation(1, 4);
 
-        this.HitboxW = 2 * 16.0;
-        this.HitboxH = 1 * 16.0;
-        this.HitboxOffX = 0.0;
-        this.HitboxOffY = 0.0;
+        this.CollisionStatus = this.Launcher_CollisionStatus_Launcher;
+        this.Status = this.Launcher_Status_Wait;
+
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
     }
 
-    event Launcher_CollisionStatus_Launcher() {
+    Launcher_Status_Wait() {
+
+    }
+    Launcher_Status_BuildSpeed() {
+        var xsp = this.XSpeed;
+        this.FinalX += xsp;
+
+        this.SpeedTimer--;
+        if (this.SpeedTimer >= 0)
+            this.XSpeed *= 2.0;
+
+        this.LaunchTimer--;
+        if (this.LaunchTimer < 0) {
+            var player, launcher = this, playerIndex = -1;
+            with ("Player") {
+                playerIndex++;
+                player = this;
+
+                if ((1 << playerIndex) & launcher.PlayerOnTopFlag) {
+                    player.XSpeed =
+                    player.GroundSpeed = launcher.XSpeed;
+                }
+            }
+
+            this.Status = this.Launcher_Status_Launched;
+        }
+    }
+    Launcher_Status_Launched() {
+        if (this.FlipFlag)
+            this.FinalX += 1.0;
+        else
+            this.FinalX -= 1.0;
+
+        if (this.FinalX == this.StartX) {
+            this.UpdateRegionW = this.RenderRegionW;
+            this.UpdateRegionH = this.RenderRegionH;
+            this.Status = this.Launcher_Status_Wait;
+        }
+    }
+    Launcher_CollisionStatus_Launcher() {
         var onTopFlag = this.PlayerOnTopFlag;
 
         this.PlayerOnTopFlag = 0;
+
+        this.GetHitboxFromSprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, 0);
 
         var player, launcher = this, playerIndex = -1;
         with ("Player") {
             playerIndex++;
             player = this;
 
-            var originalYSpeed = player.YSpeed;
-            if (launcher.DeltaY < 0.0)
-                player.YSpeed = originalYSpeed - launcher.DeltaY;
-
             if (Static.Entity_TopSolidCollideWithPlayer(launcher, player)) {
-                player.XSpeed =
-                player.GroundSpeed = 6.0;
+                launcher.PlayerOnTopFlag |= 1 << playerIndex;
 
-                if (launcher.FlipFlag) {
-                    player.XSpeed =
-                    player.GroundSpeed = -6.0;
+                if (launcher.Status == launcher.Launcher_Status_Wait) {
+                    var xspeed = 1.0;
+                    if (launcher.FlipFlag)
+                        xspeed = -1.0;
+
+                    launcher.UpdateRegionW = launcher.UpdateRegionH = 0.0;
+                    launcher.XSpeed = xspeed;
+                    launcher.LaunchTimer = 12;
+                    launcher.SpeedTimer = 4;
+                    launcher.Status = launcher.Launcher_Status_BuildSpeed;
+
+                    Sound.Play(launcher.SFX_Launch);
                 }
+
+                if (launcher.Status == launcher.Launcher_Status_Launched) {
+                    player.X += launcher.DeltaX;
+                }
+                else {
+                    player.X = launcher.FinalX;
+                    player.FlipFlag = player.Flip = launcher.FlipFlag;
+                    player.XSpeed = 0.0;
+                    player.GroundSpeed = launcher.XSpeed;
+                    player.GroundSpeed = Math.Clamp(player.GroundSpeed, -6.0, 6.0);
+                    player.PushingTimer = 0;
+                    player.UseGroundSpeed = true;
+                    if (player.Status != player.Player_StatusRoll)
+                        player.Status  = player.Player_StatusStanding;
+                }
+            }
+            else if (((1 << playerIndex) & onTopFlag) && launcher.Status != launcher.Launcher_Status_Launched) {
+                player.XSpeed =
+                player.GroundSpeed = launcher.XSpeed;
             }
         }
     }
 
-    event UpdateEarly() {
+    UpdateEarly() {
         super.UpdateEarly();
     }
-    event Update() {
+    Update() {
         super.Update();
 
         this.Animate();
     }
 
-    event Render() {
-        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.FinalX), Math.Floor(this.FinalY), false, false);
+    Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.FinalX), Math.Floor(this.FinalY), this.FlipFlag & 1, this.FlipFlag & 2);
     }
 }

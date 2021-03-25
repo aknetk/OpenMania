@@ -1,0 +1,229 @@
+class TubeSpring < Spring {
+    Load() {
+        super.Load();
+
+        var sceneName = Scene.GetName();
+        if (String.Contains(sceneName, "CPZ"))
+            this.Sprite = Resources.LoadSprite("Sprites/CPZ/TubeSpring.bin", SCOPE_SCENE);
+        else
+            this.Sprite = Resources.LoadSprite("Sprites/FBZ/TubeSpring.bin", SCOPE_SCENE);
+        this.SFX_Exit = Resources.LoadSound("SoundFX/Tube/Exit.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        super.Setup();
+
+        this.Type = 0;
+        this.FlipFlag = 0;
+        this.Timer = 0;
+        if (this.PropertyExists("type"))
+            this.Type = this.PropertyGet("type");
+        if (this.PropertyExists("flipFlag"))
+            this.FlipFlag = this.PropertyGet("flipFlag");
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        super.Create(flag);
+
+        this.ResetAnimation(0, 0);
+
+        this.Priority = DrawGroup_FGHigh_High;
+        this.AutoAnimate = false;
+
+        if (this.Type == 0)
+            this.YSpeed = -16.0;
+        else
+            this.YSpeed = -10.5;
+        this.Type = 255;
+        this.AnimationSpeedMult = 0.0;
+
+        this.Status = this.TubeSpring_Status_Spring;
+
+    }
+    // Statuses
+    TubeSpring_Status_Spring() {
+        super.Spring_Update_Vertical();
+
+        // NOTE: Can't use "with" loop here, as it ignores non-Interactable
+        //       objects.
+        var spring = this, player, index = -1;
+        for (var i = 0, cnt = Instance.GetCount("Player"); i < cnt; i++) {
+            player = Instance.GetNth("Player", i);
+            index++;
+            if (!player.Player_IsActiveStatus())
+                continue;
+
+            var hx = spring.HitboxOffX,
+                hy = spring.HitboxOffY,
+                hw = spring.HitboxW,
+                hh = spring.HitboxH;
+
+            spring.HitboxW = 31.0;
+            spring.HitboxH = 37.0;
+            spring.HitboxOffY = 29.5;
+
+            if (Static.Entity_CollideWithObject(spring, player)) {
+                spring.AnimationSpeedMult = 1.0;
+                spring.ResetAnimation(1, 0);
+
+                if (spring.Status != spring.TubeSpring_Status_FlipOpen)
+                    Sound.Play(spring.SFX_Exit);
+
+                spring.Status = spring.TubeSpring_Status_FlipOpen;
+
+                if (player.Status == player.Player_StatusTransportTube_CPZ ||
+                    player.Status == player.Player_StatusNone) {
+                    player.Priority = DrawGroup_FGLow_High;
+                    player.UseGroundSpeed = true;
+                    player.Interactable = true;
+                    player.JumpAbility = 0;
+                    player.Status = player.Player_StatusJumping;
+                    if (player.YSpeed < -8.0)
+                        player.YSpeed = -8.0;
+                }
+            }
+
+            spring.HitboxOffX = hx;
+            spring.HitboxOffY = hy;
+            spring.HitboxW = hw;
+            spring.HitboxH = hh;
+        }
+    }
+    TubeSpring_Status_FlipOpen() {
+        super.Spring_Update_Vertical();
+
+        var playerCollided = false;
+        var spring = this, player, index = -1;
+        for (var i = 0, cnt = Instance.GetCount("Player"); i < cnt; i++) {
+            player = Instance.GetNth("Player", i);
+            index++;
+            if (!player.Player_IsActiveStatus())
+                continue;
+
+            var hx = spring.HitboxOffX,
+                hy = spring.HitboxOffY,
+                hw = spring.HitboxW,
+                hh = spring.HitboxH;
+
+            spring.HitboxW = 31.0;
+            spring.HitboxH = 37.0;
+            spring.HitboxOffY = 29.5;
+
+            if (Static.Entity_CollideWithObject(spring, player)) {
+                playerCollided = true;
+
+                spring.AnimationSpeedMult = 1.0;
+                spring.ResetAnimation(1, 0);
+
+                if (spring.Status != spring.TubeSpring_Status_FlipOpen)
+                    Sound.Play(spring.SFX_Exit);
+
+                spring.Status = spring.TubeSpring_Status_FlipOpen;
+
+                if (player.Status == player.Player_StatusTransportTube_CPZ ||
+                    player.Status == player.Player_StatusNone) {
+                    player.Priority = DrawGroup_FGLow_High;
+                    player.UseGroundSpeed = true;
+                    player.Interactable = true;
+                    player.JumpAbility = 0;
+                    player.Status = player.Player_StatusJumping;
+                    if (player.YSpeed < -8.0)
+                        player.YSpeed = -8.0;
+                }
+            }
+
+            spring.HitboxOffX = hx;
+            spring.HitboxOffY = hy;
+            spring.HitboxW = hw;
+            spring.HitboxH = hh;
+        }
+
+        if (this.CurrentFrame == this.CurrentFrameCount - 1 && !playerCollided) {
+            this.AnimationSpeedMult = 1.0;
+            this.ResetAnimation(2, 0);
+            this.Status = this.TubeSpring_Status_FlipClose;
+            this.TubeSpring_Status_FlipClose();
+        }
+    }
+    TubeSpring_Status_FlipClose() {
+        super.Spring_Update_Vertical();
+
+        var playerCollided = false;
+        var spring = this, player, index = -1;
+        for (var i = 0, cnt = Instance.GetCount("Player"); i < cnt; i++) {
+            player = Instance.GetNth("Player", i);
+            index++;
+            if (!player.Player_IsActiveStatus())
+                continue;
+
+            var hx = spring.HitboxOffX,
+                hy = spring.HitboxOffY,
+                hw = spring.HitboxW,
+                hh = spring.HitboxH;
+
+            spring.HitboxW = 31.0;
+            spring.HitboxH = 37.0;
+            spring.HitboxOffY = 29.5;
+
+            if (Static.Entity_CollideWithObject(spring, player)) {
+                playerCollided = true;
+
+                spring.AnimationSpeedMult = 1.0;
+                spring.ResetAnimation(1, 0);
+
+                if (spring.Status != spring.TubeSpring_Status_FlipOpen)
+                    Sound.Play(spring.SFX_Exit);
+
+                spring.Status = spring.TubeSpring_Status_FlipOpen;
+
+                if (player.Status == player.Player_StatusTransportTube_CPZ ||
+                    player.Status == player.Player_StatusNone) {
+                    player.Priority = DrawGroup_FGLow_High;
+                    player.UseGroundSpeed = true;
+                    player.Interactable = true;
+                    player.JumpAbility = 0;
+                    player.Status = player.Player_StatusJumping;
+                    if (player.YSpeed < -8.0)
+                        player.YSpeed = -8.0;
+                    print "player.YSpeed: " + player.YSpeed;
+                }
+            }
+
+            spring.HitboxOffX = hx;
+            spring.HitboxOffY = hy;
+            spring.HitboxW = hw;
+            spring.HitboxH = hh;
+        }
+
+        if (this.CurrentFrame == this.CurrentFrameCount - 1) {
+            this.AnimationSpeedMult = 0.0;
+            this.ResetAnimation(0, 0);
+            this.Status = this.TubeSpring_Status_Spring;
+        }
+    }
+
+    Update() {
+        if (this.SoundCooldown > 0)
+            this.SoundCooldown--;
+
+        if (this.Status)
+            this.Status();
+
+        if (this.CurrentAnimation == 0) {
+            if (this.AnimationSpeedMult != 0.0) {
+                this.AnimationSpeedAdd = 128;
+                this.Animate();
+            }
+        }
+        else {
+            this.Animate();
+        }
+    }
+
+    Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.X), Math.Floor(this.Y), (this.FlipFlag & 1), (this.FlipFlag & 2));
+    }
+}

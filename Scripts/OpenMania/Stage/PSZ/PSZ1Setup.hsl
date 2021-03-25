@@ -1,0 +1,148 @@
+var PSZ1Setup_SceneLayer_Offset_0 = 0.0;
+var PSZ1Setup_SceneLayer_Offset_1 = 0.0;
+var PSZ1Setup_MovedAllEntitiesFlag = false;
+
+var PSZ1Setup_EntityClassList = [
+    "Ring", "Spring", "Platform"
+];
+
+event PSZ1Setup_GenericTrigger_ShowCloudPS() {
+
+}
+event PSZ1Setup_GenericTrigger_HideCloudPS() {
+
+}
+event PSZ1Setup_GenericTrigger_HideCloudPS2() {
+
+}
+
+event PSZ1Setup_Load() {
+    GenericTrigger_TriggerFunctions[0] = PSZ1Setup_GenericTrigger_ShowCloudPS;
+    GenericTrigger_TriggerFunctions[1] = PSZ1Setup_GenericTrigger_HideCloudPS;
+    GenericTrigger_TriggerFunctions[2] = PSZ1Setup_GenericTrigger_HideCloudPS2;
+}
+
+event PSZ1Setup_MoveEntityUp(entity) {
+    if (!Instance.IsClass(entity, "BoundsMarker")) {
+        var entityY = entity.Y;
+        if (entityY >= 0x680) {
+            entity.Y = entityY - 0xA00;
+            if (Instance.IsClass(entity, "PrintBlock") ||
+                Instance.IsClass(entity, "Platform") ||
+                Instance.IsClass(entity, "Crate")) {
+                entity.FinalY -= 0xA00;
+                entity.StartY -= 0xA00;
+            }
+        }
+    }
+}
+event PSZ1Setup_MoveEntityDown(entity) {
+    if (!Instance.IsClass(entity, "BoundsMarker")) {
+        var entityY = entity.Y;
+        if (entityY <= 0x180) {
+            entity.Y = entityY + 0xA00;
+            if (Instance.IsClass(entity, "PrintBlock") ||
+                Instance.IsClass(entity, "Platform") ||
+                Instance.IsClass(entity, "Crate")) {
+                entity.FinalY += 0xA00;
+                entity.StartY += 0xA00;
+            }
+        }
+    }
+}
+event PSZ1Setup_MoveAllEntitiesUp() {
+    for (var i = 0, iSZ = Array.Length(PSZ1Setup_EntityClassList); i < iSZ; i++) {
+        with (PSZ1Setup_EntityClassList[i])
+            PSZ1Setup_MoveEntityUp(this);
+    }
+}
+event PSZ1Setup_MoveAllEntitiesDown() {
+    for (var i = 0, iSZ = Array.Length(PSZ1Setup_EntityClassList); i < iSZ; i++) {
+        with (PSZ1Setup_EntityClassList[i])
+            PSZ1Setup_MoveEntityDown(this);
+    }
+    // with ("Ring") PSZ1Setup_MoveEntityDown(this);
+    // with ("Spring") PSZ1Setup_MoveEntityDown(this);
+    // with ("Platform") PSZ1Setup_MoveEntityDown(this);
+}
+
+event PSZ1Setup_GlobalUpdate() {
+    var player, zone;
+    with ("Player") {
+        player = this;
+        break;
+    }
+    with ("Zone") {
+        zone = this;
+        break;
+    }
+    if (!player || !zone)
+        return;
+
+    var playerY = player.Y;
+    var camera = player.CameraPtr;
+    if (!camera)
+        return;
+
+    var viewIndex = camera.ViewIndex;
+    if (zone.CameraMaxY[viewIndex] == 0xB80) {
+        if (playerY <= 0x90) {
+            player.Y += 0xA00;
+            camera.Y += 0xA00;
+            camera.ClampedShakenY += 0xA00;
+            View.SetY(viewIndex, View.GetY(viewIndex) + 0xA00);
+            if (View.GetY(viewIndex) >= 0x180)
+                View.SetY(viewIndex, View.GetY(viewIndex) + 0xA00);
+
+            PSZ1Setup_SceneLayer_Offset_0 -= 0xA00;
+            if (PSZ1Setup_SceneLayer_Offset_0 < 0)
+                PSZ1Setup_SceneLayer_Offset_0 += 0xA00;
+            PSZ1Setup_SceneLayer_Offset_1 -= 0xA00;
+            if (PSZ1Setup_SceneLayer_Offset_1 < 0)
+                PSZ1Setup_SceneLayer_Offset_1 += 0xA00;
+            Scene.SetLayerOffsetPosition(0, 0.0, PSZ1Setup_SceneLayer_Offset_0);
+            Scene.SetLayerOffsetPosition(1, 0.0, PSZ1Setup_SceneLayer_Offset_1);
+
+        }
+        else if (playerY >= 0xAA0) {
+            player.Y -= 0xA00;
+            camera.Y -= 0xA00;
+            camera.ClampedShakenY -= 0xA00;
+            View.SetY(viewIndex, View.GetY(viewIndex) - 0xA00);
+            PSZ1Setup_SceneLayer_Offset_0 += 0xA00;
+            if (PSZ1Setup_SceneLayer_Offset_0 >= 0x1400)
+                PSZ1Setup_SceneLayer_Offset_0 -= 0xA00;
+            PSZ1Setup_SceneLayer_Offset_1 += 0xA00;
+            if (PSZ1Setup_SceneLayer_Offset_1 >= 0x1400)
+                PSZ1Setup_SceneLayer_Offset_1 -= 0xA00;
+            Scene.SetLayerOffsetPosition(0, 0.0, PSZ1Setup_SceneLayer_Offset_0);
+            Scene.SetLayerOffsetPosition(1, 0.0, PSZ1Setup_SceneLayer_Offset_1);
+
+            if (View.GetY(viewIndex) < 0xA00)
+                View.SetY(viewIndex, View.GetY(viewIndex) - 0xA00);
+        }
+    }
+
+    if (camera.Y <= 0x280) {
+        if (PSZ1Setup_MovedAllEntitiesFlag) {
+            PSZ1Setup_MoveAllEntitiesUp();
+            PSZ1Setup_MovedAllEntitiesFlag = false;
+        }
+    }
+    else if (camera.Y >= 0x610) {
+        if (!PSZ1Setup_MovedAllEntitiesFlag) {
+            PSZ1Setup_MoveAllEntitiesDown();
+            PSZ1Setup_MovedAllEntitiesFlag = true;
+        }
+    }
+}
+
+class PSZ1Setup {
+    event Create(flag) {
+        // Palette.SetColor(0, 0xDF, 0x0098E0);
+    }
+
+    event Update() {
+
+    }
+}

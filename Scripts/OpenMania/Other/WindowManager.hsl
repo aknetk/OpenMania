@@ -14,8 +14,8 @@ class WindowManager {
             var h = Display.GetHeight();
 
             WindowManager_BaseW = WindowManager_BaseH * w / h;
-            // Round display bounds down to multiple of two
-            WindowManager_BaseW = Math.Floor(WindowManager_BaseW * 0.25) * 4.0;
+            // // Round display bounds down to multiple of two
+            // WindowManager_BaseW = Math.Floor(WindowManager_BaseW * 0.25) * 4.0;
 
             this.SetScale(1);
             this.SetFullscreen(true);

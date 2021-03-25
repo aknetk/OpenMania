@@ -41,18 +41,16 @@ class FXFade {
         this.FadeOutBlack = false;
 
         // Create
-        var zone = true;
-        // if ("Menu") {
-        //
-        // }
-        // else
-        if (zone) {
-            this.Priority = 15; // DrawGroup_HUD;
+        if (String.Contains(Scene.GetName(), "Menu")) {
+            this.Priority = 14;
+        }
+        else if (Instance.GetCount("Zone")) {
+            this.Priority = DrawGroup_HUD;
             if (!this.OverHUD)
                 this.Priority--;
         }
         else {
-            this.Priority = 15; // DrawGroup_HUD;
+            this.Priority = 15;
         }
 
         if (!this.SpeedIn)
@@ -64,29 +62,26 @@ class FXFade {
         if (!this.EventOnly) {
             this.RestartOnEnd = false;
             if (this.Timer >= 0)
-                this.Status = this.FXFade_Status_TimerPositive;
+                this.Status = this.FXFade_Status_FadeIn;
             else
-                this.Status = this.FXFade_Status_TimerNegative;
+                this.Status = this.FXFade_Status_FadeOut;
         }
     }
 
-    event FXFade_Status_TimerPositive() {
+    event FXFade_Status_FadeIn() {
         var timer = this.Timer;
         if (timer >= 512) {
             if (this.OneWay) {
                 this.Status = null;
-
-                // HACK:
-                this.Timer = 0;
 
                 if (this.RestartOnEnd)
                     Scene.Restart();
             }
             else if (this.Wait <= 0) {
                 if (this.FadeOutBlack)
-                    this.Status = this.FXFade_Status_TimerNegative;
+                    this.Status = this.FXFade_Status_FadeOut;
                 else
-                    this.Status = this.FXFade_Status_TimerNegative;
+                    this.Status = this.FXFade_Status_FadeOut;
             }
             else {
 
@@ -96,7 +91,7 @@ class FXFade {
             this.Timer = timer + this.SpeedIn;
         }
     }
-    event FXFade_Status_TimerNegative() {
+    event FXFade_Status_FadeOut() {
         var timer = this.Timer;
         if (timer <= 0) {
             if (this.OneWay) {
@@ -133,23 +128,19 @@ class FXFade {
         if (tb < 0x00) tb = 0x00;
         else if (tb > 0xFF) tb = 0xFF;
 
-        // tr = (tr * ((cl >> 16) & 0xFF) / 65025.0);
-        // tg = (tg * ((cl >> 8) & 0xFF) / 65025.0);
-        // tb = (tb * (cl & 0xFF) / 65025.0);
-
-        tr /= 255.0;
-        tg /= 255.0;
-        tb /= 255.0;
-
         if (cl != 0) {
             Draw.SetBlendMode(BlendMode_ADD);
         }
         else {
-            var temp = tr;
-            tr = tb;
-            tb = temp;
+            tr ^= 0xFF;
+            tg ^= 0xFF;
+            tb ^= 0xFF;
             Draw.SetBlendMode(BlendMode_SUBTRACT);
         }
+
+        tr /= 255.0;
+        tg /= 255.0;
+        tb /= 255.0;
 
         Draw.SetBlendColor(tr, tg, tb, 1.0);
         Draw.Rectangle(vx, vy, vw, vh);

@@ -1,0 +1,99 @@
+class RotatingStair < Platform {
+    Load() {
+        super.Load();
+
+        // this.Sprite = Resources.LoadSprite("Sprites/FBZ/Platform.bin", SCOPE_GAME);
+        this.SFX_Launch = Resources.LoadSound("SoundFX/Stage/Launch.wav", SCOPE_SCENE);
+    }
+    Setup() {
+        super.Setup();
+
+        this.LaunchTimer = 0;
+        this.SpeedTimer = 0;
+        this.Type = 2;
+        this.Collision = 1;
+        this.FrameID = 2;
+        this.Speed = 3;
+        this.Mode = 0;
+        this.OscOff = 0;
+
+        if (this.PropertyExists("mode"))
+            this.Mode = this.PropertyGet("mode");
+        if (this.PropertyExists("oscOff"))
+            this.OscOff = this.PropertyGet("oscOff");
+
+        if (this.PropertyExists("direction"))
+            this.FlipFlag = this.PropertyGet("direction");
+        if (this.PropertyExists("flipFlag"))
+            this.FlipFlag = this.PropertyGet("flipFlag");
+
+        if (this.FlipFlag)
+            this.AmplitudeX = -this.AmplitudeX;
+        if (this.Mode & 1)
+            this.AmplitudeX = -this.AmplitudeX;
+    }
+    Create(flag) {
+        if (this.PropertyExists("filter") && !(this.PropertyGet("filter") & Mode_MANIA)) {
+            this.Active = false;
+            return;
+        }
+
+        super.Create();
+        this.Type = this.Mode;
+
+        this.Status = this.RotatingStair_Status_Mode0123;
+
+        this.RenderRegionW = this.UpdateRegionW;
+        this.RenderRegionH = this.UpdateRegionH;
+    }
+
+    RotatingStair_Status_Mode0123() {
+        var timer = (Scene_Frame + this.OscOff) & 0xFFF;
+        var negFinalX = -this.FinalX;
+        var negFinalY = -this.FinalY;
+        var mode = this.Mode;
+
+        if (mode & 1)
+            mode = mode - (((3 * timer) >> 9) & 3) - 2;
+        else
+            mode = mode + (((3 * timer) >> 9) & 3);
+
+        mode &= 3;
+
+        var finalX, finalY;
+        switch (mode) {
+            case 0: // Bottom side
+                this.FinalX = this.StartX + this.AmplitudeX * Static.HexCosHighPrec(timer * this.Speed);
+                this.FinalY = this.StartY + this.AmplitudeY;
+                break;
+            case 1: // Left side
+                this.FinalX = this.StartX - this.AmplitudeX;
+                this.FinalY = this.StartY - this.AmplitudeY * Static.HexCosHighPrec(timer * this.Speed);
+                break;
+            case 2: // Top side
+                this.FinalX = this.StartX - this.AmplitudeX * Static.HexCosHighPrec(timer * this.Speed);
+                this.FinalY = this.StartY - this.AmplitudeY;
+                break;
+            case 3: // Right side
+                this.FinalX = this.StartX + this.AmplitudeX;
+                this.FinalY = this.StartY + this.AmplitudeY * Static.HexCosHighPrec(timer * this.Speed);
+                break;
+        }
+
+        this.XSpeed = negFinalX + this.FinalX;
+        this.YSpeed = negFinalY + this.FinalY;
+    }
+
+    UpdateEarly() {
+        super.UpdateEarly();
+    }
+    Update() {
+        super.Update();
+
+        this.Animate();
+    }
+
+    Render() {
+        Draw.Sprite(this.Sprite, this.CurrentAnimation, this.CurrentFrame, Math.Floor(this.FinalX), Math.Floor(this.FinalY), this.FlipFlag & 1, this.FlipFlag & 2);
+    }
+}
