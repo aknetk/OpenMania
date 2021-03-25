@@ -13,8 +13,8 @@ lol
 Many at the moment. Missing backgrounds on Android, animation issues, you name it.
 
 ## Basic Usage
-This project uses my [Hatch Game Engine](https://github.com/aknetk/HatchGameEngine) to power it. You can either build it from source (not updated currently), or use one of the [precompiled binaries](https://github.com/aknetk/OpenMania/releases) on your platform of choice.
-(Currently compatible with Windows, MacOS, Nintendo Switch homebrew, Android)
+This project uses my [Hatch Game Engine](https://github.com/aknetk/HatchGameEngine) to power it. Build it from source on your platform of choice.
+(Currently compatible with Windows, MacOS, Nintendo Switch homebrew, Android, iOS)
 
 To edit and test the game, place the binary in the same folder as the `Scripts` folder.
 
