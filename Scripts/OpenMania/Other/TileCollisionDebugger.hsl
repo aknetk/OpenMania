@@ -36,25 +36,25 @@ class TileCollisionDebugger {
 
         var sensor;
         if (sensor = TileCollision.Line(mouseX, mouseY, SensorDirection_Up, 64, this.PlaneIndex, -1)) {
-            if (sensor["Collided"]) {
+            if (this.SensorCollided) {
                 Draw.SetBlendColor(0x0000FF, 1.0);
                 this.DrawArrow(sensor["X"], sensor["Y"], sensor["Angle"], 8);
             }
         }
         if (sensor = TileCollision.Line(mouseX, mouseY, SensorDirection_Left, 64, this.PlaneIndex, -1)) {
-            if (sensor["Collided"]) {
+            if (this.SensorCollided) {
                 Draw.SetBlendColor(0xFF00FF, 1.0);
                 this.DrawArrow(sensor["X"], sensor["Y"], sensor["Angle"], 8);
             }
         }
         if (sensor = TileCollision.Line(mouseX, mouseY, SensorDirection_Down, 64, this.PlaneIndex, -1)) {
-            if (sensor["Collided"]) {
+            if (this.SensorCollided) {
                 Draw.SetBlendColor(0xFF0000, 1.0);
                 this.DrawArrow(sensor["X"], sensor["Y"], sensor["Angle"], 8);
             }
         }
         if (sensor = TileCollision.Line(mouseX, mouseY, SensorDirection_Right, 64, this.PlaneIndex, -1)) {
-            if (sensor["Collided"]) {
+            if (this.SensorCollided) {
                 Draw.SetBlendColor(0x00FF00, 1.0);
                 this.DrawArrow(sensor["X"], sensor["Y"], sensor["Angle"], 8);
             }
