@@ -242,7 +242,7 @@ class Ring {
         // Moving upwards
         if (this.YSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 2, halfH, this.PlaneIndex, -1, this) )) {
             if (this.SensorCollided) {
-                this.Y = this.SensorYd + halfH;
+                this.Y = this.SensorY + halfH;
                 this.YSpeed = 0.0;
             }
         }
