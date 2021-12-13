@@ -354,28 +354,28 @@ class Player {
             if (String.Contains(Scene.GetName(), "GHZ/Scene1.bin")) {
                 // this.X = 0x3CE9;
                 // this.Y = 0x05FC;
-                this.X = 0x2740;
-                this.Y = 0x04BA;
+                // this.X = 0x2740;
+                // this.Y = 0x04BA;
                 // this.X = 0x0E24;
                 // this.Y = 0x068E;
             }
             if (String.Contains(Scene.GetName(), "GHZ/Scene2.bin")) {
-                this.X = 0x1832;
-                this.Y = 0x360;
+                // this.X = 0x1832;
+                // this.Y = 0x360;
             }
             if (String.Contains(Scene.GetName(), "CPZ/Scene1.bin")) {
                 // this.X = 5476.0;
                 // this.Y = 1904.0;
-                this.X = 0x2840;
-                this.Y = 0x05AC;
+                // this.X = 0x2840;
+                // this.Y = 0x05AC;
             }
             if (String.Contains(Scene.GetName(), "CPZ/Scene2.bin")) {
                 // this.X = 0xD89;
                 // this.Y = 0x1530;
             }
             if (String.Contains(Scene.GetName(), "SPZ1")) {
-                this.X = 14784.0;
-                this.Y = 840.0;
+                // this.X = 14784.0;
+                // this.Y = 840.0;
             }
             if (String.Contains(Scene.GetName(), "FBZ/Scene1.bin")) {
                 // this.X = 0x2FB0;
@@ -384,8 +384,8 @@ class Player {
                 // this.Y = 1380.0;
             }
             if (String.Contains(Scene.GetName(), "FBZ/Scene2.bin")) {
-                this.X = 0x4F4;
-                this.Y = 0x770;
+                // this.X = 0x4F4;
+                // this.Y = 0x770;
             }
             if (String.Contains(Scene.GetName(), "OOZ2")) {
                 // this.X = 1406.0;
@@ -400,16 +400,16 @@ class Player {
                 // this.Y = 1775.0;
             }
             if (String.Contains(Scene.GetName(), "SSZ1")) {
-                this.X = 0xBF8;
-                this.Y = 0x520;
+                // this.X = 0xBF8;
+                // this.Y = 0x520;
             }
             if (String.Contains(Scene.GetName(), "SSZ2")) {
                 // this.X = 12204.0;
                 // this.Y = 584.0;
             }
             if (String.Contains(Scene.GetName(), "MSZ/Scene1K.bin")) {
-                this.X = 6900.0;
-                this.Y = 2724.0;
+                // this.X = 6900.0;
+                // this.Y = 2724.0;
             }
             if (String.Contains(Scene.GetName(), "MSZ/Scene2.bin")) {
                 // this.X = 3500.0;
@@ -418,8 +418,8 @@ class Player {
                 // this.Y = 954.0;
                 // this.X = 12160.0;
                 // this.Y = 128.0;
-                    // this.X = 0x18A8;
-                    // this.Y = 0x0610;
+                // this.X = 0x18A8;
+                // this.Y = 0x0610;
             }
             if (String.Contains(Scene.GetName(), "LRZ1")) {
                 // this.X = 0x26F0;
@@ -428,8 +428,8 @@ class Player {
                 // this.Y = 0x383;
                 // this.X = 0x22B0;
                 // this.Y = 0x56C;
-                this.X = 0x3770;
-                this.Y = 0x3A0;
+                // this.X = 0x3770;
+                // this.Y = 0x3A0;
                 // this.X = 0x3030;
                 // this.Y = 0x0480;
                 // this.X = 19202;
@@ -448,28 +448,28 @@ class Player {
             if (String.Contains(Scene.GetName(), "LRZ2")) {
                 // this.X = 0x21B6;
                 // this.Y = 0x43A;
-                this.X = 0x2700;
-                this.Y = 0x288;
+                // this.X = 0x2700;
+                // this.Y = 0x288;
             }
             if (String.Contains(Scene.GetName(), "PSZ1")) {
-                this.X = 0x15C0;
-                this.Y = 0x1E0;
+                // this.X = 0x15C0;
+                // this.Y = 0x1E0;
             }
             if (String.Contains(Scene.GetName(), "PSZ2")) {
-                this.X = 0x9C0;
-                this.Y = 0x58C;
+                // this.X = 0x9C0;
+                // this.Y = 0x58C;
             }
             if (String.Contains(Scene.GetName(), "TMZ1/Scene1.bin")) {
-                this.X = 0xB20;
-                this.Y = 0x9CC;
+                // this.X = 0xB20;
+                // this.Y = 0x9CC;
                 // this.X = 486;
                 // this.Y = 160;
 
                 // MoveLayer_
             }
             if (String.Contains(Scene.GetName(), "TMZ2/Scene1.bin")) {
-                this.X = 0x773;
-                this.Y = 0x1F90;
+                // this.X = 0x773;
+                // this.Y = 0x1F90;
             }
 
             // this.SuperForm = 2;
@@ -5559,8 +5559,8 @@ class Player {
         var sensor;
         var startX = Math.Floor(this.X + x);
         var startY = Math.Floor(this.Y + y);
-        if (sensor = TileCollision.Line(startX, startY, sensorMode, len, planeIndex, -1)) {
-            return sensor["Collided"];
+        if (sensor = TileCollision.Line(startX, startY, sensorMode, len, planeIndex, this.Angle, this)) {
+            return this.SensorCollided;
         }
         return false;
     }

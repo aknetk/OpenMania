@@ -57,9 +57,9 @@ class Static {
     }
 
     SetupManiaGlobals() {
-        // global.GameMode = 0; // Main
+        global.GameMode = 0; // Main
         // global.GameMode = 1; // Encore
-        global.GameMode = 2; // TimeAttack
+        // global.GameMode = 2; // TimeAttack
         // global.GameMode = 3; // Competition
         global.PlayerID = 0;
         global.SpecialCleared = 0;
@@ -112,7 +112,7 @@ class Static {
         global.CanPause = false;
     }
     SaveDataLoad() {
-        var saveData = File.ReadAllText("save:SaveData.json");
+        var saveData = File.ReadAllText("SaveData.json");
         if (saveData) {
             saveData = JSON.Parse(saveData);
             if (saveData) {
@@ -131,7 +131,7 @@ class Static {
         if (saveData) {
             saveData = JSON.ToString(saveData, false);
             if (saveData) {
-                File.WriteAllText("save:SaveData.json", saveData);
+                File.WriteAllText("SaveData.json", saveData);
             }
             else {
                 // print "Could convert save data to JSON: " + saveData;
@@ -674,11 +674,11 @@ class Static {
             angleMode = 1;
         else if (dirY < 0)
             angleMode = 2;
-        if (sensor = TileCollision.Line(x, y, angleMode, endLen - startLen, planeIndex, -1)) {
-            if (sensor["Collided"]) {
-                entity.STC_X = Math.Floor(sensor["X"]);
-                entity.STC_Y = Math.Floor(sensor["Y"]);
-                entity.STC_Angle = sensor["Angle"];
+        if (sensor = TileCollision.Line(x, y, angleMode, endLen - startLen, planeIndex, -1, entity)) {
+            if (entity.SensorCollided) {
+                entity.STC_X = Math.Floor(entity.SensorX);
+                entity.STC_Y = Math.Floor(entity.SensorY);
+                entity.STC_Angle = entity.SensorAngle;
                 switch (angleMode) {
                     case 0: entity.STC_Length = entity.STC_Y - y; break;
                     case 1: entity.STC_Length = entity.STC_X - x; break;

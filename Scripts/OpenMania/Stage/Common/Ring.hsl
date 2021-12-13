@@ -217,32 +217,32 @@ class Ring {
 
         var sensor, halfW = this.HitboxHalfW, halfH = this.HitboxHalfH;
         // Moving left
-        if (this.XSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 3, halfW, this.PlaneIndex, -1) )) {
-            if (sensor["Collided"]) {
-                this.X = sensor["X"] + halfW;
+        if (this.XSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 3, halfW, this.PlaneIndex, -1, this) )) {
+            if (this.SensorCollided) {
+                this.X = this.SensorX + halfW;
                 this.XSpeed = Math.Abs(this.XSpeed) * 0.25;
             }
         }
         // Moving right
-        if (this.XSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 1, halfW, this.PlaneIndex, -1) )) {
-            if (sensor["Collided"]) {
-                this.X = sensor["X"] - halfW;
+        if (this.XSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 1, halfW, this.PlaneIndex, -1, this) )) {
+            if (this.SensorCollided) {
+                this.X = this.SensorX - halfW;
                 this.XSpeed = Math.Abs(this.XSpeed) * -0.25;
             }
         }
         // Moving down
-        if (this.YSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 0, halfH, this.PlaneIndex, -1) )) {
-            if (sensor["Collided"]) {
-                this.Y = sensor["Y"] - halfH;
+        if (this.YSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 0, halfH, this.PlaneIndex, -1, this) )) {
+            if (this.SensorCollided) {
+                this.Y = this.SensorY - halfH;
                 this.YSpeed *= -0.75;
                 if (this.YSpeed > -1.0)
                     this.YSpeed = -1.0;
             }
         }
         // Moving upwards
-        if (this.YSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 2, halfH, this.PlaneIndex, -1) )) {
-            if (sensor["Collided"]) {
-                this.Y = sensor["Y"] + halfH;
+        if (this.YSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 2, halfH, this.PlaneIndex, -1, this) )) {
+            if (this.SensorCollided) {
+                this.Y = this.SensorY + halfH;
                 this.YSpeed = 0.0;
             }
         }
@@ -294,32 +294,32 @@ class Ring {
 
         var sensor, halfW = this.HitboxHalfW, halfH = this.HitboxHalfH;
         // Moving left
-        if (this.XSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 3, halfW, this.PlaneIndex, -1) )) {
-            if (sensor["Collided"]) {
-                this.X = sensor["X"] + halfW;
+        if (this.XSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 3, halfW, this.PlaneIndex, -1, this) )) {
+            if (this.SensorCollided) {
+                this.X = this.SensorCollided + halfW;
                 this.XSpeed = Math.Abs(this.XSpeed) * 0.25;
             }
         }
         // Moving right
-        if (this.XSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 1, halfW, this.PlaneIndex, -1) )) {
-            if (sensor["Collided"]) {
-                this.X = sensor["X"] - halfW;
+        if (this.XSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 1, halfW, this.PlaneIndex, -1, this) )) {
+            if (this.SensorCollided) {
+                this.X = this.SensorCollided - halfW;
                 this.XSpeed = Math.Abs(this.XSpeed) * -0.25;
             }
         }
         // Moving down
-        if (this.YSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 0, halfH, this.PlaneIndex, -1) )) {
-            if (sensor["Collided"]) {
-                this.Y = sensor["Y"] - halfH;
+        if (this.YSpeed > 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 0, halfH, this.PlaneIndex, -1, this) )) {
+            if (this.SensorCollided) {
+                this.Y = this.SensorCollided - halfH;
                 this.YSpeed *= -0.75;
                 if (this.YSpeed > -1.0)
                     this.YSpeed = -1.0;
             }
         }
         // Moving upwards
-        if (this.YSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 2, halfH, this.PlaneIndex, -1) )) {
-            if (sensor["Collided"]) {
-                this.Y = sensor["Y"] + halfH;
+        if (this.YSpeed < 0.0 && ( sensor = TileCollision.Line(this.X, this.Y, 2, halfH, this.PlaneIndex, -1, this) )) {
+            if (this.SensorCollided) {
+                this.Y = this.SensorCollided + halfH;
                 this.YSpeed = 0.0;
             }
         }
