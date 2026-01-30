@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<sceneConfig>
+	<category name="Presentation">
+		<stage name="Logos" folder="Logos" id="1" resourceFolder="Logos" filter="1" type="bin"/>
+		<stage name="Title Screen" folder="Title" id="1" resourceFolder="Title" filter="0" type="bin"/>
+		<stage name="Level Select" folder="LSelect" id="1" resourceFolder="LSelect" filter="0" type="bin"/>
+		<stage name="Menu" folder="Menu" id="1" resourceFolder="Menu" filter="0" type="bin"/>
+		<stage name="Thanks For Playing" folder="Thanks" id="1" resourceFolder="Thanks" filter="0" type="bin"/>
+		<stage name="Credits" folder="Credits" id="1" resourceFolder="Credits" filter="0" type="bin"/>
+		<stage name="Continue" folder="Continue" id="1" resourceFolder="Players" filter="0" type="bin"/>
+		<stage name="Game Summary" folder="Summary" id="1" resourceFolder="Summary" filter="0" type="bin"/>
+	</category>
+
+	<category name="Campaign">
+		<stage name="Green Hill Zone 1" folder="GHZ" id="1" resourceFolder="GHZ" filter="3" type="bin"/>
+		<stage name="Green Hill Zone 2" folder="GHZ" id="2" resourceFolder="GHZ" filter="3" type="bin"/>
+		<stage name="Chemical Plant Zone 1" folder="CPZ" id="1" resourceFolder="CPZ" filter="3" type="bin"/>
+		<stage name="Chemical Plant Zone 2" folder="CPZ" id="2" resourceFolder="CPZ" filter="3" type="bin"/>
+		<stage name="Studiopolis Zone 1" folder="SPZ1" id="1" resourceFolder="SPZ1" filter="3" type="bin"/>
+		<stage name="Studiopolis Zone 2" folder="SPZ2" id="1" resourceFolder="SPZ2" filter="3" type="bin"/>
+		<stage name="Flying Battery Zone 1" folder="FBZ" id="1" resourceFolder="FBZ" filter="3" type="bin"/>
+		<stage name="Flying Battery Zone 2" folder="FBZ" id="2" resourceFolder="FBZ" filter="3" type="bin"/>
+		<stage name="Press Garden Zone 1" folder="PSZ1" id="1" resourceFolder="PSZ1" filter="3" type="bin"/>
+		<stage name="Press Garden Zone 2" folder="PSZ2" id="2" resourceFolder="PSZ2" filter="3" type="bin"/>
+		<stage name="Stardust Speedway Zone 1" folder="SSZ1" id="1" resourceFolder="SSZ1" filter="3" type="bin"/>
+		<stage name="Stardust Speedway Zone 2" folder="SSZ2" id="1" resourceFolder="SSZ2" filter="3" type="bin"/>
+		<stage name="Stardust Speedway Zone 2M" folder="SSZ2" id="2" resourceFolder="SSZ2" filter="3" type="bin"/>
+		<stage name="Hydrocity Zone 1" folder="HCZ" id="1" resourceFolder="HCZ" filter="3" type="bin"/>
+		<stage name="Hydrocity Zone 2" folder="HCZ" id="2" resourceFolder="HCZ" filter="3" type="bin"/>
+		<stage name="Mirage Saloon Zone 1" folder="MSZ" id="1" resourceFolder="MSZ" filter="3" type="bin"/>
+		<stage name="Mirage Saloon Zone 1K" folder="MSZ" id="1k" resourceFolder="MSZ" filter="3" type="bin"/>
+		<stage name="Mirage Saloon Zone 2" folder="MSZ" id="2" resourceFolder="MSZ" filter="3" type="bin"/>
+		<stage name="Oil Ocean Zone 1" folder="OOZ" id="1" resourceFolder="OOZ" filter="3" type="bin"/>
+		<stage name="Oil Ocean Zone 2" folder="OOZ" id="2" resourceFolder="OOZ" filter="3" type="bin"/>
+		<stage name="Lava Reef Zone 1" folder="LRZ1" id="1" resourceFolder="LRZ1" filter="3" type="bin"/>
+		<stage name="Lava Reef Zone 2" folder="LRZ2" id="1" resourceFolder="LRZ2" filter="3" type="bin"/>
+		<stage name="Lava Reef Zone 3" folder="LRZ3" id="1" resourceFolder="LRZ3" filter="3" type="bin"/>
+		<stage name="Metallic Madness Zone 1" folder="MMZ" id="1" resourceFolder="MMZ" filter="3" type="bin"/>
+		<stage name="Metallic Madness Zone 2" folder="MMZ" id="2" resourceFolder="MMZ" filter="3" type="bin"/>
+		<stage name="Titanic Monarch Zone 1" folder="TMZ1" id="1" resourceFolder="TMZ1" filter="3" type="bin"/>
+		<stage name="Titanic Monarch Zone 2" folder="TMZ2" id="1" resourceFolder="TMZ2" filter="3" type="bin"/>
+		<stage name="Titanic Monarch Zone 3" folder="TMZ3" id="1" resourceFolder="TMZ3" filter="3" type="bin"/>
+		<stage name="Egg Reverie Zone" folder="ERZ" id="1" resourceFolder="Phantom" filter="3" type="bin"/>
+	</category>
+
+	<category name="Special Stage">
+		<stage name="Special Stage 1" folder="UFO1" id="1" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage 2" folder="UFO2" id="1" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage 3" folder="UFO3" id="1" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage 4" folder="UFO4" id="1" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage 5" folder="UFO5" id="1" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage 6" folder="UFO6" id="1" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage 7" folder="UFO7" id="1" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage+ 1" folder="UFO7" id="2" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage+ 2" folder="UFO6" id="2" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage+ 3" folder="UFO5" id="2" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage+ 4" folder="UFO4" id="2" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage+ 5" folder="UFO3" id="2" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage+ 6" folder="UFO2" id="2" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+		<stage name="Special Stage+ 7" folder="UFO1" id="2" resourceFolder="SpecialUFO" filter="0" type="bin"/>
+	</category>
+
+	<category name="Blue Spheres">
+		<stage name="Blue Spheres 1" folder="SpecialBS" id="1" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 2" folder="SpecialBS" id="2" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 3" folder="SpecialBS" id="3" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 4" folder="SpecialBS" id="4" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 5" folder="SpecialBS" id="5" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 6" folder="SpecialBS" id="6" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 7" folder="SpecialBS" id="7" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 8" folder="SpecialBS" id="8" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 9" folder="SpecialBS" id="9" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 10" folder="SpecialBS" id="10" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 11" folder="SpecialBS" id="11" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 12" folder="SpecialBS" id="12" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 13" folder="SpecialBS" id="13" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 14" folder="SpecialBS" id="14" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 15" folder="SpecialBS" id="15" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 16" folder="SpecialBS" id="16" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 17" folder="SpecialBS" id="17" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 18" folder="SpecialBS" id="18" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 19" folder="SpecialBS" id="19" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 20" folder="SpecialBS" id="20" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 21" folder="SpecialBS" id="21" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 22" folder="SpecialBS" id="22" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 23" folder="SpecialBS" id="23" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 24" folder="SpecialBS" id="24" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 25" folder="SpecialBS" id="25" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 26" folder="SpecialBS" id="26" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 27" folder="SpecialBS" id="27" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 28" folder="SpecialBS" id="28" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 29" folder="SpecialBS" id="29" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 30" folder="SpecialBS" id="30" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 31" folder="SpecialBS" id="31" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres 32" folder="SpecialBS" id="32" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres Random" folder="SpecialBS" id="34" resourceFolder="SpecialBS" filter="0" type="bin"/>
+		<stage name="Blue Spheres Random 2" folder="SpecialBS" id="36" resourceFolder="SpecialBS" filter="0" type="bin"/>
+	</category>
+
+	<category name="Pinball">
+		<stage name="Pinball Bonus Stage" folder="Pinball" id="1" resourceFolder="Pinball" filter="0" type="bin"/>
+	</category>
+
+	<category name="Extras">
+		<stage name="D.A. Garden" folder="DAGarden" id="1" resourceFolder="UI" filter="0" type="bin"/>
+	</category>
+	
+	<category name="Cutscenes">
+		<stage name="Try Again" folder="Ending" id="T" resourceFolder="UI" filter="0" type="bin"/>
+	</category>
+<sceneConfig>

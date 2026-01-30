@@ -1,14 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<gameconfig version="0.1">
-    <!-- <startscene>Stages/Logos/Scene1.bin</startscene> -->
-    <startscene>Stages/Title/Scene1.bin</startscene>
-    <!-- <startscene>Stages/LSelect/Scene1.bin</startscene> -->
-    <!-- <startscene>Stages/MSZ/Scene2.bin</startscene> -->
-    <!-- <startscene>Stages/HCZ/Scene2.bin</startscene> -->
-    <!-- <startscene>Stages/GHZ/Scene1.bin</startscene> -->
-    <!-- <startscene>Stages/GHZ/Scene2.bin</startscene> -->
-    <!-- <startscene>Stages/MMZ/Scene1.bin</startscene> -->
-    <!-- <startscene>Stages/LRZ1/Scene1.bin</startscene> -->
-    <!-- <startscene>Stages/SSZ1/Scene1.bin</startscene> -->
-    <!-- <startscene>Stages/PSZ2/Scene2.bin</startscene> -->
+<gameconfig version="1.0">
+    <gameTitle>OpenMania Framework</gameTitle>
+	<shortTitle>OpenMania</shortTitle>
+	<version>1.251118</version>
+	<description>Bringing ideas into reality.</description>
+	
+    <controls>
+		<action>Up</action>
+		<action>Down</action>
+		<action>Left</action>
+		<action>Right</action>
+		<action>A</action>
+		<action>B</action>
+		<action>C</action>
+		<action>X</action>
+		<action>Y</action>
+		<action>Z</action>
+		<action>Start</action>
+		<action>Select</action>
+		<player id="1">
+			<default action="Up">
+				<key>UP</key>
+				<button>DPAD_UP</button>
+			</default>
+			<default action="Down">
+				<key>DOWN</key>
+				<button>DPAD_DOWN</button>
+			</default>
+			<default action="Left">
+				<key>LEFT</key>
+				<button>DPAD_LEFT</button>
+			</default>
+			<default action="Right">
+				<key>RIGHT</key>
+				<button>DPAD_RIGHT</button>
+			</default>
+			<default action="A">
+				<key>A</key>
+				<button>A</button>
+			</default>
+			<default action="B">
+				<key>S</key>
+				<button>B</button>
+			</default>
+			<default action="C">
+				<key>D</key>
+			</default>
+			<default action="X">
+				<key>Q</key>
+			</default>
+			<default action="Y">
+				<key>W</key>
+			</default>
+			<default action="Z">
+				<key>E</key>
+			</default>
+			<default action="Start">
+				<key>RETURN</key>
+				<button>START</button>
+			</default>
+			<default action="Select">
+				<key>TAB</key>
+			</default>
+		</player>
+	</controls>
+    <activeCategory>0</activecategory>
+    <startSceneNum>1</startSceneNum>
 </gameconfig>

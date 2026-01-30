@@ -1,0 +1,16 @@
+*.log
+desktop.ini
+SourceFileMap.bin
+Resources/Game/
+Resources/Images/
+Resources/Meshes/
+Resources/Music/
+Resources/Objects/Objects.hcm
+Resources/Palettes/
+Resources/Shaders/
+Resources/Sprites/
+Resources/SoundFX/
+Resources/Stages/
+Resources/Strings/
+Resources/Video
+*.exe

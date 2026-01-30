@@ -54,6 +54,8 @@ class Static {
         this.InitGame();
 
         this.InitTrigTables();
+        
+        Settings.Save();
     }
 
     SetupManiaGlobals() {
@@ -280,10 +282,8 @@ class Static {
             // Right Side
             case 3: {
                 player.InputLock = 0;
-                if (player.InputRight && player.Ground) {
+                if (player.InputRight && player.Ground)
                     player.GroundSpeed = 0.5;
-                    player.X = Math.Floor(player.X);
-                }
                 break;
             }
             // Bottom Side
@@ -701,8 +701,9 @@ class Static {
         return entity.InView(0, entity.X - width * 0.5, entity.Y - height * 0.5, width, height);
     }
     event Position_IsOnScreen(x, y, width, height) {
-        return Static.InView(null, 0, x - width * 0.5, y - height * 0.5, width, height);
-    }
+		// return Static.InView(null, 0, x - width * 0.5, y - height * 0.5, width, height);
+        return View.CheckPosOnScreen(x - width * 0.5, y - height * 0.5, width, height);
+	}
 
     event HexSin(n) {
         // return Math.Sin((n & 0xFF) * Math_PI / 128.0);
